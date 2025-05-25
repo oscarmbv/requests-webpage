@@ -139,10 +139,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Media files (user uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,  # Mantener los loggers por defecto de Django
+    'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
@@ -165,9 +167,9 @@ LOGGING = {
         },
         # Puedes añadir un handler de archivo si quieres guardar logs en un archivo:
     'file_tasks': {
-        'level': 'DEBUG',
+        'level': 'INFO',
         'class': 'logging.FileHandler',
-        'filename': BASE_DIR / 'logs/tasks_app.log', # Asegúrate que la carpeta 'logs' exista
+        'filename': os.path.join(LOG_DIR, 'tasks_app.log'),
         'formatter': 'verbose',
         },
     },
