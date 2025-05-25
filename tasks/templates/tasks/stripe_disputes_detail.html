@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% load tz %}
+{% load static %}
+{% load i18n %}
+{% load duration_filters %}
+
+{% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+    dl dt { font-weight: bold; }
+    .pre-wrap { white-space: pre-wrap; word-wrap: break-word; }
+    .url-break { word-break: break-all; }
+    .invalid-feedback { width: 100%; margin-top: .25rem; font-size: .875em; color: var(--bs-danger-text-emphasis); }
+    .invalid-feedback.d-none { display: none; }
+    .invalid-feedback:not(.d-none) { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    {# --- Cabecera con ID y Estado --- #}
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h1 class="h3">{% trans "Request Details" %}</h1>
+        <div>
+            <span class="me-2 text-muted">ID: {{ user_request.unique_code }}</span>
+            <span class="badge fs-6 rounded-pill
+                {% if user_request.status == 'pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'qa_pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'qa_in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'blocked' %}text-bg-dark{% endif %}
+                {% if user_request.status == 'completed' %}text-bg-success{% endif %}
+                {% if user_request.status == 'cancelled' %}text-bg-secondary{% endif %}
+            ">{{ user_request.get_status_display }}</span>
+        </div>
+    </div>
+
+    {# --- Indicador Visual "Update Needed" --- #}
+    {% if user_request.update_needed_flag and user_request.status not in "scheduled completed cancelled" %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          <div>
+            <strong>{% trans "Provide Progress Update:" %}</strong> {% trans "An update has been requested for this task." %}
+            {% comment %} Mostrar quién y cuándo si la información está disponible {% endcomment %}
+            {% if user_request.update_requested_by %}
+                <br><small class="text-muted">
+                    ({% trans "Requested by" %} {{ user_request.update_requested_by.get_full_name|default:user_request.update_requested_by.email|default:user_request.update_requested_by.username }}
+                    {% if user_request.update_requested_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.update_requested_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            {% endif %}
+          </div>
+        </div>
+    {% endif %}
+
+    {# --- FLAG PARA SOLICITUDES BLOQUEADAS --- #}
+    {% if user_request.status == 'blocked' %}
+        <div class="alert alert-danger d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-sign-stop-fill me-2"></i>
+            <div>
+                <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
+                {% with last_block=blocked_history.first %}
+                    {% if last_block %}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.cancelled and user_request.cancelled_by %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {# Ícono de advertencia o cancelación #}
+            <div>
+                <strong>{% trans "Request Cancelled:" %}</strong> {% trans "This request is currently cancelled." %}
+                <br><small class="text-muted">
+                    ({% trans "Cancelled by" %} {{ user_request.cancelled_by.get_full_name|default:user_request.cancelled_by.email|default:user_request.cancelled_by.username }}
+                    {% if user_request.cancelled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not user_request.cancelled and user_request.status == 'pending' and user_request.uncanceled_by %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i> {# Ícono de información #}
+            <div>
+                <strong>{% trans "Request Un-cancelled:" %}</strong> {% trans "This request was un-cancelled and is awaiting processing." %}
+                <br><small class="text-muted">
+                    ({% trans "Un-cancelled by" %} {{ user_request.uncanceled_by.get_full_name|default:user_request.uncanceled_by.email|default:user_request.uncanceled_by.username }}
+                    {% if user_request.uncanceled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.uncanceled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+    {# --- FLAG PARA SOLICITUDES RECHAZADAS PREVIAMENTE --- #}
+    {% if user_request.is_rejected_previously and user_request.status in "in_progress pending" %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                <strong>{% trans "Action Required:" %}</strong> {% trans "This request was previously rejected by QA and requires corrections before it can be sent back to QA." %}
+                 {% with last_rejection=rejected_history.first %}
+                    {% if last_rejection %}
+                        <br><small class="text-muted">{% trans "Last Rejection Reason:" %} {{ last_rejection.reason|truncatewords:20 }}
+                        ({% trans "Rejected by" %} {{ last_rejection.rejected_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_rejection.rejected_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        {# --- Columna Izquierda: Info básica y Timestamps --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header"> {% trans "Request Information" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Priority:" %}</dt>
+                            <dd class="col-sm-7">
+                                <span class="badge rounded-pill text-bg-primary">
+                                    {{ user_request.get_priority_display|default:"Normal" }}
+                                </span>
+                            </dd>
+                        </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Type:" %}</dt> <dd class="col-sm-7">{{ user_request.get_type_of_process_display }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Assigned Team:" %}</dt> <dd class="col-sm-7">{{ user_request.get_team_display|default:"Unassigned" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested By:" %}</dt> <dd class="col-sm-7">{{ user_request.requested_by.email|default:"N/A" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested At:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% timezone request.user.timezone|default:"UTC" %}
+                                    {{ user_request.timestamp|date:"Y-m-d H:i:s" }}
+                                {% endtimezone %}
+                                ({{ request.user.timezone|default:"UTC" }})
+                            </dd>
+                        </div>
+                        {% if user_request.effective_start_time_for_tat %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">TAT Started At:</dt>
+                            <dd class="col-sm-7">
+                                {% timezone request.user.timezone|default:"UTC" %}
+                                    {{ user_request.effective_start_time_for_tat|date:"Y-m-d H:i:s" }}
+                                {% endtimezone %}
+                                ({{ request.user.timezone|default:"UTC" }})
+                            </dd>
+                        </div>
+                        {% endif %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator:" %}</dt> <dd class="col-sm-7">{{ user_request.operator.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operated At:" %}</dt> <dd class="col-sm-7"> {% if user_request.operated_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.operated_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Agent:" %}</dt> <dd class="col-sm-7">{{ user_request.qa_agent.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Sent to QA At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_pending_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_pending_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Started At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_in_progress_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_in_progress_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Completed At:" %}</dt> <dd class="col-sm-7"> {% if user_request.completed_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.completed_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancelled At:" %}</dt> <dd class="col-sm-7"> {% if user_request.cancelled_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Turn Around Time:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% with tat_value=user_request.calculated_turn_around_time %}
+                                    {% if tat_value is not None %}
+                                        {{ tat_value|format_timedelta }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                {% endwith %}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        {# --- Columna Derecha: Detalles específicos de Stripe Disputes y Operación --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                 <div class="card-header"> {% trans "Submission Details (Stripe Disputes)" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-6 text-sm-end">{% trans "Rhino Super Premium Disputes:" %}</dt><dd class="col-sm-6">{{ user_request.stripe_premium_disputes|default_if_none:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-6 text-sm-end">{% trans "Rhino Super RI Disputes:" %}</dt><dd class="col-sm-6">{{ user_request.stripe_ri_disputes|default_if_none:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Uploaded CSV:" %}</dt> <dd class="col-sm-7"> {% if user_request.user_file %} <a href="{{ user_request.user_file.url }}" target="_blank">{{ user_request.user_file.name|cut:"user_uploads/" }}</a> {% else %} - {% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Special Instructions:" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.special_instructions|default:"-" }}</dd> </div>
+                        {% if user_request.cancel_reason %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancel Reason:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.cancel_reason|linebreaksbr }}</dd> </div> {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            {# --- Operation Details Card (Modificado para Stripe Disputes) --- #}
+            {% if user_request.stripe_premium_disputes is not None or user_request.stripe_ri_disputes is not None or user_request.operating_notes %}
+                 <div class="card shadow-sm mb-4">
+                     <div class="card-header bg-light"> {% trans "Operation Details" %} </div>
+                     <div class="card-body">
+                         <dl>
+                            {# Los campos stripe_premium_disputes y stripe_ri_disputes se muestran aquí #}
+                            {# si fueron modificados por el operador/QA y guardados en la instancia. #}
+                            {# La versión del OperateForm ya los pre-llena con los valores de la instancia. #}
+                            {# Estos son los valores *confirmados* o *modificados* por el operador/QA. #}
+
+                            {% if user_request.stripe_premium_disputes is not None %}
+                            <div class="row mb-1">
+                                <dt class="col-sm-6 text-sm-end">{% trans "Confirmed/Updated Premium Disputes:" %}</dt>
+                                <dd class="col-sm-6">{{ user_request.stripe_premium_disputes }}</dd>
+                            </div>
+                            {% endif %}
+
+                            {% if user_request.stripe_ri_disputes is not None %}
+                            <div class="row mb-1">
+                                <dt class="col-sm-6 text-sm-end">{% trans "Confirmed/Updated RI Disputes:" %}</dt>
+                                <dd class="col-sm-6">{{ user_request.stripe_ri_disputes }}</dd>
+                            </div>
+                            {% endif %}
+
+                            {% if user_request.operating_notes %}
+                            <div class="row mb-1 mt-2">
+                                <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
+                                <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
+                            </div>
+                            {% endif %}
+                         </dl>
+                     </div>
+                 </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Sección: Historial de Acciones --- #}
+     <div class="row g-4 mt-2">
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank" rel="noopener noreferrer">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank" rel="noopener noreferrer">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+    </div>
+
+    {# --- Sección: Botones de Acción (Lógica replicada y adaptada) --- #}
+    <div class="mt-4 pt-3 border-top">
+        <h4 class="h5 mb-3">{% trans "Actions" %}</h4>
+        <form method="post" style="display: inline-block; margin-right: 5px;"> {% csrf_token %}
+             {% if is_agent_user %}
+                {% if user_request.status == 'pending' %}
+                    <button type="submit" formaction="{% url 'tasks:operate_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-play-fill me-1"></i>{% trans "Operate" %}</button>
+                {% endif %}
+                {% if user_request.status == 'in_progress' and user_request.operator == request.user %} <a href="#blockFormModal_sd" data-bs-toggle="modal" class="btn btn-warning btn-sm me-1 mb-1"><i class="bi bi-lock-fill me-1"></i>{% trans "Block" %}</a> <a href="#operateFormModal_sd" data-bs-toggle="modal" class="btn btn-info btn-sm me-1 mb-1"><i class="bi bi-send-check me-1"></i>{% trans "Send to QA" %}</a> {% endif %}
+                {% if user_request.status == 'qa_pending' %} <button type="submit" formaction="{% url 'tasks:qa_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-search me-1"></i>{% trans "Start QA" %} </button> {% endif %}
+                {% if user_request.status == 'qa_in_progress' and user_request.qa_agent == request.user %} <a href="#completeFormModal_sd" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i>{% trans "Complete" %}</a> {% endif %}
+                {% if can_clear_update_flag_action %}
+                    {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                        <button type="submit" formaction="{% url 'tasks:clear_update_flag' user_request.id %}" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Mark the requested update as provided" %}'><i class="bi bi-check2-circle me-1"></i>{% trans "Update Provided" %}</button>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+            {% if user_request.status == 'blocked' %} <a href="#resolveFormModal_sd" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-unlock-fill me-1"></i>{% trans "Resolve" %}</a> {% endif %}
+            {% if can_reject_request %} <a href="#rejectFormModal_sd" data-bs-toggle="modal" class="btn btn-danger btn-sm me-1 mb-1"><i class="bi bi-x-octagon-fill me-1"></i>{% trans "Reject" %}</a> {% endif %}
+            {% if can_request_update_action %}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                    <button type="submit" formaction="{% url 'tasks:set_update_flag' user_request.id %}" class="btn btn-outline-info btn-sm me-1 mb-1" title="Notify the agent you are looking for an update on this task"><i class="bi bi-bell me-1"></i>Request Update</button>
+                {% endif %}
+            {% endif %}
+            {% if can_cancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:cancel_request' user_request.id %}" class="btn btn-secondary btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to cancel this request?" %}');"><i class="bi bi-stop-circle-fill me-1"></i>{% trans "Cancel Request" %}</button>
+            {% endif %}
+            {% if can_uncancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:uncancel_request' user_request.id %}" class="btn btn-outline-warning btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to uncancel this request and return it to Pending?" %}');"><i class="bi bi-arrow-counterclockwise me-1"></i>{% trans "Uncancel" %}</button>
+            {% endif %}
+        </form>
+        <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">{% trans "Back to Dashboard" %}</a>
+    </div>
+
+</div>{# Cierre del <div class="container mt-4"> #}
+
+{# --- Modales con IDs sufijados con _sd --- #}
+<div class="modal fade" id="blockFormModal_sd" tabindex="-1" aria-labelledby="blockFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_sd">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_sd" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_sd" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="resolveFormModal_sd" tabindex="-1" aria-labelledby="resolveFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_sd">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_sd" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_sd" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_sd" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_sd"> </div> <div class="mb-3"> <label for="id_resolved_link_sd" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_sd" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="rejectFormModal_sd" tabindex="-1" aria-labelledby="rejectFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_sd">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_sd" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_sd" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
+
+{# --- Modales de Operación y Completado para Stripe Disputes (Modificados) --- #}
+<div class="modal fade" id="operateFormModal_sd" tabindex="-1" aria-labelledby="operateFormModalLabel_sd" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="operate-form-sd" method="post" action="{% url 'tasks:send_to_qa_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="operateFormModalLabel_sd">{% trans "Enter Operation Details (Send to QA)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_stripe_premium_disputes_op_sd" class="form-label small">{% trans "Rhino Super Premium Disputes Count" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="stripe_premium_disputes"
+                               value="{{ user_request.stripe_premium_disputes|default_if_none:'0' }}"
+                               min="0" class="form-control form-control-sm"
+                               id="id_stripe_premium_disputes_op_sd" required>
+                        <div class="invalid-feedback" id="error-stripe_premium_disputes_op_sd"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_stripe_ri_disputes_op_sd" class="form-label small">{% trans "Rhino Super RI Disputes Count" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="stripe_ri_disputes"
+                               value="{{ user_request.stripe_ri_disputes|default_if_none:'0' }}"
+                               min="0" class="form-control form-control-sm"
+                               id="id_stripe_ri_disputes_op_sd" required>
+                        <div class="invalid-feedback" id="error-stripe_ri_disputes_op_sd"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_operating_notes_op_sd" class="form-label small">{% trans "Operator Notes" %} <span class="text-danger">*</span></label>
+                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_sd" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-info">{% trans "Send to QA" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="completeFormModal_sd" tabindex="-1" aria-labelledby="completeFormModalLabel_sd" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="complete-form-sd" method="post" action="{% url 'tasks:complete_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="completeFormModalLabel_sd">{% trans "Confirm Operation Details (Complete Request)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_stripe_premium_disputes_comp_sd" class="form-label small">{% trans "Rhino Super Premium Disputes Count" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="stripe_premium_disputes"
+                               value="{{ user_request.stripe_premium_disputes|default_if_none:'0' }}"
+                               min="0" class="form-control form-control-sm"
+                               id="id_stripe_premium_disputes_comp_sd" required>
+                        <div class="invalid-feedback" id="error-stripe_premium_disputes_comp_sd"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_stripe_ri_disputes_comp_sd" class="form-label small">{% trans "Rhino Super RI Disputes Count" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="stripe_ri_disputes"
+                               value="{{ user_request.stripe_ri_disputes|default_if_none:'0' }}"
+                               min="0" class="form-control form-control-sm"
+                               id="id_stripe_ri_disputes_comp_sd" required>
+                        <div class="invalid-feedback" id="error-stripe_ri_disputes_comp_sd"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_operating_notes_comp_sd" class="form-label small">{% trans "Operator/QA Notes" %} <span class="text-danger">*</span></label>
+                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_sd" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalsToValidateSD = ['operateFormModal_sd', 'completeFormModal_sd'];
+
+    modalsToValidateSD.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) return;
+
+        const form = modalElement.querySelector('form');
+        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+        if (!form || !submitButton) return;
+
+        const suffix = modalId.includes('operate') ? '_op_sd' : '_comp_sd';
+        const fieldsToValidate = [
+            { inputId: '#id_stripe_premium_disputes' + suffix, errorId: '#error-stripe_premium_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
+            { inputId: '#id_stripe_ri_disputes' + suffix, errorId: '#error-stripe_ri_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
+            { inputId: '#id_operating_notes' + suffix, errorId: null, required: true, message: "{% trans 'Operator/QA Notes are required.' %}"} // No hay div de error específico para notas en el HTML actual, se puede añadir si se desea.
+        ];
+
+        function validateField(inputElement, errorDiv, isRequired, errorMessage) {
+            if (!inputElement) return true;
+
+            inputElement.classList.remove('is-invalid');
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            const value = inputElement.value.trim();
+
+            if (isRequired && value === '') {
+                inputElement.classList.add('is-invalid');
+                if (errorDiv) {
+                    errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                    errorDiv.style.display = 'block';
+                } else { // Para campos sin div de error dedicado como operating_notes
+                    if (!inputElement.nextElementSibling || !inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
+                        const tempErrorDiv = document.createElement('div');
+                        tempErrorDiv.classList.add('invalid-feedback', 'd-block');
+                        tempErrorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                        inputElement.parentNode.insertBefore(tempErrorDiv, inputElement.nextSibling);
+                    } else {
+                        inputElement.nextElementSibling.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                        inputElement.nextElementSibling.style.display = 'block';
+                    }
+                }
+                return false;
+            }
+
+            if (inputElement.type === 'number' && value !== '') {
+                const numValue = parseInt(value, 10);
+                if (isNaN(numValue) || numValue < 0) {
+                    inputElement.classList.add('is-invalid');
+                    if (errorDiv) {
+                        errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                        errorDiv.style.display = 'block';
+                    } else {
+                        // similar al de arriba para el div temporal
+                    }
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function clearAllValidationErrors() {
+            fieldsToValidate.forEach(fieldConf => {
+                const inputElement = form.querySelector(fieldConf.inputId);
+                const errorDiv = form.querySelector(fieldConf.errorId); // Puede ser null para operating_notes
+                if (inputElement) inputElement.classList.remove('is-invalid');
+                if (errorDiv) {
+                     errorDiv.style.display = 'none';
+                } else if (inputElement && inputElement.nextElementSibling && inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
+                    inputElement.nextElementSibling.style.display = 'none'; // Limpiar error temporal si existe
+                }
+            });
+        }
+
+        modalElement.addEventListener('show.bs.modal', clearAllValidationErrors);
+        if (modalElement.classList.contains('show')) { clearAllValidationErrors(); }
+
+        form.addEventListener('submit', function(event) {
+            let isFormValid = true;
+            fieldsToValidate.forEach(fieldConf => {
+                const inputElement = form.querySelector(fieldConf.inputId);
+                const errorDiv = form.querySelector(fieldConf.errorId);
+                if (!validateField(inputElement, errorDiv, fieldConf.required, fieldConf.message)) {
+                    isFormValid = false;
+                }
+            });
+
+            if (!isFormValid) {
+                event.preventDefault();
+                event.stopPropagation();
+            } else {
+                 if(submitButton){
+                    submitButton.disabled = true;
+                    submitButton.textContent = '{% trans "Processing..." %}';
+                 }
+            }
+        });
+    });
+});
+</script>
+{% endblock extra_js %}

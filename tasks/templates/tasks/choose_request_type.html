@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Choose Request Type{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-3 text-center">Create a New Request</h1>
+    <p class="lead text-center mb-5">Please select the type of request based on the responsible team:</p>
+
+    {# Fila principal que contendrá las tres columnas #}
+    <div class="row g-4 justify-content-center">
+
+        {# --- Columna 1: Revenue and Support Teams --- #}
+        <div class="col-lg-4 col-md-6">
+            <h4 class="mb-3 text-center text-primary-emphasis">Revenue and Support Teams</h4>
+
+            {# Tarjeta para Address Validation #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Address Validation (Assets Upload)</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to upload new units to the portal for a new or existing partner by attaching a unit directory. This process syncs with Salesforce three times a day and automatically creates new requests from new Opportunities with the following parameters: Stage: 5-Closed Won; RecordType: New Business, Portal Audit, and Upsell; Type: SDI & Cash, SDI, and Portal Audit; Send Opportunity to Jetty: No.</p>
+                    <a href="{% url 'tasks:address_validation_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+
+            {# Tarjeta para User Records #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">User Records</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to create new Property Managers or Listing Agents on the portal, edit existing ones, and/or update existing properties to add or remove these Property Managers and/or Listing Agents.</p>
+                    <a href="{% url 'tasks:user_records_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+            {# Tarjeta para Property Records #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Property Records</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to modify existing property parameters on the portal, such as: Building Name, Property Management Company, Property Legal Entity, Address, Property Type, Add New Units, Coverage, Integration Codes, or Banking Information.</p>
+                    <a href="{% url 'tasks:property_records_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+
+            {# Tarjeta para Unit Transfer #}
+            <div class="card shadow-sm mb-4">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Unit Transfers</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to transfer existing properties on the portal from one Property Manager Company to another.</p>
+                    <a href="{% url 'tasks:unit_transfer_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+
+            {# Tarjeta para Deactivation/Toggle #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Deactivation & Toggle</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to: deactivate Partners or Properties on the Portal, turn off Homepage sign-ups, turn on or off Invites, or turn on or off Cash Deposits. Requests to deactivate Partners or Properties, turn off Homepage sign-ups, or turn off Invites will require leadership approval before being executed.</p>
+                    <a href="{% url 'tasks:deactivation_toggle_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+        </div> {# Fin Columna 1 #}
+
+        {# --- Columna 2: Compliance Team --- #}
+        <div class="col-lg-4 col-md-6">
+            <h4 class="mb-3 text-center text-primary-emphasis">Compliance Team</h4>
+
+            {# Tarjeta para Generating XML #}
+            <div class="card shadow-sm mb-4">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Generating XML Files</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to generate XML or CSV files from a list of policy transactions for the carriers RVIC and SSIC and the states CA, CO, FL, GA, IL, MN, MS, NC, NJ, OK, SC, TX, UT, and WA.</p>
+                    <a href="{% url 'tasks:generating_xml_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+            </div>
+        </div> {# Fin Columna 2 #}
+
+        {# --- Columna 3: Accounting Team --- #}
+        <div class="col-lg-4 col-md-6">
+             <h4 class="mb-3 text-center text-primary-emphasis">Accounting Team</h4>
+             {# --- Tarjeta para Stripe Disputes --- #}
+             <div class="card shadow-sm mb-4">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Stripe Disputes</h5>
+                    <p class="card-text text-muted small flex-grow-1">Use this type of request to counter-dispute a list of Stripe disputes by providing required evidence.</p>
+                    <a href="{% url 'tasks:stripe_disputes_request' %}" class="btn btn-primary mt-auto">Select</a>
+                </div>
+             </div>
+             {# --- FIN Tarjeta --- #}
+             {# ... (Placeholder anterior o futuras tarjetas de Accounting) ... #}
+        </div> {# Fin Columna 3 #}
+
+    </div> {# Fin del row principal #}
+</div> {# Fin del container #}
+{% endblock %}

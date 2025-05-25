@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}User Records Request{% endblock %}
+
+{% block content %}
+<div class="container mt-4"> {# Contenedor Bootstrap #}
+
+    <h1 class="mb-4">User Records Request</h1>
+
+    {# Bloque de errores con estilo Bootstrap #}
+    {% if user_group_formset.errors or user_records_form.errors or user_records_form.non_field_errors or user_group_formset.non_form_errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Please correct the following errors:</strong>
+        <ul class="list-unstyled mb-0 mt-2">
+             {% for error in user_records_form.non_field_errors %}<li>- {{ error }}</li>{% endfor %}
+             {% for error in user_group_formset.non_form_errors %}<li>- {{ error }}</li>{% endfor %}
+             {% for field in user_records_form %}
+                 {% for error in field.errors %}
+                     <li>- {{ field.label_tag }} {{ field.label }}: {{ error }}</li> {# Mejorado para mostrar label #}
+                 {% endfor %}
+             {% endfor %}
+             {% for form in user_group_formset %}
+                 {% if form.errors %}
+                     <li>- Errors in Group {{ forloop.counter }}:
+                         <ul class="list-unstyled ps-3">
+                         {% for field in form %}{% for error in field.errors %}<li>* {{ field.label_tag }} {{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+                         {% for error in form.non_field_errors %}<li>* {{ error }}</li>{% endfor %}
+                         </ul>
+                     </li>
+                 {% endif %}
+             {% endfor %}
+         </ul>
+         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {# --- Estructura de Dos Columnas --- #}
+        <div class="row g-4">
+
+            {# --- Columna Izquierda --- #}
+            <div class="col-md-6">
+                <h2 class="h4 mb-3 border-bottom pb-2">Request Details</h2>
+
+                {# --- Renderizado Prioridad --- #}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <label class="form-label fw-bold mb-0 me-3">{{ user_records_form.priority.label }} <span class="text-danger">*</span></label> {# Añadido * si es requerido #}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Priority Selection">
+                            {% for value, text in user_records_form.priority.field.choices %}
+                                <input
+                                    class="btn-check"
+                                    type="radio"
+                                    name="{{ user_records_form.priority.html_name }}"
+                                    id="{{ user_records_form.priority.html_name }}_{{ forloop.counter0 }}"
+                                    value="{{ value }}"
+                                    autocomplete="off"
+                                    {% with current_value=user_records_form.priority.value|default:user_records_form.priority.initial %}
+                                    {% if current_value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}
+                                    {% endwith %}
+                                    {% if user_records_form.priority.field.required %}required{% endif %}
+                                    >
+                                <label class="btn btn-sm
+                                    {% if value == 'low' %}btn-outline-secondary{% endif %}
+                                    {% if value == 'normal' %}btn-outline-primary{% endif %}
+                                    {% if value == 'high' %}btn-outline-danger{% endif %}"
+                                    for="{{ user_records_form.priority.html_name }}_{{ forloop.counter0 }}">
+                                    {{ text }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if user_records_form.priority.errors %}
+                        <div class="text-danger small mt-1">{{ user_records_form.priority.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                {# -- Partner Name -- #}
+                <div class="mb-3">
+                    <label for="{{ user_records_form.partner_name.id_for_label }}" class="form-label fw-bold">{{ user_records_form.partner_name.label }} <span class="text-danger">*</span></label>
+                    {{ user_records_form.partner_name }}
+                    {% if user_records_form.partner_name.errors %} <div class="text-danger small mt-1">{{ user_records_form.partner_name.errors|striptags }}</div> {% endif %}
+                </div>
+
+                {# -- Upload File -- #}
+                <div class="mb-3">
+                    <label for="{{ user_records_form.user_file.id_for_label }}" class="form-label fw-bold">{{ user_records_form.user_file.label }}</label>
+                     {{ user_records_form.user_file }}
+                    <small class="form-text text-muted">Max file size: 10MB. Providing file/link disables manual entry on the right.</small>
+                    {% if user_records_form.user_file.errors %} <div class="text-danger small mt-1">{{ user_records_form.user_file.errors|striptags }}</div> {% endif %}
+                </div>
+
+                {# -- Provide Link -- #}
+                <div class="mb-3">
+                    <label for="{{ user_records_form.user_link.id_for_label }}" class="form-label fw-bold">{{ user_records_form.user_link.label }}</label>
+                     {{ user_records_form.user_link }}
+                     <small class="form-text text-muted">Providing file/link disables manual entry on the right.</small>
+                     {% if user_records_form.user_link.errors %} <div class="text-danger small mt-1">{{ user_records_form.user_link.errors|striptags }}</div> {% endif %}
+                </div>
+
+                {# -- Special Instructions -- #}
+                 <div class="mb-3">
+                    <label for="{{ user_records_form.special_instructions.id_for_label }}" class="form-label fw-bold">{{ user_records_form.special_instructions.label }}</label>
+                    {{ user_records_form.special_instructions }}
+                    {% if user_records_form.special_instructions.help_text %} <small class="form-text text-muted">{{ user_records_form.special_instructions.help_text }}</small> {% endif %}
+                     {% if user_records_form.special_instructions.errors %} <div class="text-danger small mt-1">{{ user_records_form.special_instructions.errors|striptags }}</div> {% endif %}
+                </div>
+
+                {# --- NUEVOS CAMPOS PARA PROGRAMACIÓN --- #}
+                <hr>
+                <h3 class="h5 mb-3">Scheduling (Optional)</h3>
+                <div class="mb-3 form-check"> {# Usar form-check para el checkbox #}
+                    {{ user_records_form.schedule_request }} {# Renderiza el input checkbox #}
+                    <label class="form-check-label fw-bold" for="{{ user_records_form.schedule_request.id_for_label }}">
+                        {{ user_records_form.schedule_request.label }}
+                    </label>
+                    {% if user_records_form.schedule_request.errors %}
+                        <div class="text-danger small mt-1">{{ user_records_form.schedule_request.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3" id="scheduled_date_group" style="display: none;"> {# Oculto por defecto #}
+                    <label for="{{ user_records_form.scheduled_date.id_for_label }}" class="form-label fw-bold">
+                        {{ user_records_form.scheduled_date.label }}
+                        <span class="text-danger">*</span> {# El asterisco se controla con JS, pero lo ponemos aquí #}
+                    </label>
+                    {{ user_records_form.scheduled_date }} {# Renderiza el input date #}
+                    {% if user_records_form.scheduled_date.help_text %}
+                        <small class="form-text text-muted">{{ user_records_form.scheduled_date.help_text }}</small>
+                    {% endif %}
+                    {% if user_records_form.scheduled_date.errors %}
+                        <div class="text-danger small mt-1">{{ user_records_form.scheduled_date.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                {# --- FIN NUEVOS CAMPOS PARA PROGRAMACIÓN --- #}
+
+
+            </div> {# --- Fin Columna Izquierda --- #}
+
+
+            {# --- Columna Derecha (Formset - sin cambios internos) --- #}
+            <div class="col-md-6">
+                 <h2 class="h4 mb-3 border-bottom pb-2">User Details <small class="text-muted fw-normal">(No need if spreadsheet/link was provided)</small></h2>
+                <div id="user-group-formset">
+                    {{ user_group_formset.management_form }}
+                    {% for form in user_group_formset %}
+                        <div class="user-group border p-3 mb-3 rounded bg-light position-relative">
+                            <h3 class="h6 mb-3">Group {{ forloop.counter }}</h3>
+                            {% if form.instance.pk %}{{ form.id }}{% endif %}
+                             <div class="mb-3"> <label for="{{ form.type_of_request.id_for_label }}" class="form-label fw-bold">{{ form.type_of_request.label }} <span class="text-danger">*</span></label> {{ form.type_of_request }} {% if form.type_of_request.errors %}<div class="text-danger small mt-1">{{ form.type_of_request.errors|striptags }}</div>{% endif %} </div>
+                             <div class="mb-3"> <label for="{{ form.user_email_addresses.id_for_label }}" class="form-label fw-bold">{{ form.user_email_addresses.label }} <span class="text-danger">*</span></label> {{ form.user_email_addresses }} {% if form.user_email_addresses.help_text %}<small class="form-text text-muted">{{ form.user_email_addresses.help_text }}</small>{% endif %} {% if form.user_email_addresses.errors %}<div class="text-danger small mt-1">{{ form.user_email_addresses.errors|striptags }}</div>{% endif %} </div>
+                             <div class="mb-3 form-group" id="access-level-group-{{ forloop.counter0 }}"> <label for="{{ form.access_level.id_for_label }}" class="form-label fw-bold">{{ form.access_level.label }} <span class="text-danger">*</span></label> {{ form.access_level }} {% if form.access_level.errors %}<div class="text-danger small mt-1">{{ form.access_level.errors|striptags }}</div>{% endif %} </div>
+                             <div class="mb-3"> <label for="{{ form.properties.id_for_label }}" class="form-label fw-bold">{{ form.properties.label }} <span class="text-danger">*</span></label> {{ form.properties }} {% if form.properties.help_text %}<small class="form-text text-muted">{{ form.properties.help_text }}</small>{% endif %} {% if form.properties.errors %}<div class="text-danger small mt-1">{{ form.properties.errors|striptags }}</div>{% endif %} </div>
+                        </div>{# Fin user-group #}
+                    {% endfor %}
+                </div>{# Fin user-group-formset #}
+                {# Botón Add Group #}
+                <div class="mt-3"> <button type="button" id="add-group-button" class="btn btn-secondary btn-sm"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-1" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4"/></svg> Add Another Group </button> </div>
+            </div> {# --- Fin Columna Derecha --- #}
+
+        </div> {# --- Fin Row --- #}
+
+        {# --- Botones Submit / Cancel (sin cambios) --- #}
+        <hr class="my-4">
+        <div class="d-flex justify-content-end mb-4">
+            <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+            <button type="submit" class="btn btn-primary">Submit Request</button>
+        </div>
+
+    </form>
+
+</div>{# Fin container #}
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const addGroupButton = document.getElementById('add-group-button');
+        const userGroupFormsetContainer = document.getElementById('user-group-formset');
+        const totalFormsInput = document.getElementById('id_groups-TOTAL_FORMS');
+        const fileInput = document.getElementById("{{ user_records_form.user_file.id_for_label }}"); // ID del campo user_file
+        const linkInput = document.getElementById("{{ user_records_form.user_link.id_for_label }}"); // ID del campo user_link
+
+        // --- NUEVOS ELEMENTOS PARA PROGRAMACIÓN ---
+        const scheduleRequestCheckbox = document.getElementById("{{ user_records_form.schedule_request.id_for_label }}");
+        const scheduledDateGroup = document.getElementById("scheduled_date_group"); // Contenedor del campo de fecha
+        const scheduledDateField = document.getElementById("{{ user_records_form.scheduled_date.id_for_label }}");
+        // -----------------------------------------
+
+        // --- VERIFICACIÓN INICIAL (sin cambios) ---
+        const initialGroups = userGroupFormsetContainer.querySelectorAll('.user-group');
+        if (initialGroups.length > 1) {
+            for (let i = 1; i < initialGroups.length; i++) {
+                initialGroups[i].remove();
+            }
+            totalFormsInput.value = 1;
+        } else if (initialGroups.length === 1 && parseInt(totalFormsInput.value) !== 1) {
+             totalFormsInput.value = 1;
+        }
+        const initialGroup = userGroupFormsetContainer.querySelector('.user-group');
+
+        // --- FUNCIONES (clearInputs, updateAccessLevelState, updateFormIndices, handleTypeChange, handleRemove, toggleGroupFieldsDisabledState) ---
+        // (Estas funciones permanecen igual que en la versión anterior)
+        function clearInputs(group) {
+            group.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(element => {
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                     element.checked = false;
+                 } else if (element.tagName === 'SELECT') {
+                     element.selectedIndex = 0;
+                 } else {
+                     element.value = '';
+                 }
+                element.disabled = false;
+                element.required = element.hasAttribute('data-required-default');
+                element.classList.remove('disabled-access');
+                 const label = element.closest('.form-group')?.querySelector('label');
+                 if (label) {
+                     const asterisk = label.querySelector('span.text-danger');
+                     if (asterisk) {
+                         asterisk.style.display = '';
+                     }
+                 }
+            });
+            const typeDropdown = group.querySelector('select[name$="-type_of_request"]');
+             if (typeDropdown) {
+                  updateAccessLevelState(group, typeDropdown.value);
+             }
+             const removeButton = group.querySelector('.remove-group-button');
+             if (removeButton) {
+                 removeButton.closest('div').remove();
+             }
+        }
+
+        function updateAccessLevelState(group, typeValue) {
+            const accessLevelSelect = group.querySelector('select[name$="-access_level"]');
+            const accessLevelGroup = accessLevelSelect ? accessLevelSelect.closest('.form-group') : null;
+            const accessLevelLabel = accessLevelGroup ? accessLevelGroup.querySelector('label') : null;
+            const asterisk = accessLevelLabel ? accessLevelLabel.querySelector('span.text-danger') : null;
+
+            if (accessLevelSelect && accessLevelGroup) {
+                 if (typeValue === 'remove') {
+                    accessLevelSelect.disabled = true;
+                    accessLevelSelect.required = false;
+                    accessLevelSelect.value = '';
+                    accessLevelGroup.style.display = '';
+                    accessLevelSelect.classList.add('disabled-field');
+                    if (asterisk) asterisk.style.display = 'none';
+                 } else {
+                    accessLevelSelect.disabled = false;
+                    accessLevelSelect.required = true;
+                    accessLevelGroup.style.display = '';
+                    accessLevelSelect.classList.remove('disabled-field');
+                    if (asterisk) asterisk.style.display = '';
+                 }
+             }
+        }
+
+        function updateFormIndices() {
+            const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
+            totalFormsInput.value = groups.length;
+
+            groups.forEach((group, index) => {
+                group.querySelector('h3').textContent = `Group ${index + 1}`;
+                const regex = /groups-\d+-/g;
+                const newPrefix = `groups-${index}-`;
+
+                group.querySelectorAll('input, select, textarea, label').forEach(el => {
+                    ['name', 'id', 'for'].forEach(attr => {
+                        if (el.hasAttribute(attr)) {
+                            el.setAttribute(attr, el.getAttribute(attr).replace(regex, newPrefix));
+                        }
+                    });
+                     if(index === 0 && !el.hasAttribute('data-required-default')) {
+                        if(el.required) {
+                           el.setAttribute('data-required-default', 'true');
+                        }
+                     }
+                });
+
+                let removeButtonContainer = group.querySelector('.position-absolute.top-0.end-0');
+                if (index > 0) {
+                     if (!removeButtonContainer) {
+                        const btnContainer = document.createElement('div');
+                        btnContainer.className = 'position-absolute top-0 end-0 p-2';
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-danger btn-sm remove-group-button';
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>';
+                        btn.setAttribute('aria-label', 'Remove Group');
+                        btn.addEventListener('click', handleRemove);
+                         btnContainer.appendChild(btn);
+                         group.appendChild(btnContainer);
+                     }
+                 } else if (removeButtonContainer) {
+                     removeButtonContainer.remove();
+                 }
+
+                const typeDropdown = group.querySelector('select[name$="-type_of_request"]');
+                if (typeDropdown) {
+                    updateAccessLevelState(group, typeDropdown.value);
+                     typeDropdown.removeEventListener('change', handleTypeChange);
+                     typeDropdown.addEventListener('change', handleTypeChange);
+                }
+            });
+            // Usar fileInput y linkInput (variables ya definidas globalmente en este script)
+            toggleGroupFieldsDisabledState(!!(fileInput.value || linkInput.value));
+        }
+
+        function handleTypeChange() {
+             const group = this.closest('.user-group');
+             updateAccessLevelState(group, this.value);
+        }
+
+        function handleRemove(event) {
+            const group = event.target.closest('.user-group');
+            if (userGroupFormsetContainer.querySelectorAll('.user-group').length > 1) {
+                group.remove();
+                updateFormIndices();
+            } else {
+                alert('At least one group is required.');
+            }
+        }
+
+        function toggleGroupFieldsDisabledState(disabled) {
+            const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
+            groups.forEach(group => {
+                const inputs = group.querySelectorAll('input:not([type="hidden"]), textarea, select');
+                inputs.forEach(input => {
+                    input.disabled = disabled;
+                    if (disabled) {
+                        input.classList.add('disabled-access');
+                         if (input.type === 'checkbox' || input.type === 'radio') input.checked = false;
+                         else if (input.tagName !== 'SELECT') input.value = '';
+                         else input.selectedIndex = 0;
+                         input.required = false;
+                    } else {
+                        input.classList.remove('disabled-access');
+                         input.required = input.hasAttribute('data-required-default');
+                         if (input.name.endsWith('-type_of_request')) {
+                             updateAccessLevelState(group, input.value);
+                         } else if (input.name.endsWith('-access_level')) {
+                            const typeReq = group.querySelector('select[name$="-type_of_request"]').value;
+                            if(typeReq !== 'remove') {
+                                 input.disabled = false;
+                                 input.required = true;
+                                 input.closest('.form-group').style.display = '';
+                            }
+                         }
+                    }
+                    const label = group.querySelector(`label[for="${input.id}"]`);
+                    if (label) {
+                        const asterisk = label.querySelector('span.text-danger');
+                        if (asterisk) {
+                            asterisk.style.display = disabled ? 'none' : '';
+                        }
+                         if (input.name.endsWith('-access_level') && !disabled) {
+                            const typeReq = group.querySelector('select[name$="-type_of_request"]').value;
+                            if (asterisk) asterisk.style.display = (typeReq !== 'remove') ? '' : 'none';
+                         }
+                    }
+                });
+            });
+            addGroupButton.disabled = disabled;
+             if(disabled) { addGroupButton.classList.add('disabled-access'); }
+             else { addGroupButton.classList.remove('disabled-access'); }
+        }
+        // --- FIN FUNCIONES ANTERIORES ---
+
+
+        // --- NUEVA FUNCIÓN PARA MANEJAR LA VISIBILIDAD DE scheduled_date_group ---
+        function toggleScheduledDateVisibility() {
+            if (scheduleRequestCheckbox && scheduledDateGroup && scheduledDateField) {
+                if (scheduleRequestCheckbox.checked) {
+                    scheduledDateGroup.style.display = 'block'; // Mostrar el grupo
+                    scheduledDateField.required = true;       // Hacer el campo de fecha obligatorio
+                } else {
+                    scheduledDateGroup.style.display = 'none';  // Ocultar el grupo
+                    scheduledDateField.required = false;      // No es obligatorio si está oculto
+                    scheduledDateField.value = '';            // Opcional: limpiar el valor al ocultar
+                }
+            }
+        }
+        // ---------------------------------------------------------------------
+
+
+        // --- EVENT LISTENERS ---
+        // Listener para fileInput y linkInput (sin cambios)
+        [fileInput, linkInput].forEach(el => {
+            if (el) {
+                 const eventType = (el.type === 'file') ? 'change' : 'input';
+                 el.addEventListener(eventType, () => {
+                    const fileProvided = fileInput && fileInput.files && fileInput.files.length > 0;
+                    const linkProvided = linkInput && linkInput.value.trim() !== '';
+                    toggleGroupFieldsDisabledState(!!(fileProvided || linkProvided));
+                });
+            }
+        });
+
+        // Listener para addGroupButton (sin cambios)
+        addGroupButton.addEventListener('click', () => {
+            if (!initialGroup) { console.error("Initial group template not found!"); return; }
+             const newGroup = initialGroup.cloneNode(true);
+             clearInputs(newGroup);
+             userGroupFormsetContainer.appendChild(newGroup);
+             updateFormIndices();
+        });
+
+        // --- NUEVO LISTENER para el checkbox de programación ---
+        if (scheduleRequestCheckbox) {
+            scheduleRequestCheckbox.addEventListener('change', toggleScheduledDateVisibility);
+        }
+        // ---------------------------------------------------
+
+
+        // --- LLAMADAS INICIALES ---
+        updateFormIndices(); // Llamada inicial importante para el formset
+        toggleScheduledDateVisibility(); // Llamada inicial para el campo de fecha programada
+        // -------------------------
+
+    });
+</script>
+{# Estilo para campos deshabilitados y widgets (sin cambios) #}
+<style>
+    .disabled-access { background-color: #e9ecef !important; opacity: 0.7; cursor: not-allowed; }
+    .form-group select, .form-group textarea, .form-group input[type="text"],
+    .form-group input[type="email"], .form-group input[type="url"], .form-group input[type="file"] {
+        display: block; width: 100%; box-sizing: border-box; padding: 0.25rem 0.5rem; font-size: .875rem; /* sm */
+        border: 1px solid #ced4da; border-radius: 0.25rem;
+    }
+     form > .form-group input, form > .form-group textarea {
+         padding: 0.25rem 0.5rem; font-size: .875rem; border-radius: 0.25rem;
+         width: 100%; border: 1px solid #ced4da; box-sizing: border-box;
+     }
+</style>
+{% endblock extra_js %}

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load static %} {# Asegúrate de tener esto #}
+
+{% block title %}Create Generating XML files Request{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10"> {# Ancho controlado para el formulario #}
+
+            <h1 class="mb-4 text-center">Create Generating XML files Request</h1>
+
+            {# --- Mostrar Errores (Estilo Bootstrap) --- #}
+            {% if form.errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Please correct the errors below:</strong>
+                <ul class="list-unstyled mb-0 mt-2 small">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li>- {{ field.label }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <li>- {{ error }}</li>
+                    {% endfor %}
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.xml_state.id_for_label }}" class="form-label fw-bold">State <span class="text-danger">*</span></label>
+                            {{ form.xml_state }} {# Renderiza el select con clase 'form-select' #}
+                            {% if form.xml_state.errors %}<div class="invalid-feedback d-block">{{ form.xml_state.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Carrier(s) <span class="text-danger">*</span></label>
+                            <div class="form-check">
+                                {{ form.xml_carrier_rvic }} {# Renderiza input.form-check-input #}
+                                <label class="form-check-label" for="{{ form.xml_carrier_rvic.id_for_label }}">{{ form.xml_carrier_rvic.label }}</label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.xml_carrier_ssic }} {# Renderiza input.form-check-input #}
+                                <label class="form-check-label" for="{{ form.xml_carrier_ssic.id_for_label }}">{{ form.xml_carrier_ssic.label }}</label>
+                            </div>
+                            {# Mostrar error específico de selección de carrier #}
+                            {% if form.non_field_errors %}
+                                {% for error in form.non_field_errors %}
+                                    {% if "carrier" in error|lower %}
+                                         <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
+
+                        <div class="mb-3">
+                            <label for="{{ form.user_file.id_for_label }}" class="form-label fw-bold">Upload Spreadsheet <span class="text-danger">*</span></label>
+                            {{ form.user_file }} {# Renderiza input.form-control #}
+                            {% if form.user_file.help_text %}<small class="form-text text-muted">{{ form.user_file.help_text }}</small>{% endif %}
+                            {% if form.user_file.errors %}<div class="invalid-feedback d-block">{{ form.user_file.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        {# Campos Condicionales ZIP #}
+                        <hr>
+                        <p class="text-muted small">ZIP Files are required only for CA, MS, UT, WA based on selected carriers.</p>
+
+                        <div class="mb-3" id="form-group-rvic-zip"> {# Mantenemos ID para JS #}
+                            <label for="{{ form.xml_rvic_zip_file.id_for_label }}" class="form-label fw-bold">
+                                RVIC ZIP File
+                                <span class="required-indicator text-danger" style="display: none;">*</span> {# Asterisco oculto por defecto #}
+                            </label>
+                            {{ form.xml_rvic_zip_file }}
+                            {% if form.xml_rvic_zip_file.errors %}<div class="invalid-feedback d-block">{{ form.xml_rvic_zip_file.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3" id="form-group-ssic-zip"> {# Mantenemos ID para JS #}
+                            <label for="{{ form.xml_ssic_zip_file.id_for_label }}" class="form-label fw-bold">
+                                SSIC ZIP File
+                                <span class="required-indicator text-danger" style="display: none;">*</span> {# Asterisco oculto por defecto #}
+                            </label>
+                            {{ form.xml_ssic_zip_file }}
+                            {% if form.xml_ssic_zip_file.errors %}<div class="invalid-feedback d-block">{{ form.xml_ssic_zip_file.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <hr>
+
+                        <div class="mb-3">
+                            <label for="{{ form.special_instructions.id_for_label }}" class="form-label fw-bold">Special Instructions (optional)</label>
+                            {{ form.special_instructions }} {# Renderiza textarea con clase 'form-control' #}
+                            {% if form.special_instructions.help_text %}<small class="form-text text-muted">{{ form.special_instructions.help_text }}</small>{% endif %}
+                            {% if form.special_instructions.errors %}<div class="invalid-feedback d-block">{{ form.special_instructions.errors|striptags }}</div>{% endif %}
+                        </div>
+
+
+                        <div class="d-flex justify-content-end mt-4">
+                             <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Submit Request</button>
+                        </div>
+                    </form>
+                </div> {# Fin card-body #}
+            </div> {# Fin card #}
+        </div> {# Fin col #}
+    </div> {# Fin row #}
+</div>{# Fin container #}
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Referencias a elementos
+        const stateSelect = document.getElementById('{{ form.xml_state.id_for_label }}');
+        const rvicCheckbox = document.getElementById('{{ form.xml_carrier_rvic.id_for_label }}');
+        const ssicCheckbox = document.getElementById('{{ form.xml_carrier_ssic.id_for_label }}');
+        const rvicZipInput = document.getElementById('{{ form.xml_rvic_zip_file.id_for_label }}');
+        const ssicZipInput = document.getElementById('{{ form.xml_ssic_zip_file.id_for_label }}');
+        const rvicZipFormGroup = document.getElementById('form-group-rvic-zip'); // Contenedor del campo
+        const ssicZipFormGroup = document.getElementById('form-group-ssic-zip'); // Contenedor del campo
+
+        // Referencias a labels para asteriscos
+        const rvicZipLabel = document.querySelector('label[for="{{ form.xml_rvic_zip_file.id_for_label }}"]');
+        const ssicZipLabel = document.querySelector('label[for="{{ form.xml_ssic_zip_file.id_for_label }}"]');
+
+        const statesRequiringZip = ['CA', 'MS', 'UT', 'WA'];
+
+        function updateZipFieldsState() {
+            const selectedState = stateSelect.value;
+            const isStateRequiringZip = statesRequiringZip.includes(selectedState);
+            const isRvicSelected = rvicCheckbox.checked;
+            const isSsicSelected = ssicCheckbox.checked;
+
+            // --- Lógica para RVIC ZIP ---
+            const rvicRequired = isStateRequiringZip && isRvicSelected;
+            rvicZipInput.disabled = !rvicRequired;
+            rvicZipInput.required = rvicRequired; // Sincronizar atributo required
+            rvicZipFormGroup.classList.toggle('disabled-field', !rvicRequired); // Estilo visual
+            if (rvicZipLabel) {
+                const asterisk = rvicZipLabel.querySelector('span.required-indicator');
+                if (asterisk) {
+                    asterisk.style.display = rvicRequired ? '' : 'none'; // Mostrar/ocultar *
+                }
+            }
+             if (!rvicRequired) { rvicZipInput.value = ''; } // Limpiar si se deshabilita
+
+            // --- Lógica para SSIC ZIP ---
+            const ssicRequired = isStateRequiringZip && isSsicSelected;
+            ssicZipInput.disabled = !ssicRequired;
+            ssicZipInput.required = ssicRequired; // Sincronizar atributo required
+            ssicZipFormGroup.classList.toggle('disabled-field', !ssicRequired); // Estilo visual
+            if (ssicZipLabel) {
+                const asterisk = ssicZipLabel.querySelector('span.required-indicator');
+                if (asterisk) {
+                    asterisk.style.display = ssicRequired ? '' : 'none'; // Mostrar/ocultar *
+                }
+            }
+            if (!ssicRequired) { ssicZipInput.value = ''; } // Limpiar si se deshabilita
+        }
+
+        // --- Event Listeners ---
+        if (stateSelect) stateSelect.addEventListener('change', updateZipFieldsState);
+        if (rvicCheckbox) rvicCheckbox.addEventListener('change', updateZipFieldsState);
+        if (ssicCheckbox) ssicCheckbox.addEventListener('change', updateZipFieldsState);
+
+        // --- Llamada Inicial ---
+        updateZipFieldsState();
+    });
+</script>
+<style>
+    /* Estilos para campos deshabilitados y asterisco (igual que en deactivation_toggle) */
+    .disabled-field {
+        opacity: 0.65;
+    }
+    .disabled-field input,
+    .disabled-field select,
+    .disabled-field textarea {
+        background-color: #e9ecef !important;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    .required-indicator {
+        color: red;
+        margin-left: 3px;
+        font-weight: bold;
+    }
+    /* Clases Bootstrap aplicadas desde forms.py no necesitan redefinirse aquí */
+</style>
+{% endblock extra_js %}

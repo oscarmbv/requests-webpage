@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "New Property Records Request" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{% trans "New Property Records Request" %}</h1>
+
+    {# --- Mostrar Errores (igual que antes) --- #}
+    {% if form.errors or form.non_field_errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>{% trans "Please correct the errors below:" %}</strong>
+        <ul class="list-unstyled mb-0 mt-2 small">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <li>- <strong>{{ field.label }}</strong>: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+                <li>- {{ error }}</li>
+            {% endfor %}
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {{ form.media }} {# Para widgets de fecha/hora si los usas #}
+
+        <div class="row g-4">
+            {# --- Columna Izquierda (Campos Generales) --- #}
+            <div class="col-md-6">
+                <h3 class="h5 mb-3 border-bottom pb-2">{% trans "Request Details" %}</h3>
+
+                {# --- CAMPO DE PRIORIDAD (AÑADIDO) --- #}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <label class="form-label fw-bold mb-0 me-3">{{ form.priority.label }} <span class="text-danger">*</span></label>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Priority Selection">
+                            {% for value, text in form.priority.field.choices %}
+                                <input
+                                    class="btn-check"
+                                    type="radio"
+                                    name="{{ form.priority.html_name }}"
+                                    id="prio_pr_{{ forloop.counter0 }}" {# ID único para este formulario #}
+                                    value="{{ value }}"
+                                    autocomplete="off"
+                                    {% with current_value=form.priority.value|default:form.priority.initial %}
+                                    {% if current_value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}
+                                    {% endwith %}
+                                    required>
+                                <label class="btn btn-sm
+                                    {% if value == 'low' %}btn-outline-secondary{% endif %}
+                                    {% if value == 'normal' %}btn-outline-primary{% endif %}
+                                    {% if value == 'high' %}btn-outline-danger{% endif %}"
+                                    for="prio_pr_{{ forloop.counter0 }}">
+                                    {{ text }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if form.priority.errors %}
+                        <div class="text-danger small mt-1">{{ form.priority.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                {# --- FIN CAMPO DE PRIORIDAD --- #}
+
+                <div class="mb-3"> <label for="{{ form.property_records_type.id_for_label }}" class="form-label fw-bold">{{ form.property_records_type.label }} <span class="text-danger">*</span></label> {{ form.property_records_type }} {% if form.property_records_type.errors %}<div class="invalid-feedback d-block">{{ form.property_records_type.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3"> <label for="{{ form.partner_name.id_for_label }}" class="form-label fw-bold">{{ form.partner_name.label }} <span class="text-danger">*</span></label> {{ form.partner_name }} {% if form.partner_name.errors %}<div class="invalid-feedback d-block">{{ form.partner_name.errors|striptags }}</div>{% endif %} </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.properties.id_for_label }}" class="form-label fw-bold">
+                        {{ form.properties.label }}
+                        {# El asterisco de requerido para 'properties' se maneja con JS #}
+                        <span class="required-indicator-properties-pr text-danger" {% if not form.properties.field.required %}style="display:none;"{% endif %}>*</span>
+                    </label>
+                    {{ form.properties }}
+                    {% if form.properties.help_text %}<small class="form-text text-muted">{{ form.properties.help_text }}</small>{% endif %}
+                    {% if form.properties.errors %}<div class="invalid-feedback d-block">{{ form.properties.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3"> <label for="{{ form.user_file.id_for_label }}" class="form-label fw-bold">{{ form.user_file.label }}</label> {{ form.user_file }} <small class="form-text text-muted">{% trans "Providing file/link makes specific fields below optional." %}</small> {% if form.user_file.errors %}<div class="text-danger small mt-1">{{ form.user_file.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3"> <label for="{{ form.user_link.id_for_label }}" class="form-label fw-bold">{{ form.user_link.label }}</label> {{ form.user_link }} <small class="form-text text-muted">{% trans "Providing file/link makes specific fields below optional." %}</small> {% if form.user_link.errors %}<div class="text-danger small mt-1">{{ form.user_link.errors|striptags }}</div>{% endif %} </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.special_instructions.id_for_label }}" class="form-label fw-bold">{{ form.special_instructions.label }}</label>
+                    {{ form.special_instructions }}
+                    {% if form.special_instructions.errors %}<div class="invalid-feedback d-block">{{ form.special_instructions.errors|striptags }}</div>{% endif %}
+                </div>
+
+                {# --- CAMPOS PARA PROGRAMACIÓN (AÑADIDOS) --- #}
+                <hr class="my-4">
+                <h3 class="h5 mb-3">Scheduling (Optional)</h3>
+                <div class="mb-3 form-check">
+                    {{ form.schedule_request }}
+                    <label class="form-check-label fw-bold" for="{{ form.schedule_request.id_for_label }}">
+                        {{ form.schedule_request.label }}
+                    </label>
+                    {% if form.schedule_request.errors %}
+                        <div class="text-danger small mt-1">{{ form.schedule_request.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3" id="scheduled_date_group_pr" style="display: none;"> {# ID único #}
+                    <label for="{{ form.scheduled_date.id_for_label }}" class="form-label fw-bold">
+                        {{ form.scheduled_date.label }}
+                        <span class="text-danger">*</span> {# El JS manejará la visibilidad de esto #}
+                    </label>
+                    {{ form.scheduled_date }}
+                    {% if form.scheduled_date.help_text %}
+                        <small class="form-text text-muted">{{ form.scheduled_date.help_text }}</small>
+                    {% endif %}
+                    {% if form.scheduled_date.errors %}
+                        <div class="text-danger small mt-1">{{ form.scheduled_date.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                {# --- FIN CAMPOS PARA PROGRAMACIÓN --- #}
+
+            </div> {# Fin Columna Izquierda #}
+
+            {# --- Columna Derecha (Campos Específicos de Property Records) --- #}
+            <div class="col-md-6">
+                <h3 class="h5 mb-3 border-bottom pb-2">{% trans "Property Record Details" %} <small class="text-muted fw-normal">(Fill relevant fields based on 'Type of Request' OR if no file/link is provided)</small></h3>
+                {# Iterar sobre los campos específicos, usando clases para JS #}
+                <div class="mb-3 property-specific-field property_name"> <label for="{{ form.property_records_new_names.id_for_label }}" class="form-label">{{ form.property_records_new_names.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_new_names }} {% if form.property_records_new_names.help_text %}<small class="form-text text-muted">{{ form.property_records_new_names.help_text }}</small>{% endif %} {% if form.property_records_new_names.errors %}<div class="invalid-feedback d-block">{{ form.property_records_new_names.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field property_management_company"> <label for="{{ form.property_records_new_pmc.id_for_label }}" class="form-label">{{ form.property_records_new_pmc.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_new_pmc }} {% if form.property_records_new_pmc.help_text %}<small class="form-text text-muted">{{ form.property_records_new_pmc.help_text }}</small>{% endif %} {% if form.property_records_new_pmc.errors %}<div class="invalid-feedback d-block">{{ form.property_records_new_pmc.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field property_legal_entity"> <label for="{{ form.property_records_new_policyholder.id_for_label }}" class="form-label">{{ form.property_records_new_policyholder.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_new_policyholder }} {% if form.property_records_new_policyholder.help_text %}<small class="form-text text-muted">{{ form.property_records_new_policyholder.help_text }}</small>{% endif %} {% if form.property_records_new_policyholder.errors %}<div class="invalid-feedback d-block">{{ form.property_records_new_policyholder.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field address"> <label for="{{ form.property_records_corrected_address.id_for_label }}" class="form-label">{{ form.property_records_corrected_address.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_corrected_address }} {% if form.property_records_corrected_address.help_text %}<small class="form-text text-muted">{{ form.property_records_corrected_address.help_text }}</small>{% endif %} {% if form.property_records_corrected_address.errors %}<div class="invalid-feedback d-block">{{ form.property_records_corrected_address.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field property_type"> <label for="{{ form.property_records_updated_type.id_for_label }}" class="form-label">{{ form.property_records_updated_type.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_updated_type }} {% if form.property_records_updated_type.errors %}<div class="invalid-feedback d-block">{{ form.property_records_updated_type.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field property_units"> <label for="{{ form.property_records_units.id_for_label }}" class="form-label">{{ form.property_records_units.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_units }} {% if form.property_records_units.help_text %}<small class="form-text text-muted">{{ form.property_records_units.help_text }}</small>{% endif %} {% if form.property_records_units.errors %}<div class="invalid-feedback d-block">{{ form.property_records_units.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field coverage_type_amount"> <label for="{{ form.property_records_coverage_type.id_for_label }}" class="form-label">{{ form.property_records_coverage_type.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_coverage_type }} {% if form.property_records_coverage_type.errors %}<div class="invalid-feedback d-block">{{ form.property_records_coverage_type.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field coverage_type_amount" id="coverage_multiplier_group_pr" style="display:none;"> <label for="{{ form.property_records_coverage_multiplier.id_for_label }}" class="form-label">{{ form.property_records_coverage_multiplier.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_coverage_multiplier }} {% if form.property_records_coverage_multiplier.errors %}<div class="invalid-feedback d-block">{{ form.property_records_coverage_multiplier.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field coverage_type_amount" id="coverage_amount_group_pr" style="display:none;">
+                    <label for="{{ form.property_records_coverage_amount.id_for_label }}" class="form-label">
+                        {{ form.property_records_coverage_amount.label }}
+                        <span class="text-danger field-required-indicator" style="display:none;">*</span>
+                    </label>
+                    {{ form.property_records_coverage_amount }}
+                    {% if form.property_records_coverage_amount.errors %}
+                        <div class="invalid-feedback d-block">{{ form.property_records_coverage_amount.errors|striptags }}</div>
+                    {% endif %}
+                    {% if form.property_records_coverage_amount.help_text %}
+                        <div class="form-text">{{ form.property_records_coverage_amount.help_text }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3 property-specific-field integration_code"> <label for="{{ form.property_records_integration_type.id_for_label }}" class="form-label">{{ form.property_records_integration_type.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_integration_type }} {% if form.property_records_integration_type.errors %}<div class="invalid-feedback d-block">{{ form.property_records_integration_type.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field integration_code"> <label for="{{ form.property_records_integration_codes.id_for_label }}" class="form-label">{{ form.property_records_integration_codes.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_integration_codes }} {% if form.property_records_integration_codes.help_text %}<small class="form-text text-muted">{{ form.property_records_integration_codes.help_text }}</small>{% endif %} {% if form.property_records_integration_codes.errors %}<div class="invalid-feedback d-block">{{ form.property_records_integration_codes.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3 property-specific-field banking_information"> <label for="{{ form.property_records_bank_details.id_for_label }}" class="form-label">{{ form.property_records_bank_details.label }} <span class="text-danger field-required-indicator" style="display:none;">*</span></label> {{ form.property_records_bank_details }} {% if form.property_records_bank_details.help_text %}<small class="form-text text-muted">{{ form.property_records_bank_details.help_text }}</small>{% endif %} {% if form.property_records_bank_details.errors %}<div class="invalid-feedback d-block">{{ form.property_records_bank_details.errors|striptags }}</div>{% endif %} </div>
+
+            </div> {# Fin Columna Derecha #}
+        </div> {# Fin row #}
+
+        <hr class="my-4">
+        <div class="d-flex justify-content-end mb-4">
+            <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-outline-secondary me-2">{% trans "Cancel" %}</a>
+            <button type="submit" class="btn btn-primary">{% trans "Submit Request" %}</button>
+        </div>
+    </form>
+
+</div>{# Fin container #}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- PROGRAMACIÓN ---
+    const scheduleRequestCheckboxPR = document.getElementById("{{ form.schedule_request.id_for_label }}");
+    const scheduledDateGroupPR = document.getElementById("scheduled_date_group_pr");
+    const scheduledDateFieldPR = document.getElementById("{{ form.scheduled_date.id_for_label }}");
+
+    function toggleScheduledDateVisibilityPR() {
+        if (scheduleRequestCheckboxPR && scheduledDateGroupPR && scheduledDateFieldPR) {
+            const isScheduling = scheduleRequestCheckboxPR.checked;
+            scheduledDateGroupPR.style.display = isScheduling ? 'block' : 'none';
+            scheduledDateFieldPR.required = isScheduling;
+            if (!isScheduling) scheduledDateFieldPR.value = '';
+            const asterisk = scheduledDateGroupPR.querySelector('label span.text-danger');
+            if(asterisk) asterisk.style.display = isScheduling ? 'inline' : 'none'; // Ocultar si no se programa
+        }
+    }
+    if (scheduleRequestCheckboxPR) {
+        scheduleRequestCheckboxPR.addEventListener('change', toggleScheduledDateVisibilityPR);
+    }
+    toggleScheduledDateVisibilityPR(); // Inicial
+
+    // --- CAMPOS ESPECÍFICOS DE PROPERTY RECORDS Y CONDICIONALMENTE REQUERIDOS ---
+    const propertyRecordTypeSelect = document.getElementById("{{ form.property_records_type.id_for_label }}");
+    const coverageTypeSelect = document.getElementById("{{ form.property_records_coverage_type.id_for_label }}");
+    const userFileFieldPR = document.getElementById("{{ form.user_file.id_for_label }}");
+    const userLinkFieldPR = document.getElementById("{{ form.user_link.id_for_label }}");
+    const propertiesAffectedFieldPR = document.getElementById("{{ form.properties.id_for_label }}");
+    const propertiesAffectedLabelPR = document.querySelector('label[for="{{ form.properties.id_for_label }}"]');
+    const propertiesAffectedAsteriskPR = propertiesAffectedLabelPR ? propertiesAffectedLabelPR.querySelector('span.required-indicator-properties-pr') : null;
+
+    // Mapa de campos específicos y sus contenedores/inputs
+    // La clave es el valor de property_records_type
+    const specificFieldsMap = {
+        'property_name': ['{{ form.property_records_new_names.id_for_label }}'],
+        'property_management_company': ['{{ form.property_records_new_pmc.id_for_label }}'],
+        'property_legal_entity': ['{{ form.property_records_new_policyholder.id_for_label }}'],
+        'address': ['{{ form.property_records_corrected_address.id_for_label }}'],
+        'property_type': ['{{ form.property_records_updated_type.id_for_label }}'],
+        'property_units': ['{{ form.property_records_units.id_for_label }}'],
+        'coverage_type_amount': ['{{ form.property_records_coverage_type.id_for_label }}'], // El tipo siempre es el primero
+        'integration_code': ['{{ form.property_records_integration_type.id_for_label }}', '{{ form.property_records_integration_codes.id_for_label }}'],
+        'banking_information': ['{{ form.property_records_bank_details.id_for_label }}']
+    };
+
+    // Sub-mapa para coverage_type_amount
+    const coverageSubFieldsMap = {
+        'multiplier': '{{ form.property_records_coverage_multiplier.id_for_label }}',
+        'amount': '{{ form.property_records_coverage_amount.id_for_label }}'
+    };
+    const coverageMultiplierGroupPR = document.getElementById("coverage_multiplier_group_pr");
+    const coverageAmountGroupPR = document.getElementById("coverage_amount_group_pr");
+
+
+    function updateFieldRequirements() {
+        const fileProvided = userFileFieldPR && userFileFieldPR.files && userFileFieldPR.files.length > 0;
+        const linkProvided = userLinkFieldPR && userLinkFieldPR.value.trim() !== '';
+        const bypassSpecificRequirements = fileProvided || linkProvided;
+        const selectedPRType = propertyRecordTypeSelect ? propertyRecordTypeSelect.value : null;
+
+        // 1. Campo 'Properties Affected'
+        if (propertiesAffectedFieldPR && propertiesAffectedAsteriskPR) {
+            propertiesAffectedFieldPR.required = !bypassSpecificRequirements;
+            propertiesAffectedAsteriskPR.style.display = !bypassSpecificRequirements ? 'inline' : 'none';
+        }
+
+        // 2. Campos específicos de Property Records
+        document.querySelectorAll('.property-specific-field').forEach(fieldContainer => {
+            fieldContainer.style.display = 'none'; // Ocultar todos
+            const inputElement = fieldContainer.querySelector('input, select, textarea');
+            const asteriskElement = fieldContainer.querySelector('label span.field-required-indicator');
+            if (inputElement) inputElement.required = false;
+            if (asteriskElement) asteriskElement.style.display = 'none';
+        });
+
+        if (selectedPRType && specificFieldsMap[selectedPRType]) {
+            specificFieldsMap[selectedPRType].forEach(fieldId => {
+                const fieldElement = document.getElementById(fieldId);
+                if (fieldElement) {
+                    const container = fieldElement.closest('.property-specific-field');
+                    if (container) container.style.display = 'block';
+                    fieldElement.required = !bypassSpecificRequirements;
+                    const label = document.querySelector(`label[for="${fieldId}"]`);
+                    const asterisk = label ? label.querySelector('span.field-required-indicator') : null;
+                    if (asterisk) asterisk.style.display = !bypassSpecificRequirements ? 'inline' : 'none';
+                }
+            });
+
+            // Lógica especial para 'coverage_type_amount'
+            if (selectedPRType === 'coverage_type_amount' && coverageTypeSelect) {
+                const selectedCoverageType = coverageTypeSelect.value;
+
+                // Mostrar/ocultar y requerir el sub-campo de Coverage Type (Multiplier o Amount)
+                const multiplierFieldId = coverageSubFieldsMap['multiplier'];
+                const amountFieldId = coverageSubFieldsMap['amount'];
+                const multiplierElement = document.getElementById(multiplierFieldId);
+                const amountElement = document.getElementById(amountFieldId);
+
+                if (coverageMultiplierGroupPR) coverageMultiplierGroupPR.style.display = 'none';
+                if (multiplierElement) multiplierElement.required = false;
+                const multAsterisk = coverageMultiplierGroupPR ? coverageMultiplierGroupPR.querySelector('label span.field-required-indicator') : null;
+                if(multAsterisk) multAsterisk.style.display = 'none';
+
+
+                if (coverageAmountGroupPR) coverageAmountGroupPR.style.display = 'none';
+                if (amountElement) amountElement.required = false;
+                const amountAsterisk = coverageAmountGroupPR ? coverageAmountGroupPR.querySelector('label span.field-required-indicator') : null;
+                if(amountAsterisk) amountAsterisk.style.display = 'none';
+
+                if (selectedCoverageType === 'multiplier') {
+                    if (coverageMultiplierGroupPR) coverageMultiplierGroupPR.style.display = 'block';
+                    if (multiplierElement) multiplierElement.required = !bypassSpecificRequirements;
+                    if(multAsterisk) multAsterisk.style.display = !bypassSpecificRequirements ? 'inline' : 'none';
+                } else if (selectedCoverageType === 'amount') {
+                    if (coverageAmountGroupPR) coverageAmountGroupPR.style.display = 'block';
+                    if (amountElement) amountElement.required = !bypassSpecificRequirements;
+                     if(amountAsterisk) amountAsterisk.style.display = !bypassSpecificRequirements ? 'inline' : 'none';
+                }
+            }
+        }
+    }
+
+    // Event listeners
+    if (propertyRecordTypeSelect) {
+        propertyRecordTypeSelect.addEventListener('change', updateFieldRequirements);
+    }
+    if (coverageTypeSelect) { // También escuchar cambios en el sub-tipo de coverage
+        coverageTypeSelect.addEventListener('change', updateFieldRequirements);
+    }
+    if (userFileFieldPR) {
+        userFileFieldPR.addEventListener('change', updateFieldRequirements);
+    }
+    if (userLinkFieldPR) {
+        userLinkFieldPR.addEventListener('input', updateFieldRequirements);
+    }
+
+    // Llamada inicial para establecer el estado correcto de los campos
+    updateFieldRequirements();
+});
+</script>
+<style>
+    select, textarea, input[type="text"], input[type="email"], input[type="url"], input[type="file"], input[type="number"], input[type="date"] { display: block; width: 100%; box-sizing: border-box; padding: 0.375rem 0.75rem; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--bs-body-color); background-color: var(--bs-body-bg); background-clip: padding-box; border: var(--bs-border-width) solid var(--bs-border-color); -webkit-appearance: none; -moz-appearance: none; appearance: none; border-radius: var(--bs-border-radius); transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+    input[type="file"]:not(:disabled):not([readonly]) { cursor: pointer; }
+    textarea { min-height: 75px; }
+    .property-specific-field { display: none; } /* Ocultar por defecto */
+    span.required-indicator-properties-pr, span.field-required-indicator { display: none; color: red; margin-left: 3px; } /* Indicadores de requerido ocultos por JS */
+</style>
+{% endblock extra_js %}

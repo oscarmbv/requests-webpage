@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load static %} {# Añadir si usas archivos estáticos específicos aquí #}
+
+{% block title %}Manage Prices & Costs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Manage Operation Prices and Costs</h1>
+
+    {# Mostrar mensajes si los hay (heredado de base.html) #}
+
+    <form method="post">
+        {% csrf_token %}
+
+        {# --- Client Prices Section --- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Client Prices</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {# Itera sobre los campos de precio del cliente. Asume que los nombres terminan en '_price' #}
+                    {% for field in form %}
+                        {% if field.name|slice:"-6:" == '_price' %}
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    {{ field }} {# El widget ya tiene la clase 'form-control' desde OperationPriceForm #}
+                                </div>
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ field.errors|striptags }}
+                                    </div>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# --- Operate Costs Section --- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Operate Costs</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {# Itera sobre los campos de costo de operación. Asume que terminan en '_operate_cost' #}
+                    {% for field in form %}
+                        {% if field.name|slice:"-13:" == '_operate_cost' %}
+                             <div class="col-md-6 mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    {{ field }}
+                                </div>
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ field.errors|striptags }}
+                                    </div>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# --- QA Costs Section --- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>QA Costs</h2>
+            </div>
+            <div class="card-body">
+                 <div class="row">
+                    {# Itera sobre los campos de costo de QA. Asume que terminan en '_qa_cost' #}
+                    {% for field in form %}
+                        {% if field.name|slice:"-8:" == '_qa_cost' %}
+                             <div class="col-md-6 mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    {{ field }}
+                                </div>
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ field.errors|striptags }}
+                                    </div>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Prices & Costs</button>
+        <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-secondary">Cancel</a> {# Botón Cancelar/Volver #}
+    </form>
+</div>
+{% endblock %}

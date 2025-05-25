@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Stripe Disputes Request{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+
+            <h1 class="mb-4 text-center">Create Stripe Disputes Request</h1>
+
+            {# --- Bloque para Mostrar Errores --- #}
+            {% if form.errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Please correct the errors below:</strong>
+                <ul class="list-unstyled mb-0 mt-2 small">
+                    {% for field in form %}
+                        {% if field.errors %}
+                             <li>- {{ field.label }}: {{ field.errors|striptags }}</li>
+                        {% endif %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <li>- {{ error }}</li> {# Mostrar error de validación cruzada #}
+                    {% endfor %}
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data"> {# Necesario enctype #}
+                        {% csrf_token %}
+
+                        {# --- Campos del Formulario --- #}
+                        <div class="mb-3">
+                            <label for="{{ form.stripe_premium_disputes.id_for_label }}" class="form-label fw-bold">{{ form.stripe_premium_disputes.label }}<span class="text-danger">*</span></label>
+                            {{ form.stripe_premium_disputes }} {# Widget con form-control y min=0 #}
+                            {% if form.stripe_premium_disputes.errors %}<div class="invalid-feedback d-block">{{ form.stripe_premium_disputes.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.stripe_ri_disputes.id_for_label }}" class="form-label fw-bold">{{ form.stripe_ri_disputes.label }}<span class="text-danger">*</span></label>
+                            {{ form.stripe_ri_disputes }} {# Widget con form-control y min=0 #}
+                            {% if form.stripe_ri_disputes.errors %}<div class="invalid-feedback d-block">{{ form.stripe_ri_disputes.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.user_file.id_for_label }}" class="form-label fw-bold">{{ form.user_file.label }} <span class="text-danger">*</span></label>
+                            {{ form.user_file }} {# Widget con form-control #}
+                            {% if form.user_file.help_text %}<small class="form-text text-muted">{{ form.user_file.help_text }}</small>{% endif %}
+                            {% if form.user_file.errors %}<div class="invalid-feedback d-block">{{ form.user_file.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                         <div class="mb-3">
+                            <label for="{{ form.special_instructions.id_for_label }}" class="form-label fw-bold">Special Instructions (optional)</label>
+                            {{ form.special_instructions }}
+                            {% if form.special_instructions.errors %}<div class="invalid-feedback d-block">{{ form.special_instructions.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        {# --- Botones de Acción --- #}
+                        <div class="d-flex justify-content-end mt-4">
+                             <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Submit Request</button>
+                        </div>
+                    </form>
+                </div> {# Fin card-body #}
+            </div> {# Fin card #}
+        </div> {# Fin col #}
+    </div> {# Fin row #}
+</div>{# Fin container #}
+{% endblock %}
+
+{% block extra_js %}
+{# No se necesita JS específico para este formulario por ahora #}
+{% endblock extra_js %}

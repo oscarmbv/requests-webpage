@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Reject Request</h1>
+    <p>Enter the reason for rejecting this request:</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Reject Request</button>
+    </form>
+    <a href="{% url 'request_detail' user_request.id %}">Back to Request Details</a>
+{% endblock %}

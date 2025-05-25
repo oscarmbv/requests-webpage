@@ -1,0 +1,37 @@
+{% extends "base.html" %} {# Hereda de la plantilla base mejorada #}
+{% load static %} {# Cargar static si necesitas imágenes u otros assets aquí #}
+
+{% block title %}Home - Requests Platform{% endblock %} {# Título específico para esta página #}
+
+{% block content %}
+{# Usar un div estilizado como "jumbotron" o "hero unit" para la bienvenida #}
+<div class="p-5 mb-4 bg-light rounded-3">
+  <div class="container-fluid py-5">
+    <h1 class="display-5 fw-bold">Welcome to the Requests Platform</h1>
+    <p class="col-md-8 fs-4">Manage your operational requests efficiently.</p>
+    {# Añadir botones para acciones comunes #}
+    <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-primary btn-lg me-2" type="button">Go to Dashboard</a>
+    <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-success btn-lg" type="button">Create New Request</a>
+  </div>
+</div>
+
+{# Puedes añadir otras secciones si es necesario #}
+<div class="row align-items-md-stretch">
+      <div class="col-md-6">
+        <div class="h-100 p-5 text-bg-dark rounded-3">
+          <h2>Your Profile</h2>
+          <p>Manage your user details and preferences.</p>
+          {# CORRECCIÓN: Usar el namespace 'tasks:' #}
+          <a href="{% url 'tasks:profile' %}" class="btn btn-outline-light" type="button">Go to My Profile</a>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="h-100 p-5 bg-body-tertiary border rounded-3">
+          <h2>Need Help?</h2>
+          <p>Find documentation or contact support (example section).</p>
+          <button class="btn btn-outline-secondary" type="button">Contact Support</button> {# Ejemplo #}
+        </div>
+      </div>
+    </div>
+
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Complete Request: {{ user_request.unique_code }}</h1>
+    <p>Confirm or modify the operation details before completing the request.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-complete">Complete Request</button>
+    </form>
+    <br>
+    <a href="{% url 'request_detail' user_request.id %}" class="back-btn">Back to Request Details</a>
+{% endblock %}

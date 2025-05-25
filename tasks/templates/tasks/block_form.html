@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Block Request</h1>
+    <p>Enter the reason for blocking this request:</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Block Request</button>
+    </form>
+    <a href="{% url 'request_detail' user_request.id %}">Back to Request Details</a>
+{% endblock %}

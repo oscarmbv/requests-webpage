@@ -1,0 +1,708 @@
+{% extends "base.html" %}
+{% load tz %}
+{% load static %}
+{% load i18n %}
+{% load duration_filters %}
+
+{% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+    dl dt { font-weight: bold; }
+    .pre-wrap { white-space: pre-wrap; word-wrap: break-word; } /* Estilo para preservar saltos de línea y espacios */
+    .url-break { word-break: break-all; }
+    .invalid-feedback { width: 100%; margin-top: .25rem; font-size: .875em; color: var(--bs-danger-text-emphasis); }
+    .invalid-feedback.d-none { display: none; }
+    .invalid-feedback:not(.d-none) { display: block; }
+    .file-list { list-style-type: none; padding-left: 0; }
+    .file-list li { display: flex; align-items: center; margin-bottom: 0.5rem; }
+    .file-list .bi-file-earmark-text, .file-list .bi-box-arrow-up-right { margin-right: 0.5rem; font-size: 1.1rem; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container mt-4">
+
+    {# --- Cabecera con ID y Estado --- #}
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h1 class="h3">{% trans "Request Details" %}</h1>
+        <div>
+            <span class="me-2 text-muted">ID: {{ user_request.unique_code }}</span>
+            <span class="badge fs-6 rounded-pill
+                {% if user_request.status == 'pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'scheduled' %}text-bg-secondary{% endif %}
+                {% if user_request.status == 'in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'update_requested' %}text-bg-info{% endif %}
+                {% if user_request.status == 'qa_pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'qa_in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'blocked' %}text-bg-dark{% endif %}
+                {% if user_request.status == 'pending_approval' %}text-bg-info{% endif %}
+                {% if user_request.status == 'completed' %}text-bg-success{% endif %}
+                {% if user_request.status == 'cancelled' %}text-bg-secondary{% endif %}
+            ">{{ user_request.get_status_display }}</span>
+        </div>
+    </div>
+
+    {# --- Alertas (Update Needed, Blocked, Rejected, Scheduled) --- #}
+    {% if user_request.update_needed_flag and user_request.status not in "scheduled completed cancelled" %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          <div>
+            <strong>{% trans "Provide Progress Update:" %}</strong> {% trans "An update has been requested for this task." %}
+            {% comment %} Mostrar quién y cuándo si la información está disponible {% endcomment %}
+            {% if user_request.update_requested_by %}
+                <br><small class="text-muted">
+                    ({% trans "Requested by" %} {{ user_request.update_requested_by.get_full_name|default:user_request.update_requested_by.email|default:user_request.update_requested_by.username }}
+                    {% if user_request.update_requested_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.update_requested_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            {% endif %}
+          </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.status == 'blocked' %}
+        <div class="alert alert-danger d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-sign-stop-fill me-2"></i>
+            <div>
+                <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
+                {% with last_block=blocked_history.first %}
+                    {% if last_block %}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.cancelled and user_request.cancelled_by %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {# Ícono de advertencia o cancelación #}
+            <div>
+                <strong>{% trans "Request Cancelled:" %}</strong> {% trans "This request is currently cancelled." %}
+                <br><small class="text-muted">
+                    ({% trans "Cancelled by" %} {{ user_request.cancelled_by.get_full_name|default:user_request.cancelled_by.email|default:user_request.cancelled_by.username }}
+                    {% if user_request.cancelled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not user_request.cancelled and user_request.status == 'pending' and user_request.uncanceled_by %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i> {# Ícono de información #}
+            <div>
+                <strong>{% trans "Request Un-cancelled:" %}</strong> {% trans "This request was un-cancelled and is awaiting processing." %}
+                <br><small class="text-muted">
+                    ({% trans "Un-cancelled by" %} {{ user_request.uncanceled_by.get_full_name|default:user_request.uncanceled_by.email|default:user_request.uncanceled_by.username }}
+                    {% if user_request.uncanceled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.uncanceled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+
+    {% if user_request.is_rejected_previously and user_request.status in "in_progress pending" %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                <strong>{% trans "Action Required:" %}</strong> {% trans "This request was previously rejected by QA and requires corrections before it can be sent back to QA." %}
+                 {% with last_rejection=rejected_history.first %}
+                    {% if last_rejection %}
+                        <br><small class="text-muted">{% trans "Last Rejection Reason:" %} {{ last_rejection.reason|truncatewords:20 }}
+                        ({% trans "Rejected by" %} {{ last_rejection.rejected_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_rejection.rejected_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.status == 'scheduled' and user_request.scheduled_date %}
+        <div class="alert alert-secondary d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-calendar-event-fill me-2"></i>
+            <div>
+                <strong>This request is scheduled for:</strong> {{ user_request.scheduled_date|date:"Y-m-d" }}.
+                It will become active (Pending) on this date.
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        {# --- Columna Izquierda: Request Information --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header"> {% trans "Request Information" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Priority:" %}</dt> <dd class="col-sm-7"> <span class="badge rounded-pill {% if user_request.priority == 'low' %}text-bg-secondary{% endif %} {% if user_request.priority == 'normal' %}text-bg-primary{% endif %} {% if user_request.priority == 'high' %}text-bg-danger{% endif %} {% if not user_request.priority %}text-bg-primary{% endif %} "> {{ user_request.get_priority_display|default:"Normal" }} </span> </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Type:" %}</dt> <dd class="col-sm-7">{{ user_request.get_type_of_process_display }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Assigned Team:" %}</dt> <dd class="col-sm-7">{{ user_request.get_team_display|default:"Unassigned" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested By:" %}</dt> <dd class="col-sm-7">{{ user_request.requested_by.email|default:"N/A" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested At:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% timezone request.user.timezone|default:"UTC" %}
+                                    {{ user_request.timestamp|date:"Y-m-d H:i:s" }}
+                                {% endtimezone %}
+                                ({{ request.user.timezone|default:"UTC" }})
+                            </dd>
+                        </div>
+                        {% if user_request.status == 'scheduled' and user_request.scheduled_date %}
+                             <div class="alert alert-secondary d-flex align-items-center p-2 mb-3" role="alert">
+                                <i class="bi bi-calendar-event-fill me-2"></i>
+                                <div>
+                                    <strong>{% trans "Scheduled Activation:" %}</strong>
+                                    {% blocktrans with date=user_request.scheduled_date|date:"Y-m-d" %}
+                                        This request is scheduled to activate on <strong>{{ date }}</strong>. It will become 'Pending' on this date.
+                                    {% endblocktrans %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator:" %}</dt> <dd class="col-sm-7">{{ user_request.operator.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operated At:" %}</dt> <dd class="col-sm-7"> {% if user_request.operated_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.operated_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Agent:" %}</dt> <dd class="col-sm-7">{{ user_request.qa_agent.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Sent to QA At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_pending_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_pending_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Started At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_in_progress_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_in_progress_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Completed At:" %}</dt> <dd class="col-sm-7"> {% if user_request.completed_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.completed_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancelled At:" %}</dt> <dd class="col-sm-7"> {% if user_request.cancelled_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Turn Around Time:" %}</dt> <dd class="col-sm-7"> {% with tat_value=user_request.calculated_turn_around_time %} {% if tat_value is not None %} {{ tat_value|format_timedelta }} {% else %} - {% endif %} {% endwith %} </dd> </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        {# --- Columna Derecha: Submission Details & Operation Details --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                 <div class="card-header"> {% trans "Submission Details (Address Validation)" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Partner Name:" %}</dt><dd class="col-sm-7">{{ user_request.partner_name|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Policyholder(s) (Manual):" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.address_validation_policyholders|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Opportunity ID (Manual):" %}</dt><dd class="col-sm-7">{{ user_request.address_validation_opportunity_id|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "User Email(s) (Manual):" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.address_validation_user_email_addresses|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Special Instructions:" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.special_instructions|default:"-" }}</dd> </div>
+
+                        {% if user_request.user_file %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Uploaded File (Generic):" %}</dt> <dd class="col-sm-7"> <a href="{{ user_request.user_file.url }}" target="_blank">{{ user_request.user_file.name|cut:"user_uploads/" }}</a> </dd> </div>
+                        {% endif %}
+
+                        {% if address_files %}
+                            <div class="row mb-1">
+                                <dt class="col-sm-5 text-sm-end">{% trans "Uploaded Spreadsheet(s):" %}</dt>
+                                <dd class="col-sm-7">
+                                    <ul class="file-list">
+                                        {% for file_obj in address_files %}
+                                            <li>
+                                                <i class="bi bi-file-earmark-text"></i>
+                                                <a href="{{ file_obj.uploaded_file.url }}" target="_blank" rel="noopener noreferrer">
+                                                    {{ file_obj.uploaded_file.name|cut:"address_validation_uploads/" }}
+                                                </a>
+                                            </li>
+                                        {% empty %}
+                                            <li>-</li>
+                                        {% endfor %}
+                                    </ul>
+                                </dd>
+                            </div>
+                        {% endif %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Provided Link:" %}</dt> <dd class="col-sm-7 url-break"> {% if user_request.user_link %} <a href="{{ user_request.user_link }}" target="_blank" rel="noopener noreferrer">{{ user_request.user_link }}</a> {% else %} - {% endif %} </dd> </div>
+                        {% if user_request.cancel_reason %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancel Reason:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.cancel_reason|linebreaksbr }}</dd> </div> {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            {# --- SECCIÓN: SALESFORCE DETAILS --- #}
+            {% if user_request.address_validation_opportunity_id or user_request.salesforce_opportunity_name %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info-subtle"> {% trans "Salesforce Opportunity Information" %} </div>
+                <div class="card-body">
+                    <dl>
+                        {% if user_request.salesforce_opportunity_name %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Opportunity Name:" %}</dt><dd class="col-sm-7">{{ user_request.salesforce_opportunity_name }}</dd> </div>
+                        {% endif %}
+                        {% if user_request.address_validation_opportunity_id %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Opportunity ID (SF Custom):" %}</dt><dd class="col-sm-7">{{ user_request.address_validation_opportunity_id }}</dd> </div>
+                        {% endif %}
+                         {% if user_request.salesforce_standard_opp_id %} {# Mostrar el ID estándar de SF si existe #}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "SF Standard Opp ID:" %}</dt><dd class="col-sm-7">{{ user_request.salesforce_standard_opp_id }}</dd> </div>
+                        {% endif %}
+                        {% if user_request.salesforce_link %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "SF Opp. Link:" %}</dt><dd class="col-sm-7 url-break"><a href="{{ user_request.salesforce_link }}" target="_blank" rel="noopener noreferrer">{% trans "View in Salesforce" %} <i class="bi bi-box-arrow-up-right"></i></a></dd> </div>
+                        {% endif %}
+                        {% if user_request.salesforce_account_manager %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Account Manager:" %}</dt><dd class="col-sm-7">{{ user_request.salesforce_account_manager }}</dd> </div>
+                        {% endif %}
+                        {% if user_request.salesforce_number_of_units is not None %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Number of Units (SF):" %}</dt><dd class="col-sm-7">{{ user_request.salesforce_number_of_units }}</dd> </div>
+                        {% endif %}
+                        {% if user_request.salesforce_closed_won_date %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Closed Won Date (SF):" %}</dt><dd class="col-sm-7">{{ user_request.salesforce_closed_won_date|date:"Y-m-d" }}</dd> </div>
+                        {% endif %}
+                        {% if user_request.salesforce_leasing_integration_software %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Leasing Integration (SF):" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.salesforce_leasing_integration_software }}</dd> </div>
+                        {% endif %}
+
+                        <div class="row mb-1">
+                            <dt class="col-sm-5 text-sm-end">{% trans "Info for Assets (SF):" %}</dt>
+                            {% if user_request.salesforce_information_needed_for_assets %}
+                                <dd class="col-sm-7 pre-wrap">
+                                    {{ user_request.salesforce_information_needed_for_assets|linebreaksbr }}
+                                </dd>
+                            {% else %}
+                                <dd class="col-sm-7">
+                                    <span class="text-muted"><em>{% trans "No information provided." %}</em></span>
+                                </dd>
+                            {% endif %}
+                        </div>
+                    </dl>
+                </div>
+            </div>
+            {% endif %}
+            {# --- FIN SECCIÓN: SALESFORCE DETAILS --- #}
+
+            {# --- SECCIÓN: SALESFORCE ATTACHMENTS --- #}
+            {% if user_request.address_validation_opportunity_id or user_request.salesforce_opportunity_name %} {# Condición para mostrar la card de adjuntos #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light"> {% trans "Salesforce Attachments" %} </div>
+                <div class="card-body">
+                    {% with attachments=user_request.salesforce_attachments.all %}
+                        {% if attachments %}
+                            <ul class="list-group list-group-flush">
+                                {% for attachment in attachments %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>
+                                            <i class="bi bi-file-earmark-text me-2"></i>
+                                            {{ attachment.file_name }}
+                                            {% if attachment.file_extension %}(.{{ attachment.file_extension }}){% endif %}
+                                        </span>
+                                        <a href="{{ attachment.salesforce_file_link }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener noreferrer">
+                                            {% trans "View in SF" %} <i class="bi bi-box-arrow-up-right"></i>
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted mb-0"><em>{% trans "No Salesforce attachments were found linked to this Opportunity." %}</em></p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endif %}
+            {# --- FIN SECCIÓN: SALESFORCE ATTACHMENTS --- #}
+
+            {# --- Operation Details Card --- #}
+            {% if user_request.num_updated_users is not None or user_request.num_updated_properties is not None or user_request.bulk_updates is not None or user_request.manual_updated_properties is not None or user_request.manual_updated_units is not None or user_request.update_by_csv_rows is not None or user_request.operating_notes or user_request.assets_uploaded is not None or user_request.av_number_of_units is not None or user_request.av_number_of_invalid_units is not None or user_request.link_to_assets or user_request.success_output_link or user_request.failed_output_link or user_request.rhino_accounts_created is not None %}
+                 <div class="card shadow-sm mb-4">
+                     <div class="card-header"> {% trans "Operation Details" %} </div>
+                     <div class="card-body">
+                         <dl>
+                            {# Campos de operación estándar #}
+                            {% if user_request.num_updated_users is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Users Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_users }}</dd> </div> {% endif %}
+                            {% if user_request.num_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Properties Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_properties }}</dd> </div> {% endif %}
+                            {% if user_request.bulk_updates is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Bulk Updates:" %}</dt> <dd class="col-sm-7">{{ user_request.bulk_updates }}</dd> </div> {% endif %}
+                            {% if user_request.manual_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Properties:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_properties }}</dd> </div> {% endif %}
+                            {% if user_request.manual_updated_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Updated Units:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_units }}</dd> </div> {% endif %}
+                            {% if user_request.update_by_csv_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "CSV Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.update_by_csv_rows }}</dd> </div> {% endif %}
+                            {% if user_request.processing_reports_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Processing Reports Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.processing_reports_rows }}</dd> </div> {% endif %}
+                            {% if user_request.operator_spreadsheet_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Spreadsheet:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.operator_spreadsheet_link }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_spreadsheet_link }}</a></dd> </div> {% endif %}
+
+                            {# NUEVOS CAMPOS ESPECÍFICOS DE ADDRESS VALIDATION PARA MOSTRAR #}
+                            {% if user_request.type_of_process == 'address_validation' %}
+                                <hr class="my-2">
+                                <p class="text-muted small">Address Validation Operational Details:</p>
+                                {% if user_request.av_number_of_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Number of Units Processed:" %}</dt> <dd class="col-sm-7">{{ user_request.av_number_of_units }}</dd> </div> {% endif %}
+                                {% if user_request.av_number_of_invalid_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Number of Invalid Units:" %}</dt> <dd class="col-sm-7">{{ user_request.av_number_of_invalid_units }}</dd> </div> {% endif %}
+                                {% if user_request.link_to_assets %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Link to Assets:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.link_to_assets }}" target="_blank" rel="noopener noreferrer">{{ user_request.link_to_assets }}</a></dd> </div> {% endif %}
+                                {% if user_request.success_output_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Success Output Link:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.success_output_link }}" target="_blank" rel="noopener noreferrer">{{ user_request.success_output_link }}</a></dd> </div> {% endif %}
+                                {% if user_request.failed_output_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Failed Output Link:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.failed_output_link }}" target="_blank" rel="noopener noreferrer">{{ user_request.failed_output_link }}</a></dd> </div> {% endif %}
+                                {% if user_request.assets_uploaded is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Assets Uploaded to SF:" %}</dt> <dd class="col-sm-7">{% if user_request.assets_uploaded %}Yes{% else %}No{% endif %}</dd> </div> {% endif %}
+                                {% if user_request.rhino_accounts_created is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Rhino Accounts Created:" %}</dt> <dd class="col-sm-7">{% if user_request.rhino_accounts_created %}Yes{% else %}No{% endif %}</dd> </div> {% endif %}
+                            {% endif %}
+                            {# FIN NUEVOS CAMPOS ESPECÍFICOS DE ADDRESS VALIDATION #}
+
+                            {% if user_request.operating_notes %} <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd> </div> {% endif %}
+                         </dl>
+                     </div>
+                 </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Historial de Acciones --- #}
+    <div class="row g-4 mt-2">
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+    </div>
+
+    {# --- Botones de Acción --- #}
+    <div class="mt-4 pt-3 border-top">
+        <h4 class="h5 mb-3">{% trans "Actions" %}</h4>
+        <form method="post" style="display: inline-block; margin-right: 5px;"> {% csrf_token %}
+             {% if is_agent_user %}
+                {# Botón Operate: solo para 'pending' #}
+                {% if user_request.status == 'pending' %}
+                    <button type="submit" formaction="{% url 'tasks:operate_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-play-fill me-1"></i>Operate</button>
+                {% endif %}
+                {# Botón Block: para 'pending' O 'in_progress' (para cualquier agente) #}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' %}
+                    <a href="#blockFormModal_av" data-bs-toggle="modal" class="btn btn-warning btn-sm me-1 mb-1"><i class="bi bi-lock-fill me-1"></i>{% trans "Block" %}</a>
+                {% endif %}
+                {# Botón Send to QA: solo para 'in_progress' y si el usuario actual es el operador #}
+                {% if user_request.status == 'in_progress' and user_request.operator == request.user %}
+                    <a href="#operateFormModal_av" data-bs-toggle="modal" data-form-action="{% url 'tasks:send_to_qa_request' user_request.id %}" class="btn btn-info btn-sm me-1 mb-1"><i class="bi bi-send-check me-1"></i>Send to QA</a>
+                {% endif %}
+                {# Botón Start QA: solo para 'qa_pending' #}
+                {% if user_request.status == 'qa_pending' %}
+                    <button type="submit" formaction="{% url 'tasks:qa_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-search me-1"></i>Start QA</button>
+                {% endif %}
+                {# Botón Complete: solo para 'qa_in_progress' y si el usuario actual es el qa_agent #}
+                {% if user_request.status == 'qa_in_progress' and user_request.qa_agent == request.user %}
+                    <a href="#completeFormModal_av" data-bs-toggle="modal" data-form-action="{% url 'tasks:complete_request' user_request.id %}" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i>Complete</a>
+                {% endif %}
+                {# Botón Update Provided #}
+                {% if can_clear_update_flag_action %}
+                    {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                        <button type="submit" formaction="{% url 'tasks:clear_update_flag' user_request.id %}" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Mark the requested update as provided" %}'><i class="bi bi-check2-circle me-1"></i>{% trans "Update Provided" %}</button>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+            {% if user_request.status == 'blocked' %} <a href="#resolveFormModal_av" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-unlock-fill me-1"></i>{% trans "Resolve" %}</a> {% endif %}
+            {% if can_reject_request %} <a href="#rejectFormModal_av" data-bs-toggle="modal" class="btn btn-danger btn-sm me-1 mb-1"><i class="bi bi-x-octagon-fill me-1"></i>{% trans "Reject" %}</a> {% endif %}
+            {% if can_request_update_action %}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                    <button type="submit" formaction="{% url 'tasks:set_update_flag' user_request.id %}" class="btn btn-outline-info btn-sm me-1 mb-1" title="Notify the agent you are looking for an update on this task"><i class="bi bi-bell me-1"></i>Request Update</button>
+                {% endif %}
+            {% endif %}
+            {% if can_cancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:cancel_request' user_request.id %}" class="btn btn-secondary btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to cancel this request?" %}');"><i class="bi bi-stop-circle-fill me-1"></i>{% trans "Cancel Request" %}</button>
+            {% endif %}
+            {% if can_uncancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:uncancel_request' user_request.id %}" class="btn btn-outline-warning btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to uncancel this request and return it to Pending?" %}');"><i class="bi bi-arrow-counterclockwise me-1"></i>{% trans "Uncancel" %}</button>
+            {% endif %}
+        </form>
+        <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">{% trans "Back to Dashboard" %}</a>
+    </div>
+
+</div>{# Cierre del <div class="container mt-4"> #}
+
+{# Modales (Block, Resolve, Reject) - Estructura interna sin cambios para esta tarea específica #}
+<div class="modal fade" id="blockFormModal_av" tabindex="-1" aria-labelledby="blockFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_av">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_av" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_av" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="resolveFormModal_av" tabindex="-1" aria-labelledby="resolveFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_av">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_av" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_av" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_av" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_av"> </div> <div class="mb-3"> <label for="id_resolved_link_av" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_av" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="rejectFormModal_av" tabindex="-1" aria-labelledby="rejectFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_av">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_av" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_av" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
+
+{# ***** MODAL OPERATE MODIFICADO para Address Validation - Renderizado Manual de Campos ***** #}
+<div class="modal fade" id="operateFormModal_av" tabindex="-1" aria-labelledby="operateFormModalLabel_av" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="operate-form-av" method="post" action="{% url 'tasks:send_to_qa_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="operateFormModalLabel_av">{% trans "Enter Operation Details (Send to QA)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    {# Campos numéricos estándar (opcionales para AV) #}
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="id_num_updated_users_op_av" class="form-label small">{% trans "Users Updated/Added/Removed" %}</label>
+                            <input type="number" name="num_updated_users" value="{{ user_request.num_updated_users|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_users_op_av">
+                            <div class="invalid-feedback" id="error-num_updated_users_op_av" style="display: none;">{% trans "Please enter a valid number (0 or greater)." %}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_num_updated_properties_op_av" class="form-label small">{% trans "Properties Updated" %}</label>
+                            <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_op_av">
+                            <div class="invalid-feedback" id="error-num_updated_properties_op_av" style="display: none;">{% trans "Please enter a valid number (0 or greater)." %}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_bulk_updates_op_av" class="form-label small">{% trans "Bulk Updates (Count)" %}</label>
+                            <input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_op_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_manual_updated_properties_op_av" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label>
+                            <input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_op_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_manual_updated_units_op_av" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label>
+                            <input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_op_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_update_by_csv_rows_op_av" class="form-label small">{% trans "CSV Rows Processed" %}</label>
+                            <input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_op_av">
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5 class="h6">{% trans "Address Validation Specific Details" %}</h5>
+
+                    <div class="mb-3">
+                        <label for="id_av_number_of_units_op_av" class="form-label small">{% trans "Number of Units (Address Validation)" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="av_number_of_units" value="{{ user_request.av_number_of_units|default:user_request.salesforce_number_of_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_av_number_of_units_op_av" required>
+                        <div class="invalid-feedback" id="error-av_number_of_units_op_av" style="display: none;">{% trans "This field is required (0 is valid)." %}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_av_number_of_invalid_units_op_av" class="form-label small">{% trans "Number of Invalid Units (AV)" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="av_number_of_invalid_units" value="{{ user_request.av_number_of_invalid_units|default_if_none:'0' }}" min="0" class="form-control form-control-sm" id="id_av_number_of_invalid_units_op_av" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_link_to_assets_op_av" class="form-label small">{% trans "Link to Assets (Google Sheet)" %} <span class="text-danger">*</span></label>
+                        <input type="url" name="link_to_assets" value="{{ user_request.link_to_assets|default:'' }}" class="form-control form-control-sm" id="id_link_to_assets_op_av" placeholder="https://sheets.google.com/..." required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_success_output_link_op_av" class="form-label small">{% trans "Success Output Link (Optional)" %}</label>
+                            <input type="url" name="success_output_link" value="{{ user_request.success_output_link|default:'' }}" class="form-control form-control-sm" id="id_success_output_link_op_av" placeholder="https://sheets.google.com/...">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_failed_output_link_op_av" class="form-label small">{% trans "Failed Output Link (Optional)" %}</label>
+                            <input type="url" name="failed_output_link" value="{{ user_request.failed_output_link|default:'' }}" class="form-control form-control-sm" id="id_failed_output_link_op_av" placeholder="https://sheets.google.com/...">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 form-check pt-2">
+                            <input type="checkbox" name="assets_uploaded" class="form-check-input" id="id_assets_uploaded_op_av" {% if user_request.assets_uploaded %}checked{% endif %}>
+                            <label for="id_assets_uploaded_op_av" class="form-check-label small">{% trans "Assets Uploaded?" %}</label>
+                        </div>
+                        <div class="col-md-6 mb-3 form-check pt-2">
+                            <input type="checkbox" name="rhino_accounts_created" class="form-check-input" id="id_rhino_accounts_created_op_av" {% if user_request.rhino_accounts_created %}checked{% endif %}>
+                            <label for="id_rhino_accounts_created_op_av" class="form-check-label small">{% trans "Rhino Accounts Created?" %}</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_operating_notes_op_av" class="form-label small">{% trans "Operator Notes" %} <span class="text-danger">*</span></label>
+                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_av" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-info">{% trans "Send to QA" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ***** MODAL COMPLETE MODIFICADO para Address Validation - Renderizado Manual de Campos ***** #}
+<div class="modal fade" id="completeFormModal_av" tabindex="-1" aria-labelledby="completeFormModalLabel_av" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="complete-form-av" method="post" action="{% url 'tasks:complete_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="completeFormModalLabel_av">{% trans "Confirm Operation Details (Complete Request)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    {# Campos numéricos estándar (opcionales para AV) #}
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="id_num_updated_users_comp_av" class="form-label small">{% trans "Users Updated/Added/Removed" %}</label>
+                            <input type="number" name="num_updated_users" value="{{ user_request.num_updated_users|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_users_comp_av">
+                            <div class="invalid-feedback" id="error-num_updated_users_comp_av" style="display: none;">{% trans "Please enter a valid number (0 or greater)." %}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_num_updated_properties_comp_av" class="form-label small">{% trans "Properties Updated" %}</label>
+                            <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_comp_av">
+                            <div class="invalid-feedback" id="error-num_updated_properties_comp_av" style="display: none;">{% trans "Please enter a valid number (0 or greater)." %}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_bulk_updates_comp_av" class="form-label small">{% trans "Bulk Updates (Count)" %}</label>
+                            <input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_comp_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_manual_updated_properties_comp_av" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label>
+                            <input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_comp_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_manual_updated_units_comp_av" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label>
+                            <input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_comp_av">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="id_update_by_csv_rows_comp_av" class="form-label small">{% trans "CSV Rows Processed" %}</label>
+                            <input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_comp_av">
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5 class="h6">{% trans "Address Validation Specific Details" %}</h5>
+
+                    <div class="mb-3">
+                        <label for="id_av_number_of_units_comp_av" class="form-label small">{% trans "Number of Units (Address Validation)" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="av_number_of_units" value="{{ user_request.av_number_of_units|default:user_request.salesforce_number_of_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_av_number_of_units_comp_av" required>
+                        <div class="invalid-feedback" id="error-av_number_of_units_comp_av" style="display: none;">{% trans "This field is required (0 is valid)." %}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_av_number_of_invalid_units_comp_av" class="form-label small">{% trans "Number of Invalid Units (AV)" %} <span class="text-danger">*</span></label>
+                        <input type="number" name="av_number_of_invalid_units" value="{{ user_request.av_number_of_invalid_units|default_if_none:'0' }}" min="0" class="form-control form-control-sm" id="id_av_number_of_invalid_units_comp_av" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_link_to_assets_comp_av" class="form-label small">{% trans "Link to Assets (Google Sheet)" %} <span class="text-danger">*</span></label>
+                        <input type="url" name="link_to_assets" value="{{ user_request.link_to_assets|default:'' }}" class="form-control form-control-sm" id="id_link_to_assets_comp_av" placeholder="https://sheets.google.com/..." required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_success_output_link_comp_av" class="form-label small">{% trans "Success Output Link (Optional)" %}</label>
+                            <input type="url" name="success_output_link" value="{{ user_request.success_output_link|default:'' }}" class="form-control form-control-sm" id="id_success_output_link_comp_av" placeholder="https://sheets.google.com/...">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_failed_output_link_comp_av" class="form-label small">{% trans "Failed Output Link (Optional)" %}</label>
+                            <input type="url" name="failed_output_link" value="{{ user_request.failed_output_link|default:'' }}" class="form-control form-control-sm" id="id_failed_output_link_comp_av" placeholder="https://sheets.google.com/...">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                         <div class="col-md-6 mb-3 form-check pt-2">
+                            <input type="checkbox" name="assets_uploaded" class="form-check-input" id="id_assets_uploaded_comp_av" {% if user_request.assets_uploaded %}checked{% endif %}>
+                            <label for="id_assets_uploaded_comp_av" class="form-check-label small">{% trans "Assets Uploaded?" %}</label>
+                        </div>
+                        <div class="col-md-6 mb-3 form-check pt-2">
+                            <input type="checkbox" name="rhino_accounts_created" class="form-check-input" id="id_rhino_accounts_created_comp_av" {% if user_request.rhino_accounts_created %}checked{% endif %}>
+                            <label for="id_rhino_accounts_created_comp_av" class="form-check-label small">{% trans "Rhino Accounts Created?" %}</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_operating_notes_comp_av" class="form-label small">{% trans "Operator/QA Notes" %} <span class="text-danger">*</span></label>
+                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_av" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %} {# Cierre del bloque de contenido principal #}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalsToValidateAV = ['operateFormModal_av', 'completeFormModal_av'];
+    modalsToValidateAV.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) return;
+        const form = modalElement.querySelector('form');
+        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+        if (!form || !submitButton) return;
+
+        // Campos requeridos para AV en los modales de operación/completado
+        const requiredFieldsConfig = [
+            { idPrefix: modalId.includes('operate') ? 'id_av_number_of_units_op_av' : 'id_av_number_of_units_comp_av', type: 'number', message: "{% trans 'Number of Units is required (0 is valid).' %}" },
+            { idPrefix: modalId.includes('operate') ? 'id_av_number_of_invalid_units_op_av' : 'id_av_number_of_invalid_units_comp_av', type: 'number', message: "{% trans 'Number of Invalid Units is required (0 is valid).' %}" },
+            { idPrefix: modalId.includes('operate') ? 'id_link_to_assets_op_av' : 'id_link_to_assets_comp_av', type: 'url', message: "{% trans 'Link to Assets is required.' %}" },
+            { idPrefix: modalId.includes('operate') ? 'id_operating_notes_op_av' : 'id_operating_notes_comp_av', type: 'textarea', message: "{% trans 'Operator Notes are required.' %}" }
+        ];
+        const allNumericInputsInModal = form.querySelectorAll('input[type="number"]'); // Todos los inputs numéricos en este modal
+
+        function validateSingleField(inputElement, errorMessage, isRequired) {
+            if (!inputElement) return true; // Si el campo no existe en el DOM, no validar
+
+            // Asumimos que los divs de error siguen el patrón: error- + (ID del input sin el prefijo 'id_')
+            // Ej: para input id="id_av_number_of_units_op_av", el error div es "error-av_number_of_units_op_av"
+            const errorDivId = 'error-' + inputElement.id.substring(3);
+            const errorDiv = form.querySelector('#' + errorDivId);
+
+            inputElement.classList.remove('is-invalid');
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            const value = inputElement.value.trim();
+
+            if (isRequired && value === '') {
+                inputElement.classList.add('is-invalid');
+                if (errorDiv) {
+                    errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                    errorDiv.style.display = 'block';
+                }
+                return false;
+            }
+
+            if (inputElement.type === 'number' && value !== '') {
+                const numValue = parseInt(value, 10);
+                if (isNaN(numValue) || numValue < 0) {
+                    inputElement.classList.add('is-invalid');
+                    if (errorDiv) {
+                        errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                        errorDiv.style.display = 'block';
+                    }
+                    return false;
+                }
+            }
+            // Podrías añadir validación de URL aquí si es necesario (type="url" ya provee algo)
+            return true;
+        }
+
+        function clearAllModalValidationErrors() {
+            // Limpiar errores de campos requeridos
+            requiredFieldsConfig.forEach(fieldInfo => {
+                const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
+                if (inputElement) inputElement.classList.remove('is-invalid');
+                const errorDiv = form.querySelector('#error-' + fieldInfo.idPrefix.substring(3));
+                 if (errorDiv) errorDiv.style.display = 'none';
+            });
+            // Limpiar errores de todos los campos numéricos (incluyendo los opcionales)
+            allNumericInputsInModal.forEach(input => {
+                input.classList.remove('is-invalid');
+                const errorDiv = form.querySelector('#error-' + input.id.substring(3));
+                 if (errorDiv) errorDiv.style.display = 'none';
+            });
+        }
+
+        modalElement.addEventListener('show.bs.modal', clearAllModalValidationErrors);
+        if (modalElement.classList.contains('show')) { // Para modales ya abiertos al cargar (menos común)
+            clearAllModalValidationErrors();
+        }
+
+        form.addEventListener('submit', function(event) {
+            let isFormValid = true;
+            // Validar campos requeridos específicos de AV
+            requiredFieldsConfig.forEach(fieldInfo => {
+                const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
+                if (!validateSingleField(inputElement, fieldInfo.message, true)) {
+                    isFormValid = false;
+                }
+            });
+
+            // Validar que otros campos numéricos (no obligatorios, pero estándar del OperateForm) sean válidos si tienen valor
+            allNumericInputsInModal.forEach(input => {
+                // Evitar revalidar los que ya están en requiredFieldsConfig si tienen validación específica
+                let isAlreadyInRequiredConfig = requiredFieldsConfig.some(rf => rf.idPrefix === input.id);
+                if (!isAlreadyInRequiredConfig) { // Solo validar si no es uno de los campos AV ya validados como requeridos
+                    if (!validateSingleField(input, "{% trans 'Please enter a valid non-negative number.' %}", false)) { // No obligatorios
+                        isFormValid = false;
+                    }
+                }
+            });
+
+            if (!isFormValid) {
+                event.preventDefault();
+                event.stopPropagation();
+            } else {
+                 if(submitButton){
+                    submitButton.disabled = true;
+                    submitButton.textContent = '{% trans "Processing..." %}';
+                 }
+            }
+        });
+    });
+});
+</script>
+{% endblock extra_js %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Resolve Request: {{ user_request.unique_code }}</h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="{{ form.message.id_for_label }}">{{ form.message.label }}</label>
+            {{ form.message }}
+            {% if form.message.help_text %}
+                <small>{{ form.message.help_text }}</small>
+            {% endif %}
+            {% if form.message.errors %}
+                <div style="color: red;">{{ form.message.errors }}</div>
+            {% endif %}
+        </div>
+
+        <hr> <div class="form-group">
+             <label for="{{ form.resolved_file.id_for_label }}">{{ form.resolved_file.label }} (max 1MB)</label>
+             {{ form.resolved_file }}
+             {% if form.resolved_file.help_text %}
+                 <small>{{ form.resolved_file.help_text }}</small>
+             {% endif %}
+             {% if form.resolved_file.errors %}
+                 <div style="color: red;">{{ form.resolved_file.errors }}</div>
+             {% endif %}
+        </div>
+
+        <p><strong>OR</strong></p> <div class="form-group">
+            <label for="{{ form.resolved_link.id_for_label }}">{{ form.resolved_link.label }}</label>
+            {{ form.resolved_link }}
+            {% if form.resolved_link.help_text %}
+                <small>{{ form.resolved_link.help_text }}</small>
+            {% endif %}
+            {% if form.resolved_link.errors %}
+                <div style="color: red;">{{ form.resolved_link.errors }}</div>
+            {% endif %}
+        </div>
+
+        <br>
+        <button type="submit" class="btn btn-resolve">Resolve Request</button>
+    </form>
+    <br>
+    <a href="{% url 'request_detail' user_request.id %}" class="back-btn">Back to Request Details</a>
+{% endblock %}

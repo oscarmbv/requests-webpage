@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "New Deactivation/Toggle Request" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{% trans "New Deactivation/Toggle Request" %}</h1>
+
+    {# --- Mostrar Errores --- #}
+    {% if form.errors or form.non_field_errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>{% trans "Please correct the errors below:" %}</strong>
+        <ul class="list-unstyled mb-0 mt-2 small">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <li>- <strong>{{ field.label }}</strong>: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+                <li>- {{ error }}</li>
+            {% endfor %}
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate> {# No enctype si no hay subida de archivos en este form #}
+        {% csrf_token %}
+        {{ form.media }} {# Para widgets de fecha si se usan #}
+
+        <div class="row g-4">
+            {# --- Columna Izquierda --- #}
+            <div class="col-md-6">
+                <h3 class="h5 mb-3 border-bottom pb-2">{% trans "Request Details" %}</h3>
+
+                {# --- CAMPO DE PRIORIDAD --- #}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <label class="form-label fw-bold mb-0 me-3">{{ form.priority.label }} <span class="text-danger">*</span></label>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Priority Selection">
+                            {% for value, text in form.priority.field.choices %}
+                                <input
+                                    class="btn-check"
+                                    type="radio"
+                                    name="{{ form.priority.html_name }}"
+                                    id="prio_dt_{{ forloop.counter0 }}" {# ID único #}
+                                    value="{{ value }}"
+                                    autocomplete="off"
+                                    {% with current_value=form.priority.value|default:form.priority.initial %}
+                                    {% if current_value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}
+                                    {% endwith %}
+                                    required>
+                                <label class="btn btn-sm
+                                    {% if value == 'low' %}btn-outline-secondary{% endif %}
+                                    {% if value == 'normal' %}btn-outline-primary{% endif %}
+                                    {% if value == 'high' %}btn-outline-danger{% endif %}"
+                                    for="prio_dt_{{ forloop.counter0 }}">
+                                    {{ text }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if form.priority.errors %}
+                        <div class="text-danger small mt-1">{{ form.priority.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                {# --- FIN CAMPO DE PRIORIDAD --- #}
+
+                <div class="mb-3"> <label for="{{ form.deactivation_toggle_type.id_for_label }}" class="form-label fw-bold">{{ form.deactivation_toggle_type.label }} <span class="text-danger">*</span></label> {{ form.deactivation_toggle_type }} {% if form.deactivation_toggle_type.errors %}<div class="invalid-feedback d-block">{{ form.deactivation_toggle_type.errors|striptags }}</div>{% endif %} </div>
+                <div class="mb-3"> <label for="{{ form.partner_name.id_for_label }}" class="form-label fw-bold">{{ form.partner_name.label }} <span class="text-danger">*</span></label> {{ form.partner_name }} {% if form.partner_name.errors %}<div class="invalid-feedback d-block">{{ form.partner_name.errors|striptags }}</div>{% endif %} </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.properties.id_for_label }}" class="form-label fw-bold">
+                        {{ form.properties.label }}
+                        <span class="text-danger" id="properties_required_asterisk_dt">*</span> {# El JS puede ocultarlo si es necesario #}
+                    </label>
+                    {{ form.properties }}
+                    {% if form.properties.help_text %}<small class="form-text text-muted">{{ form.properties.help_text }}</small>{% endif %}
+                    {% if form.properties.errors %}<div class="invalid-feedback d-block">{{ form.properties.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3 form-check">
+                    {{ form.deactivation_toggle_active_policies }}
+                    <label class="form-check-label" for="{{ form.deactivation_toggle_active_policies.id_for_label }}">{{ form.deactivation_toggle_active_policies.label }}</label>
+                    {% if form.deactivation_toggle_active_policies.errors %}<div class="invalid-feedback d-block">{{ form.deactivation_toggle_active_policies.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3" id="properties_with_policies_group_dt" style="display: none;">
+                    <label for="{{ form.deactivation_toggle_properties_with_policies.id_for_label }}" class="form-label fw-bold">{{ form.deactivation_toggle_properties_with_policies.label }} <span class="text-danger">*</span></label>
+                    {{ form.deactivation_toggle_properties_with_policies }}
+                    {% if form.deactivation_toggle_properties_with_policies.help_text %}<small class="form-text text-muted">{{ form.deactivation_toggle_properties_with_policies.help_text }}</small>{% endif %}
+                    {% if form.deactivation_toggle_properties_with_policies.errors %}<div class="invalid-feedback d-block">{{ form.deactivation_toggle_properties_with_policies.errors|striptags }}</div>{% endif %}
+                </div>
+
+            </div> {# Fin Columna Izquierda #}
+
+            {# --- Columna Derecha --- #}
+            <div class="col-md-6">
+                <h3 class="h5 mb-3 border-bottom pb-2">{% trans "Additional Information" %}</h3>
+                <div class="mb-3"> <label for="{{ form.deactivation_toggle_context.id_for_label }}" class="form-label fw-bold">{{ form.deactivation_toggle_context.label }}</label> {{ form.deactivation_toggle_context }} {% if form.deactivation_toggle_context.errors %}<div class="invalid-feedback d-block">{{ form.deactivation_toggle_context.errors|striptags }}</div>{% endif %} </div>
+
+                {# El campo deactivation_toggle_leadership_approval no se muestra aquí para el usuario creador general #}
+                {# Si se mostrara, iría aquí. #}
+
+                <div class="mb-3 form-check">
+                    {{ form.deactivation_toggle_marked_as_churned }}
+                    <label class="form-check-label" for="{{ form.deactivation_toggle_marked_as_churned.id_for_label }}">{{ form.deactivation_toggle_marked_as_churned.label }}</label>
+                    {% if form.deactivation_toggle_marked_as_churned.errors %}<div class="invalid-feedback d-block">{{ form.deactivation_toggle_marked_as_churned.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.special_instructions.id_for_label }}" class="form-label fw-bold">{{ form.special_instructions.label }}</label>
+                    {{ form.special_instructions }}
+                    {% if form.special_instructions.errors %}<div class="invalid-feedback d-block">{{ form.special_instructions.errors|striptags }}</div>{% endif %}
+                </div>
+
+                {# --- CAMPOS PARA PROGRAMACIÓN --- #}
+                <hr class="my-4">
+                <h3 class="h5 mb-3">Scheduling (Optional)</h3>
+                <div class="mb-3 form-check">
+                    {{ form.schedule_request }}
+                    <label class="form-check-label fw-bold" for="{{ form.schedule_request.id_for_label }}">
+                        {{ form.schedule_request.label }}
+                    </label>
+                    {% if form.schedule_request.errors %}
+                        <div class="text-danger small mt-1">{{ form.schedule_request.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3" id="scheduled_date_group_dt" style="display: none;"> {# ID único #}
+                    <label for="{{ form.scheduled_date.id_for_label }}" class="form-label fw-bold">
+                        {{ form.scheduled_date.label }}
+                        <span class="text-danger">*</span>
+                    </label>
+                    {{ form.scheduled_date }}
+                    {% if form.scheduled_date.help_text %}
+                        <small class="form-text text-muted">{{ form.scheduled_date.help_text }}</small>
+                    {% endif %}
+                    {% if form.scheduled_date.errors %}
+                        <div class="text-danger small mt-1">{{ form.scheduled_date.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                {# --- FIN CAMPOS PARA PROGRAMACIÓN --- #}
+
+            </div> {# Fin Columna Derecha #}
+        </div> {# Fin row #}
+
+        <hr class="my-4">
+        <div class="d-flex justify-content-end mb-4">
+            <a href="{% url 'tasks:choose_request_type' %}" class="btn btn-outline-secondary me-2">{% trans "Cancel" %}</a>
+            <button type="submit" class="btn btn-primary">{% trans "Submit Request" %}</button>
+        </div>
+    </form>
+
+</div>{# Fin container #}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const deactTypeSelect = document.getElementById("{{ form.deactivation_toggle_type.id_for_label }}");
+    const propertiesField = document.getElementById("{{ form.properties.id_for_label }}");
+    const propertiesAsterisk = document.getElementById("properties_required_asterisk_dt");
+
+    const activePoliciesCheckbox = document.getElementById("{{ form.deactivation_toggle_active_policies.id_for_label }}");
+    const propertiesWithPoliciesGroup = document.getElementById("properties_with_policies_group_dt");
+    const propertiesWithPoliciesField = document.getElementById("{{ form.deactivation_toggle_properties_with_policies.id_for_label }}");
+
+    const contextField = document.getElementById("{{ form.deactivation_toggle_context.id_for_label }}");
+    const churnCheckbox = document.getElementById("{{ form.deactivation_toggle_marked_as_churned.id_for_label }}");
+
+    const scheduleRequestCheckbox = document.getElementById("{{ form.schedule_request.id_for_label }}");
+    const scheduledDateGroup = document.getElementById("scheduled_date_group_dt");
+    const scheduledDateField = document.getElementById("{{ form.scheduled_date.id_for_label }}");
+
+    function toggleFieldsByType() {
+        const tipo = deactTypeSelect.value;
+
+        // --- PROPERTIES ---
+        const disableProps = ["partner_deactivation", "toggle_off_homepage_signups"];
+        if (disableProps.includes(tipo)) {
+            propertiesField.disabled = true;
+            propertiesField.required = false;
+            propertiesField.value = "";
+            if (propertiesAsterisk) propertiesAsterisk.style.display = "none";
+        } else {
+            propertiesField.disabled = false;
+            propertiesField.required = true;
+            if (propertiesAsterisk) propertiesAsterisk.style.display = "inline";
+        }
+
+        // --- ACTIVE POLICIES + CONTEXT ---
+        const disablePolicyContext = ["toggle_on_invites", "toggle_on_cash_deposits", "toggle_off_cash_deposits"];
+        if (disablePolicyContext.includes(tipo)) {
+            if (activePoliciesCheckbox) {
+                activePoliciesCheckbox.disabled = true;
+                activePoliciesCheckbox.checked = false;
+            }
+            if (contextField) {
+                contextField.disabled = true;
+                contextField.value = "";
+            }
+        } else {
+            if (activePoliciesCheckbox) activePoliciesCheckbox.disabled = false;
+            if (contextField) contextField.disabled = false;
+        }
+
+        // --- MARKED AS CHURNED ---
+        if (churnCheckbox) {
+            if (tipo === "partner_deactivation") {
+                churnCheckbox.disabled = false;
+            } else {
+                churnCheckbox.disabled = true;
+                churnCheckbox.checked = false;
+            }
+        }
+
+        // --- Trigger visibility of dependent field ---
+        togglePropertiesWithPoliciesVisibility();  // Important: recalculate visibility
+    }
+
+    function togglePropertiesWithPoliciesVisibility() {
+        if (activePoliciesCheckbox && propertiesWithPoliciesGroup && propertiesWithPoliciesField) {
+            if (activePoliciesCheckbox.checked && !activePoliciesCheckbox.disabled) {
+                propertiesWithPoliciesGroup.style.display = 'block';
+                propertiesWithPoliciesField.required = true;
+            } else {
+                propertiesWithPoliciesGroup.style.display = 'none';
+                propertiesWithPoliciesField.required = false;
+                propertiesWithPoliciesField.value = '';
+            }
+        }
+    }
+
+    function toggleScheduledDateVisibility() {
+        if (scheduleRequestCheckbox && scheduledDateGroup && scheduledDateField) {
+            if (scheduleRequestCheckbox.checked) {
+                scheduledDateGroup.style.display = 'block';
+                scheduledDateField.required = true;
+                const asterisk = scheduledDateGroup.querySelector('label span.text-danger');
+                if (asterisk) asterisk.style.display = 'inline';
+            } else {
+                scheduledDateGroup.style.display = 'none';
+                scheduledDateField.required = false;
+                scheduledDateField.value = '';
+            }
+        }
+    }
+
+    // --- Asignar listeners ---
+    if (deactTypeSelect) deactTypeSelect.addEventListener('change', toggleFieldsByType);
+    if (activePoliciesCheckbox) activePoliciesCheckbox.addEventListener('change', togglePropertiesWithPoliciesVisibility);
+    if (scheduleRequestCheckbox) scheduleRequestCheckbox.addEventListener('change', toggleScheduledDateVisibility);
+
+    // --- Llamada inicial ---
+    toggleFieldsByType();
+    toggleScheduledDateVisibility();
+});
+</script>
+<style>
+    select, textarea, input[type="text"], input[type="email"], input[type="url"], input[type="file"], input[type="number"], input[type="date"] { display: block; width: 100%; box-sizing: border-box; padding: 0.375rem 0.75rem; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--bs-body-color); background-color: var(--bs-body-bg); background-clip: padding-box; border: var(--bs-border-width) solid var(--bs-border-color); -webkit-appearance: none; -moz-appearance: none; appearance: none; border-radius: var(--bs-border-radius); transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+    input[type="file"]:not(:disabled):not([readonly]) { cursor: pointer; }
+    textarea { min-height: 75px; }
+</style>
+{% endblock extra_js %}

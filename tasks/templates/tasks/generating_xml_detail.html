@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+{% load tz %}
+{% load static %}
+{% load i18n %}
+{% load duration_filters %}
+
+{% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+    dl dt { font-weight: bold; }
+    .pre-wrap { white-space: pre-wrap; word-wrap: break-word; }
+    .url-break { word-break: break-all; }
+    .invalid-feedback { width: 100%; margin-top: .25rem; font-size: .875em; color: var(--bs-danger-text-emphasis); }
+    .invalid-feedback.d-none { display: none; }
+    .invalid-feedback:not(.d-none) { display: block; }
+    .gxml-file-fields { display: none; } /* Ocultar campos de archivo por defecto para QA */
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container mt-4">
+
+    {# --- Cabecera con ID y Estado --- #}
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h1 class="h3">{% trans "Request Details" %}</h1>
+        <div>
+            <span class="me-2 text-muted">ID: {{ user_request.unique_code }}</span>
+            <span class="badge fs-6 rounded-pill
+                {% if user_request.status == 'pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'qa_pending' %}text-bg-primary{% endif %}
+                {% if user_request.status == 'qa_in_progress' %}text-bg-warning{% endif %}
+                {% if user_request.status == 'blocked' %}text-bg-dark{% endif %}
+                {% if user_request.status == 'completed' %}text-bg-success{% endif %}
+                {% if user_request.status == 'cancelled' %}text-bg-secondary{% endif %}
+            ">{{ user_request.get_status_display }}</span>
+        </div>
+    </div>
+
+    {# --- Alertas --- #}
+    {% if user_request.update_needed_flag and user_request.status not in "scheduled completed cancelled" %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+          <i class="bi bi-info-circle-fill me-2"></i>
+          <div>
+            <strong>{% trans "Provide Progress Update:" %}</strong> {% trans "An update has been requested for this task." %}
+            {% comment %} Mostrar quién y cuándo si la información está disponible {% endcomment %}
+            {% if user_request.update_requested_by %}
+                <br><small class="text-muted">
+                    ({% trans "Requested by" %} {{ user_request.update_requested_by.get_full_name|default:user_request.update_requested_by.email|default:user_request.update_requested_by.username }}
+                    {% if user_request.update_requested_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.update_requested_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            {% endif %}
+          </div>
+        </div>
+    {% endif %}
+    {% if user_request.status == 'blocked' %}
+        <div class="alert alert-danger d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-sign-stop-fill me-2"></i>
+            <div>
+                <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
+                {% with last_block=blocked_history.first %}
+                    {% if last_block %}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.cancelled and user_request.cancelled_by %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {# Ícono de advertencia o cancelación #}
+            <div>
+                <strong>{% trans "Request Cancelled:" %}</strong> {% trans "This request is currently cancelled." %}
+                <br><small class="text-muted">
+                    ({% trans "Cancelled by" %} {{ user_request.cancelled_by.get_full_name|default:user_request.cancelled_by.email|default:user_request.cancelled_by.username }}
+                    {% if user_request.cancelled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not user_request.cancelled and user_request.status == 'pending' and user_request.uncanceled_by %}
+        <div class="alert alert-info d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i> {# Ícono de información #}
+            <div>
+                <strong>{% trans "Request Un-cancelled:" %}</strong> {% trans "This request was un-cancelled and is awaiting processing." %}
+                <br><small class="text-muted">
+                    ({% trans "Un-cancelled by" %} {{ user_request.uncanceled_by.get_full_name|default:user_request.uncanceled_by.email|default:user_request.uncanceled_by.username }}
+                    {% if user_request.uncanceled_at %}
+                        {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ user_request.uncanceled_at|date:"Y-m-d H:i" }}{% endtimezone %}
+                    {% endif %})
+                </small>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_request.is_rejected_previously and user_request.status in "in_progress pending" %}
+        <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                <strong>{% trans "Action Required:" %}</strong> {% trans "This request was previously rejected by QA and requires corrections. Please review the rejection notes and re-upload files if necessary via the 'Send to QA' action." %}
+                 {% with last_rejection=rejected_history.first %}
+                    {% if last_rejection %}
+                        <br><small class="text-muted">{% trans "Last Rejection Reason:" %} {{ last_rejection.reason|truncatewords:20 }}
+                        ({% trans "Rejected by" %} {{ last_rejection.rejected_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_rejection.rejected_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        {# --- Columna Izquierda: Request Information --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header"> {% trans "Request Information" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Priority:" %}</dt> <dd class="col-sm-7"> <span class="badge rounded-pill text-bg-primary"> {{ user_request.get_priority_display|default:"Normal" }} </span> </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Type:" %}</dt> <dd class="col-sm-7">{{ user_request.get_type_of_process_display }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Assigned Team:" %}</dt> <dd class="col-sm-7">{{ user_request.get_team_display|default:"Unassigned" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested By:" %}</dt> <dd class="col-sm-7">{{ user_request.requested_by.email|default:"N/A" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Requested At:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% timezone request.user.timezone|default:"UTC" %}
+                                    {{ user_request.timestamp|date:"Y-m-d H:i:s" }}
+                                {% endtimezone %}
+                                ({{ request.user.timezone|default:"UTC" }})
+                            </dd>
+                        </div>
+                        {% if user_request.effective_start_time_for_tat %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">TAT Started At:</dt>
+                            <dd class="col-sm-7">
+                                {% timezone request.user.timezone|default:"UTC" %}
+                                    {{ user_request.effective_start_time_for_tat|date:"Y-m-d H:i:s" }}
+                                {% endtimezone %}
+                                ({{ request.user.timezone|default:"UTC" }})
+                            </dd>
+                        </div>
+                        {% endif %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator:" %}</dt> <dd class="col-sm-7">{{ user_request.operator.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operated At:" %}</dt> <dd class="col-sm-7"> {% if user_request.operated_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.operated_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Agent:" %}</dt> <dd class="col-sm-7">{{ user_request.qa_agent.email|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Sent to QA At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_pending_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_pending_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "QA Started At:" %}</dt> <dd class="col-sm-7"> {% if user_request.qa_in_progress_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.qa_in_progress_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Completed At:" %}</dt> <dd class="col-sm-7"> {% if user_request.completed_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.completed_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancelled At:" %}</dt> <dd class="col-sm-7"> {% if user_request.cancelled_at %}{% timezone request.user.timezone|default:"UTC" %}{{ user_request.cancelled_at|date:"Y-m-d H:i:s" }}{% endtimezone %} ({{ request.user.timezone|default:"UTC" }}){% else %}-{% endif %} </dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Turn Around Time:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% with tat_value=user_request.calculated_turn_around_time %}
+                                    {% if tat_value is not None %}
+                                        {{ tat_value|format_timedelta }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                {% endwith %}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        {# --- Columna Derecha: Submission Details & Operation Details --- #}
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                 <div class="card-header"> {% trans "Submission Details (Generating XML)" %} </div>
+                <div class="card-body">
+                    <dl>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "State:" %}</dt><dd class="col-sm-7">{{ user_request.get_xml_state_display|default:"-" }}</dd> </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Carriers Selected:" %}</dt>
+                            <dd class="col-sm-7">
+                                {% if user_request.xml_carrier_rvic %}RVIC{% endif %}{% if user_request.xml_carrier_rvic and user_request.xml_carrier_ssic %}, {% endif %}{% if user_request.xml_carrier_ssic %}SSIC{% endif %}{% if not user_request.xml_carrier_rvic and not user_request.xml_carrier_ssic %}-{% endif %}
+                            </dd>
+                        </div>
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Submitted Spreadsheet:" %}</dt> <dd class="col-sm-7"> {% if user_request.user_file %} <a href="{{ user_request.user_file.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.user_file.name|cut:"user_uploads/" }}</a> {% else %} - {% endif %} </dd> </div>
+                        {% if user_request.xml_rvic_zip_file %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Submitted RVIC ZIP File:" %}</dt> <dd class="col-sm-7"> <a href="{{ user_request.xml_rvic_zip_file.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.xml_rvic_zip_file.name|cut:"xml_zip_files/" }}</a> </dd> </div>
+                        {% endif %}
+                        {% if user_request.xml_ssic_zip_file %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Submitted SSIC ZIP File:" %}</dt> <dd class="col-sm-7"> <a href="{{ user_request.xml_ssic_zip_file.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.xml_ssic_zip_file.name|cut:"xml_zip_files/" }}</a> </dd> </div>
+                        {% endif %}
+                        <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Special Instructions:" %}</dt><dd class="col-sm-7 pre-wrap">{{ user_request.special_instructions|default:"-" }}</dd> </div>
+                        {% if user_request.cancel_reason %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Cancel Reason:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.cancel_reason|linebreaksbr }}</dd> </div> {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            {# --- Operation Details Card (Modificada para Generating XML) --- #}
+            {% if user_request.operating_notes or user_request.operator_rvic_file_slot1 or user_request.operator_rvic_file_slot2 or user_request.operator_ssic_file_slot1 or user_request.operator_ssic_file_slot2 %}
+                 <div class="card shadow-sm mb-4">
+                     <div class="card-header"> {% trans "Operation Details" %} </div>
+                     <div class="card-body">
+                         <dl>
+                            {% if user_request.operator_rvic_file_slot1 %}
+                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 1:" %}</dt>
+                                <dd class="col-sm-7"><a href="{{ user_request.operator_rvic_file_slot1.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_rvic_file_slot1.name|cut:"operator_gxml_files/" }}</a></dd>
+                            </div> {% endif %}
+                            {% if user_request.operator_rvic_file_slot2 %}
+                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 2 (UT ZIP):" %}</dt>
+                                <dd class="col-sm-7"><a href="{{ user_request.operator_rvic_file_slot2.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_rvic_file_slot2.name|cut:"operator_gxml_files/" }}</a></dd>
+                            </div> {% endif %}
+                            {% if user_request.operator_ssic_file_slot1 %}
+                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 1:" %}</dt>
+                                <dd class="col-sm-7"><a href="{{ user_request.operator_ssic_file_slot1.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_ssic_file_slot1.name|cut:"operator_gxml_files/" }}</a></dd>
+                            </div> {% endif %}
+                            {% if user_request.operator_ssic_file_slot2 %}
+                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 2 (UT ZIP):" %}</dt>
+                                <dd class="col-sm-7"><a href="{{ user_request.operator_ssic_file_slot2.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_ssic_file_slot2.name|cut:"operator_gxml_files/" }}</a></dd>
+                            </div> {% endif %}
+                            {% if user_request.operating_notes %}
+                            <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
+                                <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
+                            </div> {% endif %}
+                         </dl>
+                     </div>
+                 </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Historial de Acciones --- #}
+    <div class="row g-4 mt-2">
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank" rel="noopener noreferrer">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank" rel="noopener noreferrer">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
+    </div>
+
+    {# --- Botones de Acción --- #}
+    <div class="mt-4 pt-3 border-top">
+        <h4 class="h5 mb-3">{% trans "Actions" %}</h4>
+        <form method="post" style="display: inline-block; margin-right: 5px;"> {% csrf_token %}
+             {% if is_agent_user %}
+                {# Botón Operate: solo para 'pending' #}
+                {% if user_request.status == 'pending' %}
+                    <button type="submit" formaction="{% url 'tasks:operate_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-play-fill me-1"></i>{% trans "Operate" %}</button>
+                {% endif %}
+                {# Botón Block: para 'pending' O 'in_progress' (para cualquier agente) #}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' %}
+                    <a href="#blockFormModal_gx" data-bs-toggle="modal" class="btn btn-warning btn-sm me-1 mb-1"><i class="bi bi-lock-fill me-1"></i>{% trans "Block" %}</a>
+                {% endif %}
+                {# Botón Send to QA: solo para 'in_progress' y si el usuario actual es el operador #}
+                {% if user_request.status == 'in_progress' and user_request.operator == request.user %}
+                    <a href="#operateFormModal_gx" data-bs-toggle="modal" class="btn btn-info btn-sm me-1 mb-1"><i class="bi bi-send-check me-1"></i>{% trans "Send to QA" %}</a>
+                {% endif %}
+                {# Botón Start QA: solo para 'qa_pending' #}
+                {% if user_request.status == 'qa_pending' %}
+                    <button type="submit" formaction="{% url 'tasks:qa_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-search me-1"></i>{% trans "Start QA" %} </button>
+                {% endif %}
+                {# Botón Complete: solo para 'qa_in_progress' y si el usuario actual es el qa_agent #}
+                {% if user_request.status == 'qa_in_progress' and user_request.qa_agent == request.user %}
+                    <a href="#completeFormModal_gx" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i>{% trans "Complete" %}</a>
+                {% endif %}
+                {# Botón Update Provided #}
+                {% if can_clear_update_flag_action %}
+                    {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                        <button type="submit" formaction="{% url 'tasks:clear_update_flag' user_request.id %}" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Mark the requested update as provided" %}'><i class="bi bi-check2-circle me-1"></i>{% trans "Update Provided" %}</button>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+            {% if user_request.status == 'blocked' %} <a href="#resolveFormModal_gx" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-unlock-fill me-1"></i>{% trans "Resolve" %}</a> {% endif %}
+            {% if can_reject_request %} <a href="#rejectFormModal_gx" data-bs-toggle="modal" class="btn btn-danger btn-sm me-1 mb-1"><i class="bi bi-x-octagon-fill me-1"></i>{% trans "Reject" %}</a> {% endif %}
+            {% if can_request_update_action %}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
+                    <button type="submit" formaction="{% url 'tasks:set_update_flag' user_request.id %}" class="btn btn-outline-info btn-sm me-1 mb-1" title="Notify the agent you are looking for an update on this task"><i class="bi bi-bell me-1"></i>Request Update</button>
+                {% endif %}
+            {% endif %}
+            {% if can_cancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:cancel_request' user_request.id %}" class="btn btn-secondary btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to cancel this request?" %}');"><i class="bi bi-stop-circle-fill me-1"></i>{% trans "Cancel Request" %}</button>
+            {% endif %}
+            {% if can_uncancel_request %}
+                 <button type="submit" formaction="{% url 'tasks:uncancel_request' user_request.id %}" class="btn btn-outline-warning btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to uncancel this request and return it to Pending?" %}');"><i class="bi bi-arrow-counterclockwise me-1"></i>{% trans "Uncancel" %}</button>
+            {% endif %}
+        </form>
+        <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">{% trans "Back to Dashboard" %}</a>
+    </div>
+
+</div>{# Cierre del <div class="container mt-4"> #}
+
+{# --- Modales con IDs sufijados con _gx --- #}
+<div class="modal fade" id="blockFormModal_gx" tabindex="-1" aria-labelledby="blockFormModalLabel_gx" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_gx">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_gx" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_gx" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="resolveFormModal_gx" tabindex="-1" aria-labelledby="resolveFormModalLabel_gx" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_gx">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_gx" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_gx" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_gx" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_gx"> </div> <div class="mb-3"> <label for="id_resolved_link_gx" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_gx" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="rejectFormModal_gx" tabindex="-1" aria-labelledby="rejectFormModalLabel_gx" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_gx">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_gx" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_gx" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
+
+{# ***** MODAL OPERATE MODIFICADO para Generating XML ***** #}
+<div class="modal fade" id="operateFormModal_gx" tabindex="-1" aria-labelledby="operateFormModalLabel_gx" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            {# IMPORTANTE: enctype para subida de archivos #}
+            <form id="operate-form-gx" method="post" action="{% url 'tasks:send_to_qa_request' user_request.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="operateFormModalLabel_gx">{% trans "Enter Operation Details (Send to QA)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    {% if form_for_modal %} {# form_for_modal es pasado desde la vista request_detail #}
+                        {# Mostrar operating_notes primero y opcional #}
+                        {% if form_for_modal.operating_notes %}
+                            <div class="mb-3">
+                                <label for="{{ form_for_modal.operating_notes.id_for_label }}" class="form-label small">
+                                    {{ form_for_modal.operating_notes.label }}
+                                    {# Ya no es obligatorio, quitamos el * #}
+                                </label>
+                                {{ form_for_modal.operating_notes }}
+                                {% if form_for_modal.operating_notes.help_text %}
+                                    <small class="form-text text-muted">{{ form_for_modal.operating_notes.help_text }}</small>
+                                {% endif %}
+                                {% if form_for_modal.operating_notes.errors %}
+                                    <div class="invalid-feedback d-block">{{ form_for_modal.operating_notes.errors|striptags }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        {# Condición para mostrar el checkbox "Correct/Modify Files" #}
+                        {# Visible para el operador SI el request fue rechazado previamente por QA #}
+                        {% if user_request.is_rejected_previously %}
+                            {% if form_for_modal.qa_needs_file_correction %}
+                            <div class="mb-3 form-check">
+                                {{ form_for_modal.qa_needs_file_correction }}
+                                <label for="{{ form_for_modal.qa_needs_file_correction.id_for_label }}" class="form-check-label small">{{ form_for_modal.qa_needs_file_correction.label }}</label>
+                                {% if form_for_modal.qa_needs_file_correction.errors %}<div class="invalid-feedback d-block">{{ form_for_modal.qa_needs_file_correction.errors|striptags }}</div>{% endif %}
+                            </div>
+                            {% endif %}
+                        {% endif %}
+
+                        {# Contenedor para los campos de archivo, se mostrará/ocultará con JS si es el flujo de QA/Rechazo #}
+                        <div class="gxml-file-fields-operator"
+                             {% if user_request.is_rejected_previously %}style="display:none;"{% endif %}> {# Oculto por defecto si fue rechazado, JS lo maneja #}
+                            <p class="text-muted small">{% trans "Upload the required files based on the request's State and selected Carriers." %}</p>
+                            {% for field in form_for_modal %}
+                                {% if field.name != 'operating_notes' and field.name != 'qa_needs_file_correction' %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label small">
+                                        {{ field.label }}
+                                        {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                    </label>
+                                    {{ field }} {# Esto renderizará el widget FileInput #}
+                                    {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                                    {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-danger">{% trans "Form could not be loaded. Please contact support." %}</p>
+                        <div class="mb-3">
+                            <label for="id_operating_notes_op_gx_fallback" class="form-label small">{% trans "Operator Notes" %}</label>
+                            <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_gx_fallback" rows="3">{{ user_request.operating_notes|default:"" }}</textarea>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-info">{% trans "Send to QA" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ***** MODAL COMPLETE MODIFICADO para Generating XML ***** #}
+<div class="modal fade" id="completeFormModal_gx" tabindex="-1" aria-labelledby="completeFormModalLabel_gx" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="complete-form-gx" method="post" action="{% url 'tasks:complete_request' user_request.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="completeFormModalLabel_gx">{% trans "Confirm Operation Details (Complete Request)" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    {% if form_for_modal %}
+                        {# Mostrar operating_notes primero y opcional #}
+                        {% if form_for_modal.operating_notes %}
+                            <div class="mb-3">
+                                <label for="{{ form_for_modal.operating_notes.id_for_label }}" class="form-label small">
+                                    {{ form_for_modal.operating_notes.label }}
+                                </label>
+                                {{ form_for_modal.operating_notes }}
+                                {% if form_for_modal.operating_notes.help_text %}
+                                    <small class="form-text text-muted">{{ form_for_modal.operating_notes.help_text }}</small>
+                                {% endif %}
+                                {% if form_for_modal.operating_notes.errors %}
+                                    <div class="invalid-feedback d-block">{{ form_for_modal.operating_notes.errors|striptags }}</div>{% endif %}
+                            </div>
+                        {% endif %}
+
+                        {# Checkbox para corrección de archivos por QA #}
+                        {% if form_for_modal.qa_needs_file_correction %}
+                        <div class="mb-3 form-check">
+                            {{ form_for_modal.qa_needs_file_correction }}
+                            <label for="{{ form_for_modal.qa_needs_file_correction.id_for_label }}" class="form-check-label small">{{ form_for_modal.qa_needs_file_correction.label }}</label>
+                            {% if form_for_modal.qa_needs_file_correction.errors %}<div class="invalid-feedback d-block">{{ form_for_modal.qa_needs_file_correction.errors|striptags }}</div>{% endif %}
+                        </div>
+                        {% endif %}
+
+                        {# Contenedor para los campos de archivo, se mostrará/ocultará con JS #}
+                        <div class="gxml-file-fields-qa" style="display:none;"> {# Oculto por defecto, JS lo maneja #}
+                             <p class="text-muted small">{% trans "If corrections were needed, please upload the new files below. These will replace any previous operator uploads." %}</p>
+                            {% for field in form_for_modal %}
+                                {% if field.name != 'operating_notes' and field.name != 'qa_needs_file_correction' %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label small">
+                                        {{ field.label }}
+                                        {% if field.field.required %}<span class="text-danger">*</span>{% endif %} {# El * se basa en la config del form para el operador #}
+                                    </label>
+                                    {{ field }}
+                                    {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                                    {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-danger">{% trans "Form could not be loaded. Please contact support." %}</p>
+                        <div class="mb-3">
+                            <label for="id_operating_notes_comp_gx_fallback" class="form-label small">{% trans "Operator/QA Notes" %}</label>
+                            <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_gx_fallback" rows="3">{{ user_request.operating_notes|default:"" }}</textarea>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %} {# Cierre del bloque de contenido principal #}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lógica para el modal de OPERACIÓN (Send to QA)
+    const operateModalElement = document.getElementById('operateFormModal_gx');
+    if (operateModalElement) {
+        const operateForm = operateModalElement.querySelector('form');
+        const qaCorrectionCheckboxOp = operateForm.querySelector('[name="qa_needs_file_correction"]'); // Podría no existir si no es rechazo
+        const fileFieldsContainerOp = operateForm.querySelector('.gxml-file-fields-operator');
+        const submitButtonOp = operateForm.querySelector('button[type="submit"]');
+
+        function toggleOperatorFileFields() {
+            if (!fileFieldsContainerOp) return;
+            const isRejected = {{ user_request.is_rejected_previously|yesno:"true,false" }};
+            if (isRejected) { // Si fue rechazado, el operador decide si corrige archivos
+                fileFieldsContainerOp.style.display = qaCorrectionCheckboxOp && qaCorrectionCheckboxOp.checked ? 'block' : 'none';
+            } else { // Si es la primera vez del operador, los campos de archivo siempre son visibles
+                fileFieldsContainerOp.style.display = 'block';
+                 if(qaCorrectionCheckboxOp) qaCorrectionCheckboxOp.closest('.form-check').style.display = 'none'; // Ocultar checkbox al operador si no es rechazo
+            }
+        }
+
+        if (qaCorrectionCheckboxOp) {
+            qaCorrectionCheckboxOp.addEventListener('change', toggleOperatorFileFields);
+        }
+        toggleOperatorFileFields(); // Llamada inicial
+
+        if(operateForm && submitButtonOp){
+            operateForm.addEventListener('submit', function(event){
+                // La validación de 'operating_notes' (ahora opcional) y de los FileFields (obligatorios)
+                // se hará en el backend por GeneratingXmlOperateForm.
+                // Aquí solo deshabilitamos el botón.
+                submitButtonOp.disabled = true;
+                submitButtonOp.textContent = '{% trans "Processing..." %}';
+            });
+        }
+    }
+
+    // Lógica para el modal de COMPLETADO (QA)
+    const completeModalElement = document.getElementById('completeFormModal_gx');
+    if (completeModalElement) {
+        const completeForm = completeModalElement.querySelector('form');
+        const qaCorrectionCheckboxQa = completeForm.querySelector('[name="qa_needs_file_correction"]');
+        const fileFieldsContainerQa = completeForm.querySelector('.gxml-file-fields-qa');
+        const submitButtonQa = completeForm.querySelector('button[type="submit"]');
+
+        function toggleQaFileFields() {
+            if (qaCorrectionCheckboxQa && fileFieldsContainerQa) {
+                fileFieldsContainerQa.style.display = qaCorrectionCheckboxQa.checked ? 'block' : 'none';
+            } else if (fileFieldsContainerQa) { // Si no hay checkbox, pero sí contenedor, debería estar oculto (o visible si es el flujo normal)
+                 // Esta lógica asume que si no hay checkbox, es porque no es un flujo de corrección.
+                 // Para QA, si no hay checkbox, no deberían mostrarse los campos de archivo (solo notas).
+                 // Pero el form los tendrá, así que el bucle los mostrará.
+                 // El checkbox es CLAVE para el flujo de QA.
+                 // Si 'form_for_modal.qa_needs_file_correction' no existe, fileFieldsContainerQa no se muestra.
+                 // La plantilla ya maneja esto.
+            }
+        }
+
+        if (qaCorrectionCheckboxQa) {
+            qaCorrectionCheckboxQa.addEventListener('change', toggleQaFileFields);
+            toggleQaFileFields(); // Llamada inicial para ocultar si no está marcado
+        } else {
+            // Si no hay checkbox de corrección (ej. si se decide quitarlo del form para QA),
+            // y se quiere que los campos de archivo siempre estén visibles para QA,
+            // se quitaría el style="display:none;" inicial del div.
+            // Pero con el checkbox, el JS de arriba lo maneja.
+        }
+
+        if(completeForm && submitButtonQa){
+            completeForm.addEventListener('submit', function(event){
+                submitButtonQa.disabled = true;
+                submitButtonQa.textContent = '{% trans "Processing..." %}';
+            });
+        }
+    }
+});
+</script>
+{% endblock extra_js %}
