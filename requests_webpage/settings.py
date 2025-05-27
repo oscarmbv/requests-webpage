@@ -14,8 +14,6 @@ env = environ.Env(
 ENV_PATH = os.path.join(BASE_DIR, '.env')
 if os.path.exists(ENV_PATH):
     environ.Env.read_env(ENV_PATH)
-else:
-    pass
 
 
 # Quick-start development settings - unsuitable for production
@@ -27,7 +25,8 @@ SECRET_KEY = env('DJANGO_SECRET_KEY', default='una_key_por_defecto_muy_segura_si
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DJANGO_DEBUG')
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.onrender.com']
+ALLOWED_HOSTS_STRING = env('DJANGO_ALLOWED_HOSTS', default='127.0.0.1,localhost')
+ALLOWED_HOSTS = ALLOWED_HOSTS_STRING.split(',') + ['.herokuapp.com']
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/portal/dashboard/'
@@ -39,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'whitenoise.runserver_nostatic'
     'django.contrib.staticfiles',
     'tasks',
     'django_q',
@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -62,10 +63,11 @@ ROOT_URLCONF = 'requests_webpage.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -83,9 +85,13 @@ WSGI_APPLICATION = 'requests_webpage.wsgi.application'
 DATABASES = {
     'default': dj_database_url.config(
         conn_max_age=600,
-        default=f'sqlite:///{os.path.join(BASE_DIR, "db.sqlite3")}'
+        ssl_require=env('DJANGO_DB_SSL_REQUIRE', cast=bool, default=False), # SSL para DB en Heroku
+        default=f'sqlite:///{os.path.join(BASE_DIR, "db.sqlite3")}' # [cite: 13]
     )
 }
+
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 # Seguridad extra para producción
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -95,18 +101,10 @@ CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
 ]
 
 
@@ -114,11 +112,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 
@@ -128,8 +123,6 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -154,14 +147,14 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
-        'qcluster': { # Formato específico para qcluster si quieres diferenciarlo
+        'qcluster': {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         }
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG', # Nivel mínimo para el handler de consola
+            'level': 'INFO', # Nivel mínimo para el handler de consola
             'class': 'logging.StreamHandler', # Envía a stderr (consola)
             'formatter': 'verbose', # Usa el formato 'verbose'
         },
@@ -184,40 +177,29 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'tasks': { # Logger para tu aplicación 'tasks' completa
-            'handlers': ['console'], # , 'file_tasks' si habilitas el handler de archivo
-            'level': 'DEBUG',     # <--- MUESTRA DEBUG, INFO, WARNING, ERROR, CRITICAL de tu app
-            'propagate': False,   # No propagar a loggers padres si ya lo manejaste aquí
+        'tasks': {
+            'handlers': ['console'],
+            'level': env('DJANGO_LOG_LEVEL_TASKS', default='INFO'),
+            'propagate': False,
         },
         'django_q': { # Logger específico para Django-Q
             'handlers': ['console'],
             'level': 'INFO', # Coincide con tu Q_CLUSTER['log_level']
             'propagate': False,
         },
-        # Puedes añadir loggers más específicos si es necesario:
-        # 'tasks.salesforce_sync': {
-        #     'handlers': ['console'],
-        #     'level': 'DEBUG',
-        #     'propagate': False,
-        # },
     },
-    # Opcional: Configurar el logger raíz como un "catch-all"
-    # 'root': {
-    #     'handlers': ['console'],
-    #     'level': 'WARNING', # No ser demasiado verboso con el raíz por defecto
-    # },
 }
 
 Q_CLUSTER = {
-    'name': 'RequestWebpageScheduler_Q2',
-    'workers': 2,
+    'name': 'RequestWebpageScheduler_Heroku',
+    'workers': env.int('DJANGO_Q_WORKERS', default=2),
     'timeout': 180,
     'retry': 200,
     'queue_limit': 50,
     'bulk': 10,
     'orm': 'default',
     'catch_up': False,
-    'log_level': 'INFO',
+    'log_level': env('DJANGO_Q_LOG_LEVEL', default='INFO'),
 }
 
 # --- Credenciales y Configuraciones de Salesforce ---
@@ -228,6 +210,19 @@ SF_CONSUMER_KEY = env('SF_CONSUMER_KEY', default=None)
 SF_CONSUMER_SECRET = env('SF_CONSUMER_SECRET', default=None)
 SF_DOMAIN = env('SF_DOMAIN', default='login')
 SF_VERSION = env('SF_VERSION')
-
 SF_INSTANCE_NAME = env('SF_INSTANCE_NAME', default='sayrhino')
 SALESFORCE_LIGHTNING_BASE_URL = f"https://{SF_INSTANCE_NAME}.lightning.force.com/lightning/r"
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = env.bool('DJANGO_SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = env.bool('DJANGO_SESSION_COOKIE_SECURE', default=True)
+    CSRF_COOKIE_SECURE = env.bool('DJANGO_CSRF_COOKIE_SECURE', default=True)
+    SECURE_HSTS_SECONDS = env.int('DJANGO_SECURE_HSTS_SECONDS', default=31536000) # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True)
+    SECURE_HSTS_PRELOAD = env.bool('DJANGO_SECURE_HSTS_PRELOAD', default=True)
+    # Configura CSRF_TRUSTED_ORIGINS con tu dominio de Heroku en las variables de entorno
+    # DJANGO_CSRF_TRUSTED_ORIGINS=https://tu-app.herokuapp.com,https://www.tudominio.com
+    CSRF_TRUSTED_ORIGINS_STRING = env('DJANGO_CSRF_TRUSTED_ORIGINS', default='')
+    if CSRF_TRUSTED_ORIGINS_STRING:
+        CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS_STRING.split(',')
