@@ -346,10 +346,15 @@ class AddressValidationFileAdmin(admin.ModelAdmin):
 class OperationPriceAdmin(admin.ModelAdmin):
     list_display = ('id', '__str__')
     fieldsets = (
-        ('Client Prices', {'fields': ('user_update_price', 'property_update_price', 'bulk_update_price', 'manual_update_price', 'csv_update_price', 'processing_report_price')}),
-        ('Operate Costs', {'fields': ('user_update_operate_cost', 'property_update_operate_cost', 'bulk_update_operate_cost', 'manual_update_operate_cost', 'csv_update_operate_cost', 'processing_report_operate_cost')}),
-        ('QA Costs', {'fields': ('user_update_qa_cost', 'property_update_qa_cost', 'bulk_update_qa_cost', 'manual_update_qa_cost', 'csv_update_qa_cost', 'processing_report_qa_cost')}),
+        ('Client Prices', {'fields': ('user_update_price', 'property_update_price', 'bulk_update_price', 'manual_property_update_price', 'csv_update_price', 'processing_report_price', 'manual_unit_update_price', 'address_validation_unit_price', 'stripe_dispute_price', 'xml_file_price')}),
+        ('Operate Costs', {'fields': ('user_update_operate_cost', 'property_update_operate_cost', 'bulk_update_operate_cost', 'manual_property_update_operate_cost', 'csv_update_operate_cost', 'processing_report_operate_cost', 'manual_unit_update_operate_cost', 'address_validation_unit_operate_cost', 'stripe_dispute_operate_cost', 'xml_file_operate_cost')}),
+        ('QA Costs', {'fields': ('user_update_qa_cost', 'property_update_qa_cost', 'bulk_update_qa_cost', 'manual_property_update_qa_cost', 'csv_update_qa_cost', 'processing_report_qa_cost', 'manual_unit_update_qa_cost', 'address_validation_unit_qa_cost', 'stripe_dispute_qa_cost', 'xml_file_qa_cost')}),
     )
+
+    @admin.display(description=_('Configuration Item'))
+    def admin_display_name(self, obj):
+        return str(obj)
+
     def has_add_permission(self, request): return not OperationPrice.objects.exists()
     def has_delete_permission(self, request, obj=None): return False
 

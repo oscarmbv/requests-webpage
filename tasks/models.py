@@ -380,28 +380,40 @@ class OperationPrice(models.Model):
     Se asume que solo existirá una instancia (pk=1).
     """
     # Precios Cliente
-    user_update_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    property_update_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    bulk_update_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    manual_update_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    csv_update_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    processing_report_price = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
+    user_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Price")
+    property_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Property Update Price")
+    bulk_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update Price")
+    manual_property_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update Price")
+    csv_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row Price")
+    processing_report_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row Price")
+    manual_unit_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update Price")
+    address_validation_unit_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit Price")
+    stripe_dispute_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute Price")
+    xml_file_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File Price")
 
     # Costos Operación
-    user_update_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    property_update_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    bulk_update_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    manual_update_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    csv_update_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    processing_report_operate_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
+    user_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Operate Cost")
+    property_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Operate Cost")
+    bulk_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update Operate Cost")
+    manual_property_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update Operate Cost")
+    csv_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row Operate Cost")
+    processing_report_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row Operate Cost")
+    manual_unit_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update Operate Cost")
+    address_validation_unit_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit Operate Cost")
+    stripe_dispute_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute Operate Cost")
+    xml_file_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File Operate Cost")
 
     # Costos QA
-    user_update_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    property_update_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    bulk_update_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    manual_update_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    csv_update_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
-    processing_report_qa_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
+    user_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update QA Cost")
+    property_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Property Update QA Cost")
+    bulk_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update QA Cost")
+    manual_property_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update QA Cost")
+    csv_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row QA Cost")
+    processing_report_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row QA Cost")
+    manual_unit_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update QA Cost")
+    address_validation_unit_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit QA Cost")
+    stripe_dispute_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute QA Cost")
+    xml_file_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File QA Cost")
 
 
     def __str__(self):

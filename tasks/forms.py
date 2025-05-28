@@ -339,7 +339,7 @@ class OperationPriceForm(forms.ModelForm):
         model = OperationPrice
         fields = '__all__'
         widgets = { # Widgets con step para decimales
-            field.name: forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'})
+            field.name: forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
             for field in OperationPrice._meta.get_fields() if isinstance(field, models.DecimalField)
         }
 
