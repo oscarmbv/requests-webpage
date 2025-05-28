@@ -12,8 +12,8 @@ from django_q.tasks import async_task
 from django.contrib import messages
 
 from .models import (
-    BlockedMessage, CustomUser, OperationPrice, RejectedMessage,
-    ResolvedMessage, UserRecordsRequest, AddressValidationFile, SalesforceAttachmentLog
+    BlockedMessage, CustomUser, OperationPrice, RejectedMessage, ResolvedMessage,
+    UserRecordsRequest, AddressValidationFile, SalesforceAttachmentLog, ScheduledTaskToggle
 )
 
 # --- Configuración Admin para CustomUser ---
@@ -383,3 +383,17 @@ class SalesforceAttachmentLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
+
+@admin.register(ScheduledTaskToggle)
+class ScheduledTaskToggleAdmin(admin.ModelAdmin):
+    list_display = ('task_name', 'is_enabled', 'last_modified')
+    list_editable = ('is_enabled',)
+    list_filter = ('is_enabled',)
+    search_fields = ('task_name',)
+    readonly_fields = ('last_modified',)
+
+    def has_add_permission(self, request):
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        return False

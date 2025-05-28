@@ -456,3 +456,20 @@ class SalesforceAttachmentLog(models.Model):
         verbose_name ="Salesforce Attachment Log"
         verbose_name_plural ="Salesforce Attachment Logs"
         ordering = ['-request__timestamp', 'file_name']
+
+class ScheduledTaskToggle(models.Model):
+    """
+    Modelo para controlar el estado de activación/desactivación
+    de tareas programadas específicas.
+    Se espera una única instancia por tarea que se quiera controlar.
+    """
+    task_name = models.CharField(max_length=255, unique=True, primary_key=True, help_text="Unique identifier for the scheduled task.")
+    is_enabled = models.BooleanField(default=True, help_text="MCheck to enable task execution. Uncheck to pause.")
+    last_modified = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.task_name} - {'Enabled' if self.is_enabled else 'Paused'}"
+
+    class Meta:
+        verbose_name = "Scheduled Task Toggle"
+        verbose_name_plural = "Scheduled Task Toggles"

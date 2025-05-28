@@ -10,11 +10,12 @@ from django.db import transaction
 from simple_salesforce import Salesforce, SalesforceAuthenticationFailed, SalesforceError
 
 # Modelos de tu aplicación 'tasks'
-from .models import UserRecordsRequest, SalesforceAttachmentLog, CustomUser
+from .models import UserRecordsRequest, SalesforceAttachmentLog, CustomUser, ScheduledTaskToggle
 from .choices import PRIORITY_NORMAL, TEAM_REVENUE
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
+SALESFORCE_SYNC_TASK_NAME = 'salesforce_sync_opportunities'
 
 SALESFORCE_SYSTEM_USER_EMAIL = 'invisibletech@sayrhino.com'  # Cambia esto si es necesario
 
@@ -39,7 +40,21 @@ def sync_salesforce_opportunities_task():
     """
     Tarea principal para sincronizar Opportunities de Salesforce y crear UserRecordsRequests.
     """
-    logger.info("Iniciando la tarea de sincronización de Opportunities de Salesforce...")
+    logger.info(f"Iniciando la tarea '{SALESFORCE_SYNC_TASK_NAME}'...")
+
+    try:
+        task_toggle, created = ScheduledTaskToggle.objects.get_or_create(task_name=SALESFORCE_SYNC_TASK_NAME, defaults={'is_enabled': True})
+        if created:
+            logger.info(f"Registro de control para la tarea '{SALESFORCE_SYNC_TASK_NAME}' creado y habilitado por defecto.")
+
+        if not task_toggle.is_enabled:
+            logger.info(f"La tarea '{SALESFORCE_SYNC_TASK_NAME}' está actualmente pausada en la configuración. Saltando ejecución.")
+            return f"Task '{SALESFORCE_SYNC_TASK_NAME}' paused. Did not run."
+    except Exception as e:
+        logger.error(f"Error al verificar el estado de la tarea '{SALESFORCE_SYNC_TASK_NAME}': {e}", exc_info=True)
+        return f"Error checking status for task '{SALESFORCE_SYNC_TASK_NAME}'. Aborting."
+
+    logger.info(f"La tarea '{SALESFORCE_SYNC_TASK_NAME}' está habilitada. Procediendo con la sincronización.")
 
     # Obtener credenciales desde Django settings (configuradas con django-environ)
     sf_username = settings.SF_USERNAME
