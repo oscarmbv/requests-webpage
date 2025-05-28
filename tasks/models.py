@@ -246,6 +246,45 @@ class UserRecordsRequest(models.Model):
     failed_output_link = models.URLField(max_length=1024,null=True,blank=True,verbose_name="Failed Output Link (AV)")
     rhino_accounts_created = models.BooleanField(null=True,blank=True,default=False,verbose_name="Rhino Accounts Created? (AV)")
 
+    # Client Price Subtotals at Completion
+    subtotal_user_update_client_price_completed = models.DecimalField(verbose_name="User Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_property_update_client_price_completed = models.DecimalField(verbose_name="Property Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_bulk_update_client_price_completed = models.DecimalField(verbose_name="Bulk Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_manual_property_update_client_price_completed = models.DecimalField(verbose_name="Manual Property Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_csv_update_client_price_completed = models.DecimalField(verbose_name="CSV Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_processing_report_client_price_completed = models.DecimalField(verbose_name="Processing Report Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_manual_unit_update_client_price_completed = models.DecimalField(verbose_name="Manual Unit Update Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_address_validation_unit_client_price_completed = models.DecimalField(verbose_name="Address Validation Unit Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_stripe_dispute_client_price_completed = models.DecimalField(verbose_name="Stripe Dispute Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    subtotal_xml_file_client_price_completed = models.DecimalField(verbose_name="XML File Price Subtotal", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+    grand_total_client_price_completed = models.DecimalField(verbose_name="Grand Total Price", max_digits=6, decimal_places=2, null=True, blank=True, default=0.00)
+
+    # Operate Cost Subtotals at Completion
+    subtotal_user_update_operate_cost_completed = models.DecimalField(verbose_name="User Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_property_update_operate_cost_completed = models.DecimalField(verbose_name="Property Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_bulk_update_operate_cost_completed = models.DecimalField(verbose_name="Bulk Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_manual_property_update_operate_cost_completed = models.DecimalField(verbose_name="Manual Property Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_csv_update_operate_cost_completed = models.DecimalField(verbose_name="CSV Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_processing_report_operate_cost_completed = models.DecimalField(verbose_name="Processing Report Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_manual_unit_update_operate_cost_completed = models.DecimalField(verbose_name="Manual Unit Update Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_address_validation_unit_operate_cost_completed = models.DecimalField(verbose_name="Address Validation Unit Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_stripe_dispute_operate_cost_completed = models.DecimalField(verbose_name="Stripe Dispute Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_xml_file_operate_cost_completed = models.DecimalField(verbose_name="XML File Subtotal (Operate Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    grand_total_operate_cost_completed = models.DecimalField(verbose_name="Grand Total (Operate Cost) at Completion", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+
+    # QA Cost Subtotals at Completion
+    subtotal_user_update_qa_cost_completed = models.DecimalField(verbose_name="User Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_property_update_qa_cost_completed = models.DecimalField(verbose_name="Property Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_bulk_update_qa_cost_completed = models.DecimalField(verbose_name="Bulk Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_manual_property_update_qa_cost_completed = models.DecimalField(verbose_name="Manual Property Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_csv_update_qa_cost_completed = models.DecimalField(verbose_name="CSV Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_processing_report_qa_cost_completed = models.DecimalField(verbose_name="Processing Report Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_manual_unit_update_qa_cost_completed = models.DecimalField(verbose_name="Manual Unit Update Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_address_validation_unit_qa_cost_completed = models.DecimalField(verbose_name="Address Validation Unit Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_stripe_dispute_qa_cost_completed = models.DecimalField(verbose_name="Stripe Dispute Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    subtotal_xml_file_qa_cost_completed = models.DecimalField(verbose_name="XML File Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+    grand_total_qa_cost_completed = models.DecimalField(verbose_name="Grand Total (QA Cost) at Completion", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
+
     def __str__(self):
         team_display = self.get_team_display() or "Unassigned"
         return f"{self.get_type_of_process_display()} Request ({self.unique_code}) - Team: {team_display}"
@@ -283,13 +322,9 @@ class UserRecordsRequest(models.Model):
                     sequence_part = last_request.unique_code.split(prefix)[-1]
                     last_seq = int(sequence_part)
                     new_seq = last_seq + 1
-                except (IndexError, ValueError, TypeError):
-                    logger.warning(
-                        f"Could not parse sequence number from code: {last_request.unique_code}. "
-                        f"Starting sequence from 1 for prefix {prefix}."
-                    )
+                except (IndexError, ValueError, TypeError) as e:
+                    logger.warning(f"Could not parse sequence number from code: {last_request.unique_code} for prefix {prefix}. Error: {e}. Starting sequence from 1.")
                     new_seq = 1
-
             self.unique_code = f"{prefix}{new_seq:03d}"
 
         if is_new and not self.status:
@@ -380,40 +415,40 @@ class OperationPrice(models.Model):
     Se asume que solo existirá una instancia (pk=1).
     """
     # Precios Cliente
-    user_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Price")
-    property_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Property Update Price")
-    bulk_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update Price")
-    manual_property_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update Price")
-    csv_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row Price")
-    processing_report_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row Price")
-    manual_unit_update_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update Price")
-    address_validation_unit_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit Price")
-    stripe_dispute_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute Price")
-    xml_file_price = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File Price")
+    user_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="User Update Price")
+    property_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Property Update Price")
+    bulk_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Bulk Update Price")
+    manual_property_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Manual Property Update Price")
+    csv_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="CSV Update Row Price")
+    processing_report_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Processing Report Row Price")
+    manual_unit_update_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Manual Unit Update Price")
+    address_validation_unit_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Address Validation Unit Price")
+    stripe_dispute_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="Stripe Dispute Price")
+    xml_file_price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name="XML File Price")
 
     # Costos Operación
-    user_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Operate Cost")
-    property_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update Operate Cost")
-    bulk_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update Operate Cost")
-    manual_property_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update Operate Cost")
-    csv_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row Operate Cost")
-    processing_report_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row Operate Cost")
-    manual_unit_update_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update Operate Cost")
-    address_validation_unit_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit Operate Cost")
-    stripe_dispute_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute Operate Cost")
-    xml_file_operate_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File Operate Cost")
+    user_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="User Update Operate Cost")
+    property_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="User Update Operate Cost")
+    bulk_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Bulk Update Operate Cost")
+    manual_property_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Manual Property Update Operate Cost")
+    csv_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="CSV Update Row Operate Cost")
+    processing_report_operate_cost = models.DecimalField(max_digits=6,decimal_places=3, default=0.000, verbose_name="Processing Report Row Operate Cost")
+    manual_unit_update_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Manual Unit Update Operate Cost")
+    address_validation_unit_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Address Validation Unit Operate Cost")
+    stripe_dispute_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Stripe Dispute Operate Cost")
+    xml_file_operate_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="XML File Operate Cost")
 
     # Costos QA
-    user_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="User Update QA Cost")
-    property_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Property Update QA Cost")
-    bulk_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Bulk Update QA Cost")
-    manual_property_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Property Update QA Cost")
-    csv_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="CSV Update Row QA Cost")
-    processing_report_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Processing Report Row QA Cost")
-    manual_unit_update_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Manual Unit Update QA Cost")
-    address_validation_unit_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Address Validation Unit QA Cost")
-    stripe_dispute_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="Stripe Dispute QA Cost")
-    xml_file_qa_cost = models.DecimalField(max_digits=4, decimal_places=2, default=0.00, verbose_name="XML File QA Cost")
+    user_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="User Update QA Cost")
+    property_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Property Update QA Cost")
+    bulk_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Bulk Update QA Cost")
+    manual_property_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Manual Property Update QA Cost")
+    csv_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="CSV Update Row QA Cost")
+    processing_report_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Processing Report Row QA Cost")
+    manual_unit_update_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Manual Unit Update QA Cost")
+    address_validation_unit_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Address Validation Unit QA Cost")
+    stripe_dispute_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="Stripe Dispute QA Cost")
+    xml_file_qa_cost = models.DecimalField(max_digits=6, decimal_places=3, default=0.000, verbose_name="XML File QA Cost")
 
 
     def __str__(self):

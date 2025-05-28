@@ -226,6 +226,89 @@
                  </div>
             {% endif %}
         </div>
+
+        {% if user.is_authenticated and user_request.status == 'completed' %}
+        {% if is_admin_user or is_leadership_user %}
+        {# Nueva fila para contener y centrar la tarjeta de desglose de precios #}
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-5 col-md-7 col-sm-10">
+                <div class="card shadow-sm mb-4"> {# Tu tarjeta existente #}
+                    <div class="card-header bg-success text-white"> {% trans "Price Breakdown" %} </div>
+                    <div class="card-body pb-1">
+                        <dl class="row">
+                            {% comment %} User Update Costs {% endcomment %}
+                            {% if user_request.subtotal_user_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "User Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_user_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Property Update Costs {% endcomment %}
+                            {% if user_request.subtotal_property_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Property Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_property_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Bulk Update Costs {% endcomment %}
+                            {% if user_request.subtotal_bulk_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Bulk Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_bulk_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Manual Property Update Costs {% endcomment %}
+                            {% if user_request.subtotal_manual_property_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Manual Property Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_manual_property_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} CSV Update Costs {% endcomment %}
+                            {% if user_request.subtotal_csv_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "CSV Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_csv_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Processing Report Costs {% endcomment %}
+                            {% if user_request.subtotal_processing_report_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Processing Reports Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_processing_report_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Manual Unit Update Costs {% endcomment %}
+                            {% if user_request.subtotal_manual_unit_update_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Manual Unit Updates Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_manual_unit_update_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Address Validation Unit Costs - Específico del tipo de proceso {% endcomment %}
+                            {% if user_request.type_of_process == 'address_validation' and user_request.subtotal_address_validation_unit_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Address Validation Units Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_address_validation_unit_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} Stripe Dispute Costs - Específico del tipo de proceso {% endcomment %}
+                            {% if user_request.type_of_process == 'stripe_disputes' and user_request.subtotal_stripe_dispute_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "Stripe Disputes Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_stripe_dispute_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% comment %} XML File Costs - Específico del tipo de proceso {% endcomment %}
+                            {% if user_request.type_of_process == 'generating_xml' and user_request.subtotal_xml_file_client_price_completed > 0 %}
+                            <dt class="col-sm-8 text-sm-end">{% trans "XML Files Subtotal:" %}</dt>
+                            <dd class="col-sm-4">${{ user_request.subtotal_xml_file_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+
+                            {% if user_request.grand_total_client_price_completed is not None %}
+                            <hr class="my-2">
+                            <dt class="col-sm-8 text-sm-end fw-bold">{% trans "Grand Total:" %}</dt> {# Cambiado "Grand Total (Client Price):" a solo "Grand Total:" por brevedad #}
+                            <dd class="col-sm-4 fw-bold">${{ user_request.grand_total_client_price_completed|floatformat:2 }}</dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+
     </div>
 
     {# --- Historial de Acciones --- #}

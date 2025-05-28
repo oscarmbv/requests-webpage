@@ -103,6 +103,11 @@
                     <th>Operator</th>
                     <th>QA By</th>
                     <th>Turn Around Time</th>
+                    {% if user.is_authenticated %}
+                        {% if is_admin_user or is_leadership_user %}
+                            <th>Total Price</th>
+                        {% endif %}
+                    {% endif %}
                     <th>Details</th>
                 </tr>
             </thead>
@@ -169,6 +174,17 @@
                                 {% endif %}
                             {% endwith %}
                         </td>
+                        {% if user.is_authenticated %}
+                            {% if is_admin_user or is_leadership_user %}
+                                <td>
+                                    {% if request_item.status == 'completed' and request_item.grand_total_client_price_completed is not None %}
+                                        ${{ request_item.grand_total_client_price_completed|floatformat:2 }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            {% endif %}
+                        {% endif %}
                         <td><a href="{% url 'tasks:request_detail' request_item.id %}" class="btn btn-sm btn-outline-primary">View</a></td>
                     </tr>
                 {% empty %}

@@ -8,13 +8,13 @@ Esto mejora la mantenibilidad y la consistencia.
 
 # Tipos de procesos principales manejados por UserRecordsRequest
 TYPE_CHOICES = [
-    ('user_records', 'User Records'),
-    ('deactivation_toggle', 'Deactivation and Toggle'),
-    ('unit_transfer', 'Unit Transfer'),
-    ('generating_xml', 'Generating XML files'),
     ('address_validation', 'Address Validation'),
-    ('stripe_disputes', 'Stripe Disputes'),
+    ('user_records', 'User Records'),
     ('property_records', 'Property Records'),
+    ('unit_transfer', 'Unit Transfer'),
+    ('deactivation_toggle', 'Deactivation and Toggle'),
+    ('generating_xml', 'Generating XML files'),
+    ('stripe_disputes', 'Stripe Disputes'),
 ]
 
 TEAM_REVENUE = 'Revenue'
@@ -40,15 +40,15 @@ PRIORITY_CHOICES = [
 ]
 # Estados posibles para cualquier tipo de solicitud
 STATUS_CHOICES = [
-    ('pending', 'Pending'),                 # Solicitud creada, esperando acción
-    ('scheduled', 'Scheduled'),             # Solicitud programada para una fecha/hora futura
-    ('in_progress', 'In Progress'),         # Agente ha comenzado a trabajar
-    ('completed', 'Completed'),             # Proceso finalizado exitosamente
-    ('cancelled', 'Cancelled'),             # Solicitud cancelada
-    ('blocked', 'Blocked'),                 # Bloqueada, esperando resolución
-    ('pending_approval', 'Pending for Approval'), # Específico para Deactivation/Toggle, esperando aprobación de Leadership
-    ('qa_pending', 'QA Pending'),           # Enviado a QA, esperando que un agente QA lo tome
-    ('qa_in_progress', 'QA In Progress'),   # Agente QA está revisando
+    ('scheduled', 'Scheduled'),
+    ('pending_approval', 'Pending for Approval'),
+    ('pending', 'Pending'),
+    ('in_progress', 'In Progress'),
+    ('qa_pending', 'QA Pending'),
+    ('qa_in_progress', 'QA In Progress'),
+    ('blocked', 'Blocked'),
+    ('cancelled', 'Cancelled'),
+    ('completed', 'Completed'),
 ]
 
 # Opciones específicas para UserGroupForm (dentro de User Records)

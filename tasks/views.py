@@ -1,6 +1,6 @@
 import logging
 import pytz
-from django.db import transaction
+from django.db import transaction, models
 import re
 from datetime import datetime, time, timedelta
 from django.contrib import messages
@@ -17,10 +17,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
-from .models import UserRecordsRequest
+from .models import UserRecordsRequest, OperationPrice
 from django.conf import settings
 from simple_salesforce import Salesforce, SalesforceError
 from django import forms
+from decimal import Decimal
 
 # Importa los formularios (sin AddressValidationRequestForm)
 from .forms import (
@@ -466,6 +467,10 @@ def generating_xml_request(request):
 # --- Dashboard y Detalles ---
 @login_required
 def portal_operations_dashboard(request):
+    user = request.user
+    is_admin_user = is_admin(user)
+    is_leadership_user = is_leadership(user)
+
     tipos_de_proceso_choices = TYPE_CHOICES
     statuses_choices = STATUS_CHOICES
     team_choices = TEAM_CHOICES # Para el filtro
@@ -541,6 +546,8 @@ def portal_operations_dashboard(request):
         'current_team_filter': team_seleccionado, # Pasar filtro de equipo actual
         'start_date': start_date_str,
         'end_date': end_date_str,
+        'is_admin_user': is_admin_user,
+        'is_leadership_user': is_leadership_user,
     }
     return render(request, 'tasks/portal_operations_dashboard.html', context)
 
@@ -1026,27 +1033,122 @@ def complete_request(request, pk):
         if form.is_valid():
             django_save_successful = False
             try:
-                with transaction.atomic():  # Usar transacción para el guardado en Django
+                with transaction.atomic():
                     updated_instance = form.save(commit=False)
                     updated_instance.status = 'completed'
                     updated_instance.completed_at = timezone.now()
+                    try:
+                        prices = OperationPrice.objects.first()
+                        if prices:
+                            updated_instance.subtotal_user_update_client_price_completed = (Decimal(updated_instance.num_updated_users or 0) * prices.user_update_price)
+                            updated_instance.subtotal_property_update_client_price_completed = (Decimal(updated_instance.num_updated_properties or 0) * prices.property_update_price)
+                            updated_instance.subtotal_bulk_update_client_price_completed = (Decimal(updated_instance.bulk_updates or 0) * prices.bulk_update_price)
+                            updated_instance.subtotal_manual_property_update_client_price_completed = (Decimal(updated_instance.manual_updated_properties or 0) * prices.manual_property_update_price)
+                            updated_instance.subtotal_csv_update_client_price_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_price)
+                            updated_instance.subtotal_processing_report_client_price_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_price)
+                            updated_instance.subtotal_manual_unit_update_client_price_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_price)
+                            updated_instance.subtotal_address_validation_unit_client_price_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_price)
+                            stripe_total_disputes = (updated_instance.stripe_premium_disputes or 0) + (updated_instance.stripe_ri_disputes or 0)
+                            updated_instance.subtotal_stripe_dispute_client_price_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_price)
+
+                            xml_carrier_count = 0
+                            if updated_instance.xml_carrier_rvic: xml_carrier_count += 1
+                            if updated_instance.xml_carrier_ssic: xml_carrier_count += 1
+                            updated_instance.subtotal_xml_file_client_price_completed = (Decimal(xml_carrier_count) * prices.xml_file_price)
+
+                            updated_instance.grand_total_client_price_completed = (
+                                    updated_instance.subtotal_user_update_client_price_completed +
+                                    updated_instance.subtotal_property_update_client_price_completed +
+                                    updated_instance.subtotal_bulk_update_client_price_completed +
+                                    updated_instance.subtotal_manual_property_update_client_price_completed +
+                                    updated_instance.subtotal_csv_update_client_price_completed +
+                                    updated_instance.subtotal_processing_report_client_price_completed +
+                                    updated_instance.subtotal_manual_unit_update_client_price_completed +
+                                    updated_instance.subtotal_address_validation_unit_client_price_completed +
+                                    updated_instance.subtotal_stripe_dispute_client_price_completed +
+                                    updated_instance.subtotal_xml_file_client_price_completed
+                            )
+
+                            # Operate Costs Calculation
+                            updated_instance.subtotal_user_update_operate_cost_completed = (Decimal(updated_instance.num_updated_users or 0) * prices.user_update_operate_cost)
+                            updated_instance.subtotal_property_update_operate_cost_completed = (Decimal(updated_instance.num_updated_properties or 0) * prices.property_update_operate_cost)
+                            updated_instance.subtotal_bulk_update_operate_cost_completed = (Decimal(updated_instance.bulk_updates or 0) * prices.bulk_update_operate_cost)
+                            updated_instance.subtotal_manual_property_update_operate_cost_completed = (Decimal(updated_instance.manual_updated_properties or 0) * prices.manual_property_update_operate_cost)
+                            updated_instance.subtotal_csv_update_operate_cost_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_operate_cost)
+                            updated_instance.subtotal_processing_report_operate_cost_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_operate_cost)
+                            updated_instance.subtotal_manual_unit_update_operate_cost_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_operate_cost)
+                            updated_instance.subtotal_address_validation_unit_operate_cost_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_operate_cost)
+                            updated_instance.subtotal_stripe_dispute_operate_cost_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_operate_cost)
+                            updated_instance.subtotal_xml_file_operate_cost_completed = (Decimal(xml_carrier_count) * prices.xml_file_operate_cost)
+
+                            updated_instance.grand_total_operate_cost_completed = (
+                                    updated_instance.subtotal_user_update_operate_cost_completed +
+                                    updated_instance.subtotal_property_update_operate_cost_completed +
+                                    updated_instance.subtotal_bulk_update_operate_cost_completed +
+                                    updated_instance.subtotal_manual_property_update_operate_cost_completed +
+                                    updated_instance.subtotal_csv_update_operate_cost_completed +
+                                    updated_instance.subtotal_processing_report_operate_cost_completed +
+                                    updated_instance.subtotal_manual_unit_update_operate_cost_completed +
+                                    updated_instance.subtotal_address_validation_unit_operate_cost_completed +
+                                    updated_instance.subtotal_stripe_dispute_operate_cost_completed +
+                                    updated_instance.subtotal_xml_file_operate_cost_completed
+                            )
+
+                            # QA Costs Calculation
+                            updated_instance.subtotal_user_update_qa_cost_completed = (Decimal(updated_instance.num_updated_users or 0) * prices.user_update_qa_cost)
+                            updated_instance.subtotal_property_update_qa_cost_completed = (Decimal(updated_instance.num_updated_properties or 0) * prices.property_update_qa_cost)
+                            updated_instance.subtotal_bulk_update_qa_cost_completed = (Decimal(updated_instance.bulk_updates or 0) * prices.bulk_update_qa_cost)
+                            updated_instance.subtotal_manual_property_update_qa_cost_completed = (Decimal(updated_instance.manual_updated_properties or 0) * prices.manual_property_update_qa_cost)
+                            updated_instance.subtotal_csv_update_qa_cost_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_qa_cost)
+                            updated_instance.subtotal_processing_report_qa_cost_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_qa_cost)
+                            updated_instance.subtotal_manual_unit_update_qa_cost_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_qa_cost)
+                            updated_instance.subtotal_address_validation_unit_qa_cost_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_qa_cost)
+                            updated_instance.subtotal_stripe_dispute_qa_cost_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_qa_cost)
+                            updated_instance.subtotal_xml_file_qa_cost_completed = (Decimal(xml_carrier_count) * prices.xml_file_qa_cost)
+
+                            updated_instance.grand_total_qa_cost_completed = (
+                                    updated_instance.subtotal_user_update_qa_cost_completed +
+                                    updated_instance.subtotal_property_update_qa_cost_completed +
+                                    updated_instance.subtotal_bulk_update_qa_cost_completed +
+                                    updated_instance.subtotal_manual_property_update_qa_cost_completed +
+                                    updated_instance.subtotal_csv_update_qa_cost_completed +
+                                    updated_instance.subtotal_processing_report_qa_cost_completed +
+                                    updated_instance.subtotal_manual_unit_update_qa_cost_completed +
+                                    updated_instance.subtotal_address_validation_unit_qa_cost_completed +
+                                    updated_instance.subtotal_stripe_dispute_qa_cost_completed +
+                                    updated_instance.subtotal_xml_file_qa_cost_completed
+                            )
+                        else:
+                            logger.warning(_("OperationPrice instance not found. Costs will not be calculated for request %(request_code)s.") % {'request_code': user_request.unique_code})
+                    except Exception as e_cost:
+                        logger.error(_("Error calculating costs for request %(request_code)s: %(error)s") % {'request_code': user_request.unique_code, 'error': e_cost}, exc_info=True)
+
                     fields_to_update_django = ['status', 'completed_at']
+
+                    cost_fields_to_update = [
+                        f.name for f in UserRecordsRequest._meta.get_fields()
+                        if f.name.endswith('_client_price_completed') or
+                           f.name.endswith('_operate_cost_completed') or
+                           f.name.endswith('_qa_cost_completed')
+                    ]
+
+                    fields_to_update_django.extend(cost_fields_to_update)
 
                     if isinstance(form, GeneratingXmlOperateForm):
                         fields_to_update_django.extend(form.Meta.fields)
-                    else:  # Para OperateForm genérico
+                    elif isinstance(form, OperateForm):
                         for field_name in form.cleaned_data:
-                            if hasattr(user_request, field_name):
+                            if hasattr(updated_instance, field_name):
                                 fields_to_update_django.append(field_name)
 
                     updated_instance.save(update_fields=list(set(fields_to_update_django)))
                 django_save_successful = True
-                logger.info(f"Request {user_request.unique_code} marked as 'completed' in Django by {request.user.email}.")
+                logger.info(_("Request %(request_code)s marked as 'completed' in Django by %(user_email)s. Costs calculated and saved.") % {'request_code': user_request.unique_code, 'user_email': request.user.email})
 
             except Exception as e_django:
-                logger.error(f"Error completing request {pk} in Django: {e_django}", exc_info=True)
+                logger.error(_("Error completing request %(pk)s in Django: %(error)s") % {'pk': pk, 'error': e_django}, exc_info=True)
                 messages.error(request, _("An error occurred while completing the request in Django."))
-                updated_instance.save(update_fields=list(set(fields_to_update_django)))
+                return redirect('tasks:request_detail', pk=pk)
 
             if django_save_successful:
                 if user_request.type_of_process == 'address_validation' and user_request.salesforce_standard_opp_id:
@@ -1084,7 +1186,6 @@ def complete_request(request, pk):
                             sf_update_data['Assets_Uploaded_Date__c'] = assets_uploaded_date_sf
 
                         logger.debug(f"Salesforce update payload for Opp {user_request.salesforce_standard_opp_id}: {sf_update_data}")
-
                         sf.Opportunity.update(user_request.salesforce_standard_opp_id, sf_update_data)
                         logger.info(f"Successfully updated Salesforce Opportunity {user_request.salesforce_standard_opp_id} upon request completion.")
                         messages.success(request,'Request marked as completed and Salesforce Opportunity updated successfully.')
