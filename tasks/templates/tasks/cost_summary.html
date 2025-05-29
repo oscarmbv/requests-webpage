@@ -1,226 +1,325 @@
 {% extends "base.html" %}
 {% load static %}
-{# No necesitas i18n si los textos están directamente en inglés #}
 
-{% block title %}{{ page_title|default:"Cost Summary" }}{% endblock %}
+{% block title %}{{ page_title|default:"Client Cost Summary" }}{% endblock %}
 
 {% block extra_css %}
-{# Puedes añadir CSS específico para esta página si es necesario #}
 <style>
     .summary-card { margin-bottom: 20px; }
     .chart-container {
         width: 100%;
-        max-width: 450px; /* Ajusta según necesites */
+        /* max-width: 450px; para pie charts */
         margin: 15px auto;
+    }
+    .scatter-chart-container { /* Contenedor para los nuevos gráficos de dispersión */
+        width: 100%;
+        height: 350px; /* Altura fija para mejor visualización */
+        margin-bottom: 30px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">{{ page_title|default:"Cost Summary" }}</h1>
+    <h1 class="mb-4">{{ page_title|default:"Client Cost Summary Report" }}</h1>
 
-    {# Formulario de Filtro de Fecha #}
+    {# Formulario de Filtro de Fecha (sin cambios) #}
     <div class="card summary-card">
-        <div class="card-header">
-            Date Range Filter
-        </div>
-        <div class="card-body">
-            <form method="get" class="row gx-3 gy-2 align-items-center">
-                <div class="col-sm-4">
-                    <label for="start_date" class="form-label">Start Date:</label>
-                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ start_date }}">
-                </div>
-                <div class="col-sm-4">
-                    <label for="end_date" class="form-label">End Date:</label>
-                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ end_date }}">
-                </div>
-                <div class="col-sm-auto align-self-end">
-                    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                </div>
-            </form>
-        </div>
+        {# ... tu código de filtro de fecha ... #}
     </div>
 
-    {# Gran Total #}
+    {# Gran Total (sin cambios) #}
     <div class="card summary-card">
-        <div class="card-header bg-primary text-white">
-            Overall Summary
-        </div>
-        <div class="card-body">
-            <h4>Grand Total For Period: ({{ start_date }} to {{ end_date }}): <strong>${{ grand_total_cost|floatformat:2 }}</strong></h4>
-        </div>
+        {# ... tu código de gran total ... #}
     </div>
 
+    {# Pie Charts (sin cambios en su estructura HTML, solo el JS se expandirá) #}
     <div class="row">
-        {# Subtotales por Equipo #}
         <div class="col-md-6">
             <div class="card summary-card">
-                <div class="card-header bg-info text-white">
-                    Cost Subtotals by Team
-                </div>
+                <div class="card-header bg-info text-white">Cost Subtotals by Team</div>
                 <div class="card-body">
                     {% if team_subtotals %}
-                        <ul class="list-group list-group-flush">
-                            {% for item in team_subtotals %}
-                                {% if item.subtotal > 0 %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ item.name }}
-                                    <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
-                                </li>
-                                {% endif %}
-                            {% endfor %}
+                        <ul class="list-group list-group-flush mb-3">
+                            {% for item in team_subtotals %}{% if item.subtotal > 0 %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ item.name }}
+                                <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
+                            </li>
+                            {% endif %}{% endfor %}
                         </ul>
-                    {% else %}
-                        <p>No cost data available for teams in this period.</p>
-                    {% endif %}
-                    <div class="chart-container">
+                    {% else %}<p>No cost data available for teams in this period.</p>{% endif %}
+                    <div class="chart-container" style="max-width: 400px;">
                         <canvas id="teamPieChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
-
-        {# Subtotales por Tipo de Proceso #}
         <div class="col-md-6">
             <div class="card summary-card">
-                <div class="card-header bg-secondary text-white">
-                    Cost Subtotals by Process Type
-                </div>
+                <div class="card-header bg-secondary text-white">Cost Subtotals by Process Type</div>
                 <div class="card-body">
                     {% if process_subtotals %}
-                        <ul class="list-group list-group-flush">
-                            {% for item in process_subtotals %}
-                                 {% if item.subtotal > 0 %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ item.name }}
-                                    <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
-                                </li>
-                                {% endif %}
-                            {% endfor %}
+                        <ul class="list-group list-group-flush mb-3">
+                            {% for item in process_subtotals %}{% if item.subtotal > 0 %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ item.name }}
+                                <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
+                            </li>
+                            {% endif %}{% endfor %}
                         </ul>
-                    {% else %}
-                        <p>No cost data available for process types in this period.</p>
-                    {% endif %}
-                     <div class="chart-container">
+                    {% else %}<p>No cost data available for process types in this period.</p>{% endif %}
+                    <div class="chart-container" style="max-width: 400px;">
                         <canvas id="processPieChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    {# --- INICIO: Nueva Sección para Scatter Charts --- #}
+    <hr class="my-4">
+    <h2 class="mb-3">Cost Trends by Process Type</h2>
+    <div class="row">
+        {% for process_key, chart_config_data in scatter_charts_data.items %}
+            {% if chart_config_data.datasets %} {# Solo mostrar si hay datos para este proceso #}
+            <div class="col-lg-6 mb-4"> {# Dos gráficos por fila en pantallas grandes #}
+                <div class="card summary-card">
+                    <div class="card-header">
+                        {{ chart_config_data.chart_title }}
+                    </div>
+                    <div class="card-body">
+                        <div class="scatter-chart-container">
+                            <canvas id="{{ process_key }}ScatterChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {# --- FIN: Nueva Sección para Scatter Charts --- #}
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
-{# Incluir Chart.js desde CDN #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+{{ team_chart_labels|json_script:"team-labels" }}
+{{ team_chart_data|json_script:"team-data" }}
+{{ process_chart_labels|json_script:"process-labels" }}
+{{ process_chart_data|json_script:"process-data" }}
+{{ scatter_charts_data|json_script:"scatter-charts-data-json" }}
+{{ request_detail_url_template|json_script:"request-detail-url-template-json" }}
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Datos para el gráfico de Equipos
-        const teamLabels = {{ team_chart_labels|safe }};
-        const teamData = {{ team_chart_data|safe }};
-
-        if (teamLabels.length > 0 && teamData.length > 0) {
+        // --- Código para Pie Charts (con borde negro) ---
+        // (Tu código existente para los pie charts, que ya funciona bien con los formatos)
+        const teamLabels = JSON.parse(document.getElementById('team-labels').textContent);
+        const teamData = JSON.parse(document.getElementById('team-data').textContent);
+        if (teamLabels && teamLabels.length > 0 && teamData && teamData.length > 0) {
             const teamCtx = document.getElementById('teamPieChart').getContext('2d');
             new Chart(teamCtx, {
                 type: 'pie',
                 data: {
                     labels: teamLabels,
                     datasets: [{
-                        label: 'Cost by Team',
-                        data: teamData,
-                        backgroundColor: [ // Puedes añadir más colores
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 206, 86, 0.7)',
-                            'rgba(75, 192, 192, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 159, 64, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 159, 64, 1)'
-                        ],
-                        borderColor: 'black',
-                        borderWidth: 1
+                        label: 'Cost by Team', data: teamData,
+                        backgroundColor: ['rgba(255, 99, 132, 0.7)','rgba(54, 162, 235, 0.7)','rgba(255, 206, 86, 0.7)','rgba(75, 192, 192, 0.7)','rgba(153, 102, 255, 0.7)','rgba(255, 159, 64, 0.7)'],
+                        borderColor: 'black', borderWidth: 1
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: true, // Puedes poner false si quieres controlar altura manualmente
+                    responsive: true, maintainAspectRatio: true,
                     plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Cost Distribution by Team'
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Cost Distribution by Team' },
+                        tooltip: { // Formateo de tooltips para pie charts
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.raw !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.raw);
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     }
                 }
             });
-        } else {
-             console.log("No data for Team Pie Chart.");
         }
 
-        // Datos para el gráfico de Tipos de Proceso
-        const processLabels = {{ process_chart_labels|safe }};
-        const processData = {{ process_chart_data|safe }};
-
-        if (processLabels.length > 0 && processData.length > 0) {
+        const processLabels = JSON.parse(document.getElementById('process-labels').textContent);
+        const processData = JSON.parse(document.getElementById('process-data').textContent);
+        if (processLabels && processLabels.length > 0 && processData && processData.length > 0) {
             const processCtx = document.getElementById('processPieChart').getContext('2d');
             new Chart(processCtx, {
                 type: 'pie',
                 data: {
                     labels: processLabels,
                     datasets: [{
-                        label: 'Cost by Process Type',
-                        data: processData,
-                        backgroundColor: [ // Paleta de colores diferente o más extensa
-                            'rgba(255, 159, 64, 0.7)',
-                            'rgba(75, 192, 192, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 206, 86, 0.7)',
-                            'rgba(100, 100, 100, 0.7)',
-                            'rgba(200, 50, 50, 0.7)'
-                        ],
-                         borderColor: [
-                            'rgba(255, 159, 64, 1)',
-                            'rgba(75, 192, 192, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(100, 100, 100, 1)',
-                            'rgba(200, 50, 50, 1)'
-                        ],
-                        borderColor: 'black',
-                        borderWidth: 1
+                        label: 'Cost by Process Type', data: processData,
+                        backgroundColor: ['rgba(255, 159, 64, 0.7)','rgba(75, 192, 192, 0.7)','rgba(153, 102, 255, 0.7)','rgba(255, 99, 132, 0.7)','rgba(54, 162, 235, 0.7)','rgba(255, 206, 86, 0.7)','rgba(201, 203, 207, 0.7)','rgba(148, 186, 101, 0.7)'],
+                        borderColor: 'black', borderWidth: 1
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
+                    responsive: true, maintainAspectRatio: true,
                     plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Cost Distribution by Process Type'
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Cost Distribution by Process Type' },
+                        tooltip: { // Formateo de tooltips para pie charts
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.raw !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.raw);
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     }
                 }
             });
-        } else {
-            console.log("No data for Process Pie Chart.");
+        }
+
+        // --- Código para Scatter Charts ---
+        const scatterDataFromDjango = JSON.parse(document.getElementById('scatter-charts-data-json').textContent);
+        const requestDetailUrlTemplate = JSON.parse(document.getElementById('request-detail-url-template-json').textContent);
+
+        for (const processKey in scatterDataFromDjango) {
+            if (scatterDataFromDjango.hasOwnProperty(processKey)) {
+                const chartConfigData = scatterDataFromDjango[processKey];
+                const canvasId = processKey + 'ScatterChart';
+                const ctxScatter = document.getElementById(canvasId);
+
+                if (ctxScatter && chartConfigData.datasets && chartConfigData.datasets.length > 0) {
+                    new Chart(ctxScatter.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            datasets: chartConfigData.datasets.map(ds => ({
+                                ...ds,
+                                fill: ds.fill !== undefined ? ds.fill : false,
+                                pointRadius: ds.pointRadius !== undefined ? ds.pointRadius : 4,
+                                pointHoverRadius: (ds.pointRadius !== undefined ? ds.pointRadius : 3) + 2,
+                            }))
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            onClick: function(event, elements, chart) {
+                                if (elements.length > 0) {
+                                    const firstPoint = elements[0];
+                                    const datasetIndex = firstPoint.datasetIndex;
+                                    const dataPointIndex = firstPoint.index;
+                                    const pointData = chart.data.datasets[datasetIndex].data[dataPointIndex];
+                                    const pk = pointData.pk;
+                                    if (pk) {
+                                        const detailUrl = requestDetailUrlTemplate.replace('REPLACE_PK', pk);
+                                        window.location.href = detailUrl;
+                                    }
+                                }
+                            },
+                            onHover: (event, chartElement) => {
+                                const canvas = event.native.target;
+                                canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                            },
+                            plugins: {
+                                legend: { position: 'top' },
+                                title: { display: true, text: chartConfigData.chart_title },
+                                tooltip: {
+                                    mode: 'nearest',
+                                    intersect: true,
+                                    callbacks: {
+                                        title: function(tooltipItems) {
+                                            // El tooltipItem para 'nearest' y 'intersect: true'
+                                            // debería referirse al punto específico.
+                                            if (tooltipItems.length > 0) {
+                                                const point = tooltipItems[0];
+                                                // 'point.parsed.x' es el timestamp en milisegundos que Chart.js usa internamente
+                                                // después de que el adaptador de fecha lo procesa.
+                                                if (point.parsed && typeof point.parsed.x === 'number') {
+                                                    const date = new Date(point.parsed.x);
+                                                    // Formato de ejemplo: "May 29, 2025 18:37"
+                                                    // Puedes usar date-fns si necesitas un formato más complejo y lo has importado.
+                                                    // Ejemplo simple:
+                                                    return date.toLocaleDateString('en-US', {
+                                                        month: 'short', day: 'numeric', year: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit', hour12: false
+                                                    });
+                                                }
+                                            }
+                                            return ''; // Devuelve vacío si no hay título
+                                        },
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        // tooltipFormat es crucial para CÓMO el adaptador PARSEA y luego FORMATEA para el tooltip
+                                        // Si tus datos 'x' son strings ISO, el adaptador debería manejarlos.
+                                        // El formato en el callback.title del tooltip tiene más precedencia para el título del tooltip.
+                                        tooltipFormat: 'MMM d, yyyy HH:mm', // ej. May 29, 2025 15:30
+                                        displayFormats: {
+                                            millisecond: 'HH:mm:ss.SSS',
+                                            second: 'HH:mm:ss',
+                                            minute: 'HH:mm',
+                                            hour: 'HH:mm',
+                                            day: 'MMM d', // Lo que se ve en el eje
+                                            week: 'MMM d yyyy',
+                                            month: 'MMM yyyy',
+                                            quarter: 'qqq yyyy',
+                                            year: 'yyyy'
+                                        }
+                                    },
+                                    title: { display: true, text: 'Completion Date' },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Request Cost ($)' },
+                                    ticks: {
+                                        callback: function(value, index, values) {
+                                            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+                                        }
+                                    }
+                                }
+                            },
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'xy',
+                                intersect: true
+                            }
+                        }
+                    });
+                } else {
+                    // console.log("No datasets to render for scatter chart: " + processKey);
+                }
+            }
         }
     });
 </script>
