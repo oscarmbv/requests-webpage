@@ -1683,7 +1683,6 @@ def uncancel_request(request, pk):
 
     return redirect('tasks:request_detail', pk=pk)
 
-
 @login_required
 @user_passes_test(user_is_admin_or_leader)
 def client_cost_summary_view(request):
@@ -1695,7 +1694,7 @@ def client_cost_summary_view(request):
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request, _("Invalid start date format. Using default."))
+            messages.error(request,"Invalid start date format. Using default.")
             start_date = today.replace(day=1)
     else:
         start_date = today.replace(day=1)
