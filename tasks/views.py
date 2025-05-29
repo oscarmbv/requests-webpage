@@ -2,13 +2,13 @@ import logging
 import pytz
 from django.db import transaction, models
 import re
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q
+from django.db.models import Q, Sum, Value, CharField, DecimalField
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.forms import formset_factory
 from django.http import HttpResponse # Necesario si implementas export CSV
@@ -22,6 +22,8 @@ from django.conf import settings
 from simple_salesforce import Salesforce, SalesforceError
 from django import forms
 from decimal import Decimal
+import calendar
+from django.db.models.functions import Coalesce
 
 # Importa los formularios (sin AddressValidationRequestForm)
 from .forms import (
@@ -59,6 +61,9 @@ def is_leadership(user):
 def is_agent(user):
     if not user.is_authenticated: return False
     return user.groups.filter(name='Agents').exists()
+
+def user_is_admin_or_leader(user):
+    return user.is_authenticated and (is_admin(user) or is_leadership(user))
 
 def user_in_group(user, group_name):
     """Chequea si un usuario pertenece a un grupo específico."""
@@ -191,7 +196,7 @@ def user_records_request(request):
             if is_formset_required and not group_data:
                  messages.error(request, _("Please provide user details via manual input, file upload, or link."))
                  # Re-renderizar ambos formularios
-                 return render(request, 'tasks/user_records.html', {'user_records_form': user_records_form, 'user_group_formset': user_group_formset})
+                 return render(request, 'tasks/user_records_request.html', {'user_records_form': user_records_form, 'user_group_formset': user_group_formset})
 
             try:
                 # Crear instancia sin commit
@@ -248,15 +253,15 @@ def user_records_request(request):
                 logger.error(f"Error saving UserRecordsRequest: {e}", exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request."))
             # En caso de error, volver a renderizar con los datos actuales
-            return render(request, 'tasks/user_records.html',
+            return render(request, 'tasks/user_records_request.html',
                           {'user_records_form': user_records_form, 'user_group_formset': user_group_formset})
         else:  # Formulario principal o formset no son válidos
-            return render(request, 'tasks/user_records.html',
+            return render(request, 'tasks/user_records_request.html',
                           {'user_records_form': user_records_form, 'user_group_formset': user_group_formset})
     else:  # GET request
         user_records_form = UserRecordsRequestForm(user=user)
         user_group_formset = UserGroupFormSet(prefix='groups')
-    return render(request, 'tasks/user_records.html',
+    return render(request, 'tasks/user_records_request.html',
                   {'user_records_form': user_records_form, 'user_group_formset': user_group_formset})
 
 
@@ -549,7 +554,7 @@ def portal_operations_dashboard(request):
         'is_admin_user': is_admin_user,
         'is_leadership_user': is_leadership_user,
     }
-    return render(request, 'tasks/portal_operations_dashboard.html', context)
+    return render(request, 'tasks/rhino_operations_dashboard.html', context)
 
 @login_required
 def request_detail(request, pk):
@@ -1677,3 +1682,95 @@ def uncancel_request(request, pk):
         messages.warning(request, _("Please use the button to uncancel the request."))
 
     return redirect('tasks:request_detail', pk=pk)
+
+@login_required
+@user_passes_test(user_is_admin_or_leader) # Restringir acceso
+def client_cost_summary_view(request):
+    today = timezone.localdate()
+
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, _("Invalid start date format. Using default."))
+            start_date = today.replace(day=1)  # Fallback
+    else:
+        start_date = today.replace(day=1)
+
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, _("Invalid end date format. Using default."))
+            _, last_day_of_month = calendar.monthrange(today.year, today.month)
+            end_date = today.replace(day=last_day_of_month)  # Fallback
+    else:
+        _, last_day_of_month = calendar.monthrange(today.year, today.month)
+        end_date = today.replace(day=last_day_of_month)
+
+    start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
+    end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
+
+    completed_requests_in_period = UserRecordsRequest.objects.filter(
+        status='completed',
+        completed_at__gte=start_datetime_utc,
+        completed_at__lte=end_datetime_utc
+    )
+
+    grand_total_dict = completed_requests_in_period.aggregate(
+        total=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'), output_field=DecimalField()))
+    )
+    grand_total_cost = grand_total_dict['total']
+
+    team_summary_from_db = completed_requests_in_period.values('team').annotate(
+        subtotal=Coalesce(Sum('grand_total_client_price_completed'),
+                          Value(Decimal('0.00'), output_field=DecimalField()))
+    )
+
+    team_subtotals_map = {item['team']: item['subtotal'] for item in team_summary_from_db}
+
+    team_subtotals_list_ordered = []
+    team_chart_labels = []
+    team_chart_data = []
+
+    for team_key, team_display_name in TEAM_CHOICES:
+        subtotal = team_subtotals_map.get(team_key, Decimal('0.00'))
+        team_subtotals_list_ordered.append({'name': team_display_name, 'subtotal': subtotal})
+        if subtotal > 0:
+            team_chart_labels.append(team_display_name)
+            team_chart_data.append(float(subtotal))  # Chart.js usa float
+
+    process_summary_from_db = completed_requests_in_period.values('type_of_process').annotate(
+        subtotal=Coalesce(Sum('grand_total_client_price_completed'),
+                          Value(Decimal('0.00'), output_field=DecimalField()))
+    )
+
+    process_subtotals_map = {item['type_of_process']: item['subtotal'] for item in process_summary_from_db}
+
+    process_subtotals_list_ordered = []
+    process_chart_labels = []
+    process_chart_data = []
+
+    for process_key, process_display_name in TYPE_CHOICES:
+        subtotal = process_subtotals_map.get(process_key, Decimal('0.00'))
+        process_subtotals_list_ordered.append({'name': process_display_name, 'subtotal': subtotal})
+        if subtotal > 0:
+            process_chart_labels.append(process_display_name)
+            process_chart_data.append(float(subtotal))
+
+    context = {
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'end_date': end_date.strftime('%Y-%m-%d'),
+        'grand_total_cost': grand_total_cost,
+        'team_subtotals': team_subtotals_list_ordered,
+        'process_subtotals': process_subtotals_list_ordered,
+        'team_chart_labels': team_chart_labels,
+        'team_chart_data': team_chart_data,
+        'process_chart_labels': process_chart_labels,
+        'process_chart_data': process_chart_data,
+        'page_title': 'Cost Summary'
+    }
+    return render(request, 'tasks/cost_summary.html', context)

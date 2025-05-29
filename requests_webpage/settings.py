@@ -29,7 +29,7 @@ ALLOWED_HOSTS_STRING = env('DJANGO_ALLOWED_HOSTS', default='127.0.0.1,localhost'
 ALLOWED_HOSTS = ALLOWED_HOSTS_STRING.split(',') + ['.herokuapp.com']
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/portal/dashboard/'
+LOGIN_REDIRECT_URL = '/rhino/dashboard/'
 # Application definition
 
 INSTALLED_APPS = [
@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'tasks.context_processors.user_role_permissions',
             ],
         },
     },

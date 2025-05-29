@@ -52,7 +52,7 @@
             {% if user.is_authenticated %}
             <li class="nav-item">
               {# Usa el namespace 'tasks' #}
-              <a class="nav-link {% if request.resolver_match.view_name == 'tasks:portal_dashboard' %}active{% endif %}" href="{% url 'tasks:portal_dashboard' %}">Dashboard</a>
+              <a class="nav-link {% if request.resolver_match.view_name == 'tasks:rhino_dashboard' %}active{% endif %}" href="{% url 'tasks:rhino_dashboard' %}">Dashboard</a>
             </li>
              <li class="nav-item">
               <a class="nav-link {% if request.resolver_match.view_name == 'tasks:choose_request_type' %}active{% endif %}" href="{% url 'tasks:choose_request_type' %}">New Request</a>
@@ -62,6 +62,12 @@
                <a class="nav-link {% if request.resolver_match.view_name == 'tasks:manage_prices' %}active{% endif %}" href="{% url 'tasks:manage_prices' %}">Manage Prices</a>
              </li>
              {% endif %}
+              {% if is_admin_user or is_leadership_user %}
+                <li class="nav-item">
+                  <a class="nav-link {% if request.resolver_match.view_name == 'tasks:client_cost_summary' %}active{% endif %}"
+                     href="{% url 'tasks:client_cost_summary' %}">Cost Summary</a>
+                </li>
+              {% endif %}
             {% endif %}
           </ul>
 

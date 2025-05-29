@@ -1,7 +1,7 @@
 # tasks/urls.py
 
 from django.urls import path
-from . import views # Importa las vistas de esta app
+from . import views
 from django.contrib.auth import views as auth_views
 
 app_name = 'tasks'
@@ -10,9 +10,10 @@ urlpatterns = [
     # URLs movidas desde el archivo principal, relativas a 'portal/'
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('dashboard/', views.portal_operations_dashboard, name='portal_dashboard'),
-    path('profile/', views.profile, name='profile'), # Movido aquí
-    path('manage_prices/', views.manage_prices, name='manage_prices'), # Movido aquí
+    path('dashboard/', views.portal_operations_dashboard, name='rhino_dashboard'),
+    path('profile/', views.profile, name='profile'),
+    path('manage_prices/', views.manage_prices, name='manage_prices'),
+    path('cost_summary/', views.client_cost_summary_view, name='client_cost_summary'),
 
     # Creación de Requests
     path('create/', views.choose_request_type, name='choose_request_type'),

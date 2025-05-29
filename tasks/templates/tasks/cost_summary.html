@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load static %}
+{# No necesitas i18n si los textos están directamente en inglés #}
+
+{% block title %}{{ page_title|default:"Cost Summary" }}{% endblock %}
+
+{% block extra_css %}
+{# Puedes añadir CSS específico para esta página si es necesario #}
+<style>
+    .summary-card { margin-bottom: 20px; }
+    .chart-container {
+        width: 100%;
+        max-width: 450px; /* Ajusta según necesites */
+        margin: 15px auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ page_title|default:"Cost Summary" }}</h1>
+
+    {# Formulario de Filtro de Fecha #}
+    <div class="card summary-card">
+        <div class="card-header">
+            Date Range Filter
+        </div>
+        <div class="card-body">
+            <form method="get" class="row gx-3 gy-2 align-items-center">
+                <div class="col-sm-4">
+                    <label for="start_date" class="form-label">Start Date:</label>
+                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="col-sm-4">
+                    <label for="end_date" class="form-label">End Date:</label>
+                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="col-sm-auto align-self-end">
+                    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Gran Total #}
+    <div class="card summary-card">
+        <div class="card-header bg-primary text-white">
+            Overall Summary
+        </div>
+        <div class="card-body">
+            <h4>Grand Total For Period: ({{ start_date }} to {{ end_date }}): <strong>${{ grand_total_cost|floatformat:2 }}</strong></h4>
+        </div>
+    </div>
+
+    <div class="row">
+        {# Subtotales por Equipo #}
+        <div class="col-md-6">
+            <div class="card summary-card">
+                <div class="card-header bg-info text-white">
+                    Cost Subtotals by Team
+                </div>
+                <div class="card-body">
+                    {% if team_subtotals %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in team_subtotals %}
+                                {% if item.subtotal > 0 %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ item.name }}
+                                    <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No cost data available for teams in this period.</p>
+                    {% endif %}
+                    <div class="chart-container">
+                        <canvas id="teamPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Subtotales por Tipo de Proceso #}
+        <div class="col-md-6">
+            <div class="card summary-card">
+                <div class="card-header bg-secondary text-white">
+                    Cost Subtotals by Process Type
+                </div>
+                <div class="card-body">
+                    {% if process_subtotals %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in process_subtotals %}
+                                 {% if item.subtotal > 0 %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ item.name }}
+                                    <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No cost data available for process types in this period.</p>
+                    {% endif %}
+                     <div class="chart-container">
+                        <canvas id="processPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{# Incluir Chart.js desde CDN #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Datos para el gráfico de Equipos
+        const teamLabels = {{ team_chart_labels|safe }};
+        const teamData = {{ team_chart_data|safe }};
+
+        if (teamLabels.length > 0 && teamData.length > 0) {
+            const teamCtx = document.getElementById('teamPieChart').getContext('2d');
+            new Chart(teamCtx, {
+                type: 'pie',
+                data: {
+                    labels: teamLabels,
+                    datasets: [{
+                        label: 'Cost by Team',
+                        data: teamData,
+                        backgroundColor: [ // Puedes añadir más colores
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderColor: 'black',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, // Puedes poner false si quieres controlar altura manualmente
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Cost Distribution by Team'
+                        }
+                    }
+                }
+            });
+        } else {
+             console.log("No data for Team Pie Chart.");
+        }
+
+        // Datos para el gráfico de Tipos de Proceso
+        const processLabels = {{ process_chart_labels|safe }};
+        const processData = {{ process_chart_data|safe }};
+
+        if (processLabels.length > 0 && processData.length > 0) {
+            const processCtx = document.getElementById('processPieChart').getContext('2d');
+            new Chart(processCtx, {
+                type: 'pie',
+                data: {
+                    labels: processLabels,
+                    datasets: [{
+                        label: 'Cost by Process Type',
+                        data: processData,
+                        backgroundColor: [ // Paleta de colores diferente o más extensa
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(100, 100, 100, 0.7)',
+                            'rgba(200, 50, 50, 0.7)'
+                        ],
+                         borderColor: [
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(100, 100, 100, 1)',
+                            'rgba(200, 50, 50, 1)'
+                        ],
+                        borderColor: 'black',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Cost Distribution by Process Type'
+                        }
+                    }
+                }
+            });
+        } else {
+            console.log("No data for Process Pie Chart.");
+        }
+    });
+</script>
+{% endblock %}

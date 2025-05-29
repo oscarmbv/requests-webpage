@@ -92,7 +92,7 @@ class TaskViewTests(TestCase):
         self.client.login(email='regular@example.com', password='password')
         response = self.client.get(reverse('tasks:portal_dashboard'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'tasks/portal_operations_dashboard.html')
+        self.assertTemplateUsed(response, 'tasks/rhino_operations_dashboard.html')
 
     def test_request_detail_permission(self):
         """Verifica los permisos para ver detalles de un request."""

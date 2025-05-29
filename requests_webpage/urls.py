@@ -17,7 +17,7 @@ urlpatterns = [
     # --- Inclusión de las URLs de la app 'tasks' ---
     # Todas las URLs definidas en 'tasks.urls' comenzarán con 'portal/'
     # El 'namespace' permite usar {% url 'tasks:nombre_vista' %} en plantillas
-    path('portal/', include('tasks.urls', namespace='tasks')),
+    path('rhino/', include('tasks.urls', namespace='tasks')),
     # --------------------------------------------------
 
     # URL para la página de inicio principal del sitio (opcional)

@@ -377,7 +377,7 @@
                  <button type="submit" formaction="{% url 'tasks:uncancel_request' user_request.id %}" class="btn btn-outline-warning btn-sm me-1 mb-1" onclick="return confirm('Are you sure you want to uncancel this request and return it to Pending?');"><i class="bi bi-arrow-counterclockwise me-1"></i>Uncancel</button>
             {% endif %}
         </form>
-        <a href="{% url 'tasks:portal_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">Back to Dashboard</a>
+        <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">Back to Dashboard</a>
     </div>
 
 </div>
