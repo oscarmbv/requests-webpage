@@ -25,6 +25,11 @@ urlpatterns = [
     path('create/stripe_disputes/', views.stripe_disputes_request, name='stripe_disputes_request'),
     path('create/property_records/', views.property_records_request, name='property_records_request'),
 
+    # --- NUEVAS URLs PARA REPORTES ---
+    path('reports/revenue_support/', views.generate_revenue_support_report_view, name='revenue_support_report'),
+    path('reports/compliance_xml/', views.generate_compliance_xml_report_view, name='compliance_xml_report'),
+    path('reports/accounting_stripe/', views.generate_accounting_stripe_report_view, name='accounting_stripe_report'),
+
     # Detalles y Acciones de Request
     path('request/<int:pk>/', views.request_detail, name='request_detail'),
     path('request/<int:pk>/operate/', views.operate_request, name='operate_request'),

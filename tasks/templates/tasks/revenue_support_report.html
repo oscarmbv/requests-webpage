@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Revenue/Support Process Reports{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Revenue/Support Process Reports</h1>
+    <p class="lead mb-4">Generate a CSV report for selected Revenue/Support processes based on the specified criteria.</p>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            Report Filters
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'tasks:revenue_support_report' %}">
+                {# Rango de Fechas #}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label fw-bold">Start Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request.GET.start_date|default:default_start_date }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label fw-bold">End Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request.GET.end_date|default:default_end_date }}">
+                    </div>
+                </div>
+
+                {# Selector de Tipo de Proceso (Obligatorio) #}
+                <div class="mb-3">
+                    <label for="type_of_process" class="form-label fw-bold">Process Type (Required):</label>
+                    <select class="form-select" id="type_of_process" name="type_of_process" required>
+                        <option value="">--- Select a Process Type ---</option>
+                        {% for value, text in relevant_process_types %}
+                            <option value="{{ value }}" {% if value == selected_process_type %}selected{% endif %}>{{ text }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if form_errors.type_of_process %} {# Para mostrar errores si la vista los añade #}
+                        <div class="invalid-feedback d-block">{{ form_errors.type_of_process }}</div>
+                    {% endif %}
+                </div>
+
+                {# Selector de Equipo #}
+                <div class="mb-3">
+                    <label for="team_filter" class="form-label fw-bold">Team:</label>
+                    <select class="form-select" id="team_filter" name="team_filter">
+                        <option value="both" {% if selected_team_filter == 'both' %}selected{% endif %}>Both Revenue & Support</option>
+                        <option value="{{ TEAM_REVENUE_KEY }}" {% if selected_team_filter == TEAM_REVENUE_KEY %}selected{% endif %}>Revenue Only</option>
+                        <option value="{{ TEAM_SUPPORT_KEY }}" {% if selected_team_filter == TEAM_SUPPORT_KEY %}selected{% endif %}>Support Only</option>
+                    </select>
+                </div>
+
+                {# Selector de Status (Múltiple) #}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Request Status (select one or more):</label>
+                    <div class="row">
+                        {% for option in status_filter_options %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="status"
+                                       value="{{ option.value }}" id="status_revsup_{{ option.value }}"
+                                       {% if option.value in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_revsup_{{ option.value }}">
+                                    {{ option.display }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <small class="form-text text-muted">If no status is selected, all relevant statuses will be included.</small>
+                </div>
+
+                <hr>
+                <button type="submit" name="generate_csv" value="1" class="btn btn-primary">Generate CSV Report</button>
+                <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

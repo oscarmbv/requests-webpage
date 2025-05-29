@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Compliance Reports - Generating XML{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Compliance Reports: Generating XML Files</h1>
+    <p class="lead mb-4">Generate a CSV report for "Generating XML Files" requests based on the selected criteria.</p>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            Report Filters
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'tasks:compliance_xml_report' %}">
+                {# Rango de Fechas (Común) #}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label fw-bold">Start Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request.GET.start_date|default:default_start_date }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label fw-bold">End Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request.GET.end_date|default:default_end_date }}">
+                    </div>
+                </div>
+
+                {# Selector de Status (Común - Múltiple) #}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Request Status (select one or more):</label>
+                    <div class="row">
+                        {% for option in status_filter_options %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="status"
+                                       value="{{ option.value }}" id="status_xml_{{ option.value }}"
+                                       {% if option.value in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_xml_{{ option.value }}">
+                                    {{ option.display }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <small class="form-text text-muted">If no status is selected, all relevant statuses for Generating XML will be included.</small>
+                </div>
+
+                {# Filtros Específicos de Generating XML #}
+                <hr>
+                <h5 class="h6">Generating XML Specific Filters:</h5>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">XML State (select one or more):</label>
+                    <div class="row">
+                        {% for value, text in xml_state_choices %}
+                        <div class="col-md-3 col-sm-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="xml_state" value="{{ value }}" id="xml_state_{{ value }}"
+                                       {% if value in selected_xml_states %}checked{% endif %}>
+                                <label class="form-check-label" for="xml_state_{{ value }}">
+                                    {{ text }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <small class="form-text text-muted">If no state is selected, all states will be included.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Carriers (select to filter):</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="carrier_rvic" name="carrier_rvic" value="on" {% if selected_carrier_rvic %}checked{% endif %}>
+                        <label class="form-check-label" for="carrier_rvic">RVIC</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="carrier_ssic" name="carrier_ssic" value="on" {% if selected_carrier_ssic %}checked{% endif %}>
+                        <label class="form-check-label" for="carrier_ssic">SSIC</label>
+                    </div>
+                </div>
+
+                <hr>
+                <button type="submit" name="generate_csv" value="1" class="btn btn-primary">Generate CSV Report</button>
+                <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

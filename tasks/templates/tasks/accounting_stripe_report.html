@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Accounting Reports - Stripe Disputes" }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ page_title|default:"Accounting Reports: Stripe Disputes" }}</h1>
+    <p class="lead mb-4">Generate a CSV report for "Stripe Disputes" requests based on the selected criteria.</p>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            Report Filters
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'tasks:accounting_stripe_report' %}">
+                {# Rango de Fechas (Común) #}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_date" class="form-label fw-bold">Start Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date|default:default_start_date }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_date" class="form-label fw-bold">End Date (Request Creation):</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date|default:default_end_date }}">
+                    </div>
+                </div>
+
+                {# Selector de Status (Común - Múltiple) - ACTUALIZADO #}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Request Status (select one or more):</label>
+                    <div class="row">
+                        {% for option in status_filter_options %} {# Iterar sobre las opciones preparadas #}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="status"
+                                       value="{{ option.value }}" id="status_{{ option.value }}"
+                                       {% if option.value in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_{{ option.value }}">
+                                    {{ option.display }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <small class="form-text text-muted">If no status is selected, all relevant statuses will be included.</small>
+                </div>
+
+                <hr>
+                <button type="submit" name="generate_csv" value="1" class="btn btn-primary">Generate CSV Report</button>
+                <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

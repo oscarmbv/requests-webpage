@@ -2,7 +2,7 @@
 
 **Versión del Código Fuente:** Analizado el 29 de mayo de 2025
 **Fecha de Actualización del README:** 29 de mayo de 2025
-**Documento de Referencia Principal:** "Descripción Detallada de la Plataforma de Gestión de Solicitudes (requests_webpage)" v2.3 (20 de mayo de 2025), actualizado para reflejar el estado actual del código.
+**Documento de Referencia Principal:** "Descripción Detallada de la Plataforma de Gestión de Solicitudes (requests_webpage)" v2.3 (20 de mayo de 2025), adaptado y actualizado según el estado actual del código.
 
 ## Tabla de Contenidos
 1.  [Introducción y Propósito](#1-introducción-y-propósito)
@@ -34,6 +34,9 @@
         * [5.2.7. Métodos y Propiedades Notorias del Modelo](#527-métodos-y-propiedades-notorias-del-modelo)
     * [5.3. `AddressValidationFile(models.Model)`](#53-addressvalidationfilemodelsmodel)
     * [5.4. Modelos de Historial de Acciones](#54-modelos-de-historial-de-acciones)
+        * [5.4.1. `BlockedMessage`](#541-blockedmessage)
+        * [5.4.2. `ResolvedMessage`](#542-resolvedmessage)
+        * [5.4.3. `RejectedMessage`](#543-rejectedmessage)
     * [5.5. `OperationPrice(models.Model)`](#55-operationpricemodelsmodel)
     * [5.6. `SalesforceAttachmentLog(models.Model)`](#56-salesforceattachmentlogmodelsmodel)
     * [5.7. `ScheduledTaskToggle(models.Model)`](#57-scheduledtasktogglemodelsmodel)
@@ -41,22 +44,38 @@
 7.  [Validadores Personalizados (`tasks/validators.py`)](#7-validadores-personalizados-tasksvalidatorspy)
 8.  [Formularios Detallados (`tasks/forms.py`)](#8-formularios-detallados-tasksformspy)
     * [8.1. Formularios de Gestión de Usuario](#81-formularios-de-gestión-de-usuario)
+        * [8.1.1. `CustomUserChangeForm`](#811-customuserchangeform)
+        * [8.1.2. `CustomPasswordChangeForm`](#812-custompasswordchangeform)
     * [8.2. Formularios para la Creación de Solicitudes](#82-formularios-para-la-creación-de-solicitudes)
+        * [8.2.1. `UserGroupForm(forms.Form)`](#821-usergroupformformsform)
+        * [8.2.2. `UserRecordsRequestForm(forms.Form)`](#822-userrecordsrequestformformsform)
+        * [8.2.3. `DeactivationToggleRequestForm(forms.ModelForm)`](#823-deactivationtogglerequestformformsmodelform)
+        * [8.2.4. `UnitTransferRequestForm(forms.ModelForm)`](#824-unittransferrequestformformsmodelform)
+        * [8.2.5. `GeneratingXmlRequestForm(forms.ModelForm)`](#825-generatingxmlrequestformformsmodelform)
+        * [8.2.6. `AddressValidationRequestForm(forms.ModelForm)`](#826-addressvalidationrequestformformsmodelform)
+        * [8.2.7. `StripeDisputesRequestForm(forms.ModelForm)`](#827-stripedisputesrequestformformsmodelform)
+        * [8.2.8. `PropertyRecordsRequestForm(forms.ModelForm)`](#828-propertyrecordsrequestformformsmodelform)
     * [8.3. Formularios para Acciones de Flujo de Trabajo y Operación](#83-formularios-para-acciones-de-flujo-de-trabajo-y-operación)
+        * [8.3.1. Formularios de Acción Simples (`BlockForm`, `ResolveForm`, `RejectForm`)](#831-formularios-de-acción-simples-blockform-resolveform-rejectform)
+        * [8.3.2. `OperateForm(forms.ModelForm)`](#832-operateformformsmodelform)
+        * [8.3.3. `GeneratingXmlOperateForm(forms.ModelForm)`](#833-generatingxmloperateformformsmodelform)
+        * [8.3.4. `OperationPriceForm(forms.ModelForm)`](#834-operationpriceformformsmodelform)
 9.  [Lógica de las Vistas (`tasks/views.py`)](#9-lógica-de-las-vistas-tasksviewspy)
     * [9.1. Funciones Auxiliares y Control de Permisos](#91-funciones-auxiliares-y-control-de-permisos)
     * [9.2. Vistas Principales (Home, Profile, Choose Request Type)](#92-vistas-principales-home-profile-choose-request-type)
     * [9.3. Vistas de Creación de Solicitudes (Detalle por Tipo)](#93-vistas-de-creación-de-solicitudes-detalle-por-tipo)
     * [9.4. Vistas de Visualización (Dashboard y Detalle de Solicitud)](#94-vistas-de-visualización-dashboard-y-detalle-de-solicitud)
     * [9.5. Vista de Resumen de Gastos del Cliente (`client_cost_summary_view`)](#95-vista-de-resumen-de-gastos-del-cliente-client_cost_summary_view)
-    * [9.6. Vistas de Acciones del Flujo de Trabajo (Detalle por Acción)](#96-vistas-de-acciones-del-flujo-de-trabajo-detalle-por-acción)
+    * [9.6. Vistas de Generación de Reportes CSV](#96-vistas-de-generación-de-reportes-csv)
+    * [9.7. Vistas de Acciones del Flujo de Trabajo (Detalle por Acción)](#97-vistas-de-acciones-del-flujo-de-trabajo-detalle-por-acción)
 10. [Estructura y Contenido de las Plantillas (`tasks/templates/`)](#10-estructura-y-contenido-de-las-plantillas-taskstemplates)
     * [10.1. Plantilla Base (`base.html`)](#101-plantilla-base-basehtml)
-    * [10.2. Plantillas de Creación de Solicitudes (Ejemplos)](#102-plantillas-de-creación-de-solicitudes-ejemplos)
+    * [10.2. Plantillas de Creación de Solicitudes](#102-plantillas-de-creación-de-solicitudes)
     * [10.3. Plantilla del Dashboard (`rhino_operations_dashboard.html`)](#103-plantilla-del-dashboard-rhino_operations_dashboardhtml)
-    * [10.4. Plantillas de Detalle de Solicitud (Ejemplos y Estructura Común)](#104-plantillas-de-detalle-de-solicitud-ejemplos-y-estructura-común)
+    * [10.4. Plantillas de Detalle de Solicitud](#104-plantillas-de-detalle-de-solicitud)
     * [10.5. Plantilla de Resumen de Gastos (`client_cost_summary.html`)](#105-plantilla-de-resumen-de-gastos-client_cost_summaryhtml)
-11. [Tareas Programadas y en Segundo Plano (Django-Q2)](#11-tareas-programadas-y-en-segundo-plano-django-q2)
+    * [10.6. Plantillas para Formularios de Reportes CSV](#106-plantillas-para-formularios-de-reportes-csv)
+11. [Tareas Programadas y en Segundo Plano (`django-q2`)](#11-tareas-programadas-y-en-segundo-plano-django-q2)
     * [11.1. Procesamiento de Solicitudes Programadas (`tasks/scheduled_jobs.py`)](#111-procesamiento-de-solicitudes-programadas-tasksscheduled_jobspy)
     * [11.2. Sincronización con Salesforce (`tasks/salesforce_sync.py`)](#112-sincronización-con-salesforce-taskssalesforce_syncpy)
     * [11.3. Configuración de Programación de Tareas (`tasks/apps.py`)](#113-configuración-de-programación-de-tareas-tasksappspy)
@@ -82,350 +101,445 @@ El sistema de administración de Django ha sido extensamente personalizado para 
 ---
 
 ## 2. Estructura Detallada del Proyecto
-*(La estructura de archivos principal sigue las convenciones de Django: el directorio del proyecto `requests_webpage/` contiene el subdirectorio de configuración y la aplicación principal `tasks/`. La aplicación `tasks/` encapsula modelos, vistas, formularios, plantillas, tareas programadas y la lógica de integración. Los nombres de plantillas importantes ahora incluyen `rhino_operations_dashboard.html` y `users_records_request.html`.)*
+La aplicación sigue una estructura de proyecto Django bien definida para promover la organización y la mantenibilidad del código.
+* **`requests_webpage/` (Directorio Raíz del Proyecto):** Contiene todos los archivos y carpetas del proyecto.
+    * **`requests_webpage/` (Directorio de Configuración del Proyecto):**
+        * `__init__.py`: Indica a Python que este directorio debe ser tratado como un paquete.
+        * `settings.py`: Archivo principal de configuración de Django.
+        * `urls.py`: Archivo de enrutamiento de URLs a nivel de proyecto.
+        * `wsgi.py`: Punto de entrada para servidores web compatibles con WSGI para el despliegue.
+        * `asgi.py`: Punto de entrada para servidores web compatibles con ASGI, para funcionalidades asíncronas de Django.
+    * **`tasks/` (Aplicación Principal):** Contiene la lógica de negocio central de la plataforma.
+        * `__init__.py`: Marca el directorio `tasks` como un paquete Python.
+        * `admin.py`: Define cómo se muestran y gestionan los modelos de la aplicación `tasks` en el sitio de administración de Django.
+        * `apps.py`: Archivo de configuración para la aplicación `tasks`. Aquí se inicializan las tareas programadas de `django-q2`.
+        * `choices.py`: Centraliza las constantes para las opciones (`choices`) de los campos de los modelos.
+        * `context_processors.py`: Contiene funciones que añaden variables al contexto de las plantillas de forma global.
+        * `forms.py`: Define los formularios Django que se utilizan para la entrada y validación de datos del usuario.
+        * `models.py`: Define los modelos ORM de Django, que representan la estructura de las tablas de la base de datos.
+        * `salesforce_sync.py`: Contiene la lógica específica para la tarea de sincronización con Salesforce.
+        * `scheduled_jobs.py`: Define las funciones que se ejecutan como tareas programadas (ej. activar solicitudes).
+        * `tests.py`: Contiene pruebas unitarias y de integración para la aplicación `tasks`.
+        * `urls.py`: Define los patrones de URL específicos para la aplicación `tasks`.
+        * `validators.py`: Contiene validadores personalizados para campos de modelos o formularios.
+        * `migrations/`: Directorio que almacena los archivos de migración de la base de datos.
+        * `static/tasks/`: Directorio para archivos estáticos (CSS, JavaScript, imágenes) específicos de la aplicación `tasks`.
+        * `templates/tasks/`: Directorio que contiene las plantillas HTML para la interfaz de usuario de la aplicación `tasks`.
+            * `registration/`: Contiene plantillas personalizadas para el flujo de autenticación (ej. `login.html`, `logged_out.html`).
+        * `templatetags/`: Contiene tags y filtros de plantillas personalizados, como `duration_filters.py`.
+    * `manage.py`: Utilidad de línea de comandos de Django para interactuar con el proyecto.
+    * `.env`: (No versionado) Archivo para almacenar variables de entorno sensibles.
+    * `requirements.txt`: Lista todas las dependencias de Python del proyecto.
+    * `README.md`: Este archivo.
+    * (El archivo `yender.yaml` fue eliminado, ya que el despliegue se planifica para Heroku).
 
 ---
 ## 3. Configuración Central del Proyecto (`requests_webpage/settings.py`)
 
-Este archivo configura aspectos globales de la aplicación.
+Este archivo define la configuración global del proyecto Django.
 
 ### 3.1. Variables Fundamentales y de Entorno
-* `SECRET_KEY`, `DEBUG`: Gestionadas por `django-environ` para seguridad y flexibilidad entre entornos.
-* `ALLOWED_HOSTS`: Lista de hosts permitidos, adaptable para desarrollo y producción (ej. `'.herokuapp.com'`).
-* `CSRF_TRUSTED_ORIGINS`: Dominios confiables para CSRF, importante en producción.
+* **`BASE_DIR`**: Determina la ruta base del proyecto.
+* **`environ.Env`**: Se utiliza `django-environ` para gestionar las variables de entorno, permitiendo cargar configuraciones desde un archivo `.env` en desarrollo y desde el entorno del sistema en producción.
+* **`SECRET_KEY`**: Clave criptográfica esencial para la seguridad de Django, cargada desde el entorno.
+* **`DEBUG`**: Booleano que activa (True) o desactiva (False) el modo de depuración, cargado desde el entorno.
+* **`ALLOWED_HOSTS`**: Lista de nombres de host/dominio permitidos para servir la aplicación. Se configura para desarrollo (`127.0.0.1`, `localhost`) y se adapta para producción (ej. `'.onrender.com'` previamente, ahora incluirá `'.herokuapp.com'`).
+* **`CSRF_TRUSTED_ORIGINS`**: Lista de orígenes confiables para solicitudes seguras (HTTPS) al modificar datos, importante para producción.
 
 ### 3.2. Aplicaciones Instaladas (`INSTALLED_APPS`)
-Consiste en aplicaciones estándar de Django (`django.contrib.admin`, `django.contrib.auth`, etc.), la aplicación principal del proyecto `tasks`, y aplicaciones de terceros como `django_q` (para tareas en segundo plano) y `'whitenoise.runserver_nostatic'` (para el manejo de archivos estáticos en desarrollo).
+Es una lista de todas las aplicaciones Django que componen el proyecto. Django usa esta lista para cargar modelos, plantillas, comandos de administración, etc.
+* Aplicaciones estándar de Django: `django.contrib.admin`, `django.contrib.auth`, `django.contrib.contenttypes`, `django.contrib.sessions`, `django.contrib.messages`, `django.contrib.staticfiles`.
+* Aplicaciones de terceros:
+    * `'whitenoise.runserver_nostatic'`: Se incluye antes de `django.contrib.staticfiles` para que WhiteNoise pueda servir archivos estáticos durante el desarrollo si `DEBUG=True` de una manera similar a como lo hace en producción, sin necesidad de ejecutar `collectstatic` en cada cambio.
+    * `'django_q'`: La aplicación `django-q2` para la gestión de tareas en segundo plano y programadas.
+* Aplicación principal del proyecto: `'tasks'`.
 
 ### 3.3. Middleware
-Una secuencia de componentes que procesan solicitudes y respuestas. Incluye `SecurityMiddleware`, `WhiteNoiseMiddleware` (para servir archivos estáticos), `SessionMiddleware`, `CommonMiddleware`, `CsrfViewMiddleware`, `AuthenticationMiddleware`, `MessageMiddleware`, `ClickjackingXFrameOptionsMiddleware`, y `LocaleMiddleware` (preparada para internacionalización).
+Define una serie de capas que procesan secuencialmente las solicitudes HTTP entrantes y las respuestas salientes. El orden es importante.
+* `django.middleware.security.SecurityMiddleware`: Proporciona varias mejoras de seguridad.
+* `whitenoise.middleware.WhiteNoiseMiddleware`: Para servir archivos estáticos de manera eficiente directamente desde la aplicación Django en producción, especialmente útil en plataformas como Heroku. Se inserta después de `SecurityMiddleware`.
+* `django.contrib.sessions.middleware.SessionMiddleware`: Habilita el soporte de sesiones.
+* `django.middleware.common.CommonMiddleware`: Añade funcionalidades comunes (ej. `APPEND_SLASH`).
+* `django.middleware.csrf.CsrfViewMiddleware`: Protección contra ataques Cross-Site Request Forgery.
+* `django.contrib.auth.middleware.AuthenticationMiddleware`: Asocia usuarios con solicitudes usando sesiones.
+* `django.contrib.messages.middleware.MessageMiddleware`: Habilita el sistema de mensajes flash.
+* `django.middleware.clickjacking.XFrameOptionsMiddleware`: Protección contra clickjacking.
+* `django.middleware.locale.LocaleMiddleware`: Habilita la internacionalización y la selección de idioma basada en la solicitud.
 
 ### 3.4. Autenticación y Modelo de Usuario
-* `AUTH_USER_MODEL = 'tasks.CustomUser'`: Indica el uso del modelo de usuario personalizado `CustomUser` de la aplicación `tasks`.
-* `LOGOUT_REDIRECT_URL = '/accounts/login/'`: URL a la que se redirige tras cerrar sesión.
-* `LOGIN_REDIRECT_URL = '/rhino/dashboard/'`: URL a la que se redirige tras un inicio de sesión exitoso (actualizado al nuevo prefijo `/rhino/`).
+* `AUTH_USER_MODEL = 'tasks.CustomUser'`: Le indica a Django que use el modelo `CustomUser` (definido en `tasks.models`) como el modelo de usuario para todo el proyecto, en lugar del modelo `User` estándar.
+* `LOGOUT_REDIRECT_URL = '/accounts/login/'`: La URL a la que se redirige al usuario después de que cierra sesión.
+* `LOGIN_REDIRECT_URL = '/rhino/dashboard/'`: **Actualizado** al nuevo prefijo `/rhino/`. Es la URL a la que se redirige al usuario después de un inicio de sesión exitoso si no se especifica un parámetro `next`.
 
 ### 3.5. Configuración de Base de Datos
-Utiliza `dj_database_url.config()` para leer la configuración desde la variable de entorno `DATABASE_URL`. Esto permite usar PostgreSQL en Heroku (con `ssl_require` y `sslmode='require'`) y SQLite como alternativa para desarrollo local. `conn_max_age` está configurado para la persistencia de conexiones.
+* `DATABASES`: Se configura usando `dj_database_url.config()`. Esto permite que la configuración de la base de datos se lea desde la variable de entorno `DATABASE_URL` (ideal para producción en Heroku, que provee esta variable para su add-on de PostgreSQL).
+* Como fallback para desarrollo local (si `DATABASE_URL` no está definida), se usa una base de datos SQLite (`sqlite:///db.sqlite3`) ubicada en el directorio raíz del proyecto.
+* `conn_max_age=600`: Configura la vida útil máxima de las conexiones a la base de datos (en segundos) para mejorar el rendimiento.
+* Para PostgreSQL en Heroku, se añade `{'sslmode': 'require'}` a las opciones de conexión si el motor es PostgreSQL, para asegurar conexiones SSL.
 
 ### 3.6. Gestión de Archivos Estáticos y Multimedia
-* **Archivos Estáticos**: `STATIC_URL = 'static/'`. `STATIC_ROOT` es el directorio donde `collectstatic` reúne los archivos. `STATICFILES_STORAGE` está configurado como `'whitenoise.storage.CompressedManifestStaticFilesStorage'` para un servicio eficiente en producción.
-* **Archivos Multimedia**: `MEDIA_URL = '/media/'` y `MEDIA_ROOT` para la gestión de archivos subidos por los usuarios.
+* **Archivos Estáticos (CSS, JavaScript, Imágenes de la aplicación):**
+    * `STATIC_URL = 'static/'`: URL base desde la cual se servirán los archivos estáticos en las plantillas (ej. `/static/css/style.css`).
+    * `STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')`: Directorio absoluto donde el comando `python manage.py collectstatic` reunirá todos los archivos estáticos de todas las aplicaciones instaladas para el despliegue en producción.
+    * `STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'`: Configura WhiteNoise para servir archivos estáticos de manera eficiente en producción, incluyendo compresión Gzip/Brotli y versionado de archivos (manifest).
+* **Archivos Multimedia (Archivos subidos por el usuario):**
+    * `MEDIA_URL = '/media/'`: URL base para los archivos subidos por los usuarios.
+    * `MEDIA_ROOT = os.path.join(BASE_DIR, 'media')`: Directorio en el sistema de archivos donde se almacenarán los archivos subidos.
 
 ### 3.7. Internacionalización (i18n) y Localización (l10n)
-* `LANGUAGE_CODE = 'en-us'`: Idioma por defecto.
-* `TIME_ZONE = 'UTC'`: Zona horaria interna.
-* `USE_I18N = True` y `USE_TZ = True`: Habilitan la traducción y el soporte de zonas horarias.
+* `LANGUAGE_CODE = 'en-us'`: Establece el inglés de EE. UU. como el idioma por defecto de la aplicación.
+* `TIME_ZONE = 'UTC'`: Define la zona horaria interna con la que Django almacena y maneja todas las fechas y horas. Es una buena práctica usar UTC internamente.
+* `USE_I18N = True`: Habilita el sistema de traducción de Django.
+* `USE_TZ = True`: Habilita el soporte de zonas horarias para los campos `DateTimeField`. Django almacenará las fechas y horas en UTC en la base de datos y las convertirá a la zona horaria del usuario final o la activa al mostrarlas.
 
 ### 3.8. Tareas en Segundo Plano (Django-Q2)
-* `Q_CLUSTER`: Diccionario de configuración para el cluster de `django-q2`, definiendo `name`, `workers`, `timeout`, `retry`, `orm` (usa la base de datos 'default'), `catch_up: False`, y `log_level`.
+* `Q_CLUSTER`: Un diccionario que configura el comportamiento del cluster de `django-q2`.
+    * `name`: Nombre para identificar el cluster (ej. `RequestWebpageScheduler_Heroku`).
+    * `workers`: Número de procesos worker para ejecutar tareas (configurable vía `DJANGO_Q_WORKERS`).
+    * `timeout`: Tiempo máximo (en segundos) que una tarea puede ejecutarse.
+    * `retry`: Tiempo (en segundos) después del cual una tarea fallida se reintentará.
+    * `queue_limit`: Número máximo de tareas que los workers intentarán obtener.
+    * `bulk`: Número máximo de tareas que un worker procesará antes de reciclarse.
+    * `orm`: Conexión de base de datos de Django a usar (ej. `'default'`).
+    * `catch_up: False`: Evita que se ejecuten tareas programadas acumuladas mientras el cluster estaba inactivo.
+    * `log_level`: Nivel de logging para los workers (configurable vía `DJANGO_Q_LOG_LEVEL`).
 
 ### 3.9. Integración con Salesforce
-Credenciales y configuraciones para la API de Salesforce (`SF_USERNAME`, `SF_PASSWORD`, `SF_SECURITY_TOKEN`, `SF_CONSUMER_KEY`, `SF_CONSUMER_SECRET`, `SF_DOMAIN`, `SF_VERSION`, `SF_INSTANCE_NAME`) se cargan de forma segura usando `django-environ`. La `SALESFORCE_LIGHTNING_BASE_URL` se construye dinámicamente.
+* Credenciales (`SF_USERNAME`, `SF_PASSWORD`, `SF_SECURITY_TOKEN`, `SF_CONSUMER_KEY`, `SF_CONSUMER_SECRET`, `SF_DOMAIN`, `SF_VERSION`, `SF_INSTANCE_NAME`) se cargan de forma segura desde el entorno usando `django-environ`.
+* `SALESFORCE_LIGHTNING_BASE_URL`: Se construye dinámicamente usando `SF_INSTANCE_NAME` para generar enlaces a registros en la interfaz Lightning de Salesforce.
 
 ### 3.10. Configuración de Logging
-Configuración detallada de `LOGGING` con múltiples formateadores (`verbose`, `simple`, `qcluster`) y manejadores (`console`, `file_tasks` para `logs/tasks_app.log`). Se definen loggers específicos para `django`, `django.request`, la aplicación `tasks` (con nivel configurable por `DJANGO_LOG_LEVEL_TASKS`), y `django_q`.
+* Se define un diccionario `LOGGING` para la configuración de logs.
+* **Formateadores**: `verbose` (detallado), `simple`, y `qcluster` (para logs de Django-Q).
+* **Manejadores**: `console` (para salida estándar) y `file_tasks` (para escribir logs de la aplicación `tasks` a `logs/tasks_app.log`). El directorio `LOG_DIR` (`logs/`) se crea si no existe.
+* **Loggers**: Configuraciones específicas para `django`, `django.request`, `tasks` (con nivel configurable por `DJANGO_LOG_LEVEL_TASKS`), y `django_q`.
 
 ### 3.11. Procesadores de Contexto de Plantillas
-* Se ha añadido `'tasks.context_processors.user_role_permissions'` a la lista de `context_processors` en la configuración de `TEMPLATES`. Este procesador tiene la responsabilidad de añadir las variables booleanas `is_admin_user` (evalúa si el usuario es superusuario o staff) e `is_leadership_user` (evalúa si el usuario pertenece al grupo 'Leaderships') al contexto de todas las plantillas que se renderizan mediante `django.shortcuts.render()`. Esto simplifica la lógica de visualización condicional en plantillas como `base.html` para elementos de navegación globales.
+* Se ha añadido `'tasks.context_processors.user_role_permissions'` a la lista `TEMPLATES[0]['OPTIONS']['context_processors']`. Este procesador define las variables `is_admin_user` e `is_leadership_user` y las hace disponibles automáticamente en el contexto de todas las plantillas renderizadas, simplificando la lógica de permisos en `base.html` para mostrar/ocultar elementos de navegación.
 
 ---
 ## 4. Enrutamiento de URLs (`urls.py`)
 
 ### 4.1. Enrutador Principal del Proyecto (`requests_webpage/urls.py`)
 
-Este archivo es el primer punto de entrada para el enrutamiento de URLs.
-* `path('admin/', admin.site.urls)`: Define el acceso al panel de administración de Django.
-* `path('accounts/', include('django.contrib.auth.urls'))`: Incluye las URLs estándar para la autenticación de usuarios.
-* `path('rhino/', include('tasks.urls', namespace='tasks'))`: **Actualizado**. Todas las URLs de la aplicación `tasks` ahora están prefijadas con `/rhino/`. El `namespace='tasks'` es crucial para la resolución inversa de URLs (ej. `{% url 'tasks:nombre_vista' %}`).
-* `path('', tasks_views.home, name='home')`: Define la vista para la página de inicio del sitio.
+Este archivo es el punto de entrada para el sistema de URLs de Django.
+* `path('admin/', admin.site.urls)`: Activa el sitio de administración de Django.
+* `path('accounts/', include('django.contrib.auth.urls'))`: Incluye las URLs predefinidas de Django para la autenticación (login, logout, reseteo de contraseña, etc.).
+* `path('rhino/', include('tasks.urls', namespace='tasks'))`: **Actualizado**. Este es el cambio principal. Todas las URLs definidas en el archivo `tasks/urls.py` (de la aplicación `tasks`) ahora estarán prefijadas con `/rhino/` en lugar de `/portal/`. El `namespace='tasks'` permite usar nombres de URL cualificados en las plantillas (ej. `{% url 'tasks:rhino_dashboard' %}`).
+* `path('', tasks_views.home, name='home')`: Define la vista para la página de inicio del sitio (la URL raíz `/`).
 
 ### 4.2. Enrutador de la Aplicación `tasks` (`tasks/urls.py`)
 
-Define los patrones de URL específicos para la aplicación `tasks`, relativos al prefijo `/rhino/`.
-* `app_name = 'tasks'`.
-* **Autenticación:** Rutas para `login` y `logout` usando `auth_views` con plantillas personalizadas si es necesario.
-* **Vistas Principales:** Rutas para `portal_dashboard`, `profile`, `manage_prices`.
-* **Nueva Ruta de Resumen de Costos:** `path('client_cost_summary/', views.client_cost_summary_view, name='client_cost_summary')`.
-* **Creación de Solicitudes:** Una ruta `create/` para la vista `choose_request_type`, seguida de sub-rutas para cada tipo de solicitud específico (ej. `create/user_records/`, `create/address_validation/`).
-* **Detalle y Acciones de Solicitud:** Un patrón base `request/<int:pk>/` para `request_detail`, y sub-rutas para todas las acciones del flujo de trabajo (ej. `operate/`, `block/`, `send_to_qa/`, `complete/`, `cancel/`, etc.).
+Este archivo contiene los patrones de URL específicos para la aplicación `tasks`. Todas estas rutas son relativas al prefijo `/rhino/`.
+* `app_name = 'tasks'`: Define el namespace de la aplicación.
+* **Autenticación:** Rutas para `login` y `logout` utilizando `auth_views` de Django, con la posibilidad de especificar plantillas personalizadas (ej. `template_name='registration/login.html'`).
+* **Vistas Principales y de Usuario:**
+    * `path('dashboard/', views.portal_operations_dashboard, name='portal_dashboard')`: El dashboard principal de operaciones.
+    * `path('profile/', views.profile, name='profile')`: Página de perfil del usuario.
+    * `path('manage_prices/', views.manage_prices, name='manage_prices')`: Página para la administración de precios (restringida).
+    * `path('client_cost_summary/', views.client_cost_summary_view, name='client_cost_summary')`: **Nueva ruta** para el reporte de resumen de costos.
+* **Vistas de Generación de Reportes CSV:**
+    * `path('reports/revenue_support/', views.generate_revenue_support_report_view, name='revenue_support_report')`
+    * `path('reports/compliance_xml/', views.generate_compliance_xml_report_view, name='compliance_xml_report')`
+    * `path('reports/accounting_stripe/', views.generate_accounting_stripe_report_view, name='accounting_stripe_report')`
+* **Vistas de Creación de Solicitudes:**
+    * `path('create/', views.choose_request_type, name='choose_request_type')`: Página para seleccionar el tipo de nueva solicitud.
+    * Rutas específicas para cada formulario de creación: `create/user_records/`, `create/deactivation_toggle/`, `create/unit_transfer/`, `create/generating_xml/`, `create/address_validation/`, `create/stripe_disputes/`, `create/property_records/`.
+* **Vistas de Detalle y Acciones sobre Solicitudes:** Utilizan un parámetro `<int:pk>` para identificar la solicitud específica.
+    * `path('request/<int:pk>/', views.request_detail, name='request_detail')`: Muestra los detalles de una solicitud.
+    * Sub-rutas para cada acción del flujo de trabajo: `operate/`, `block/`, `send_to_qa/`, `qa/`, `complete/`, `cancel/`, `resolve/`, `reject/`, `approve_deactivation_toggle/`, `set_update_flag/`, `clear_update_flag/`, `uncancel/`.
 
 ---
-## 5. Modelo de Datos Detallado (`tasks/models.py`)
+## 5. Modelo de Datos (`tasks/models.py`)
 
+Describe la estructura de la base de datos.
 
 ### 5.1. `CustomUser(AbstractUser)`
-Modelo de usuario que extiende `AbstractUser`.
-* `email = models.EmailField(unique=True)`: Se utiliza como el campo de nombre de usuario (`USERNAME_FIELD`).
-* `timezone = models.CharField(...)`: Almacena la zona horaria preferida del usuario, con `choices` generadas desde `pytz.common_timezones` y `'UTC'` como valor por defecto.
+Extiende el modelo `User` de Django.
+* `email`: `EmailField(unique=True)`, usado como `USERNAME_FIELD` para la autenticación. `verbose_name='Email address'`.
+* `timezone`: `CharField(max_length=100, default='UTC', choices=...)`. Almacena la zona horaria preferida del usuario, con `choices` generadas a partir de `pytz.common_timezones`.
+* `REQUIRED_FIELDS = ['username']`: `username` sigue siendo requerido internamente por Django.
 
 ### 5.2. `UserRecordsRequest(models.Model)`
-El modelo principal que representa cada solicitud operativa en el sistema.
+El modelo central para todas las solicitudes operativas.
 #### 5.2.1. Atributos Generales de Identificación y Estado
-* `type_of_process`: `CharField` crucial que define la naturaleza de la solicitud (ej. `'user_records'`, `'deactivation_toggle'`). Usa `TYPE_CHOICES` y está indexado.
-* `unique_code`: `CharField` único y no editable, generado automáticamente con un prefijo basado en el tipo de proceso y una secuencia trimestral/anual.
-* `timestamp`: `DateTimeField` que registra la fecha y hora de creación.
-* `requested_by`: `ForeignKey` al `CustomUser` que creó la solicitud.
-* `team`: `CharField` opcional que indica el equipo asignado (de `TEAM_CHOICES`).
-* `priority`: `CharField` para la prioridad (`PRIORITY_CHOICES`), con `'normal'` como valor por defecto.
-* `partner_name`: `CharField` para el nombre del socio o cliente.
-* `properties`: `TextField` para una lista de propiedades o identificadores afectados.
-* `user_groups_data`: `JSONField` para datos estructurados en solicitudes de "User Records".
-* `special_instructions`: `TextField` para notas adicionales.
-* `status`: `CharField` (de `STATUS_CHOICES`) que indica el estado actual del flujo de trabajo.
-* `update_needed_flag`, `update_requested_by`, `update_requested_at`: Para gestionar solicitudes de actualización de progreso.
-* `user_file`, `user_link`: Para adjuntar un archivo o un enlace genérico a la solicitud.
+* `type_of_process`: `CharField(max_length=50, choices=TYPE_CHOICES, default='user_records', db_index=True)`. Define la naturaleza de la solicitud.
+* `unique_code`: `CharField(max_length=20, unique=True, editable=False)`. Código único generado.
+* `timestamp`: `DateTimeField(default=now, db_index=True)`. Fecha/hora de creación.
+* `requested_by`: `ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_requests')`.
+* `team`: `CharField(max_length=20, choices=TEAM_CHOICES, null=True, blank=True, db_index=True, verbose_name="Assigned Team")`.
+* `priority`: `CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL, db_index=True, verbose_name="Priority")`.
+* `partner_name`: `CharField(max_length=255, blank=True, null=True, db_index=True)`.
+* `properties`: `TextField(blank=True, null=True, verbose_name="Properties Affected")`.
+* `user_groups_data`: `JSONField(null=True, blank=True)` (para "User Records").
+* `special_instructions`: `TextField(blank=True)`.
+* `status`: `CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)`.
+* `update_needed_flag`: `BooleanField(default=False, verbose_name="Update Needed Flag", help_text="Indicates if the requester/team needs a progress update.")`.
+* `update_requested_by`: `ForeignKey(settings.AUTH_USER_MODEL, ..., verbose_name="Update Requested By")`.
+* `update_requested_at`: `DateTimeField(null=True, blank=True, verbose_name="Update Requested At")`.
+* `user_file`: `FileField(upload_to='user_uploads/', ..., validators=[validate_file_size], verbose_name='Upload File')`.
+* `user_link`: `URLField(blank=True, null=True)`.
 
 #### 5.2.2. Atributos de Flujo de Trabajo, Asignación y Programación
-* `operator`, `qa_agent`: `ForeignKey` a `CustomUser` para los agentes asignados.
-* Timestamps para eventos clave: `operated_at`, `qa_pending_at`, `qa_in_progress_at`, `completed_at`, `cancelled_at`, `uncanceled_at`.
+* `operator`, `qa_agent`: `ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, ...)`.
+* Timestamps: `operated_at` (db\_index=True), `qa_pending_at`, `qa_in_progress_at`, `completed_at` (db\_index=True), `cancelled_at`, `uncanceled_at`.
 * Detalles de cancelación: `cancelled` (Boolean), `cancel_reason` (Text), `cancelled_by` (User), `uncanceled_by` (User).
-* `scheduled_date`: `DateField` para programar la activación futura de una solicitud.
-* `effective_start_time_for_tat`: `DateTimeField` que marca el inicio real para el cálculo del TAT.
-* `is_rejected_previously`: `BooleanField` que indica si la solicitud fue rechazada por QA.
+* `scheduled_date`: `DateField(null=True, blank=True, verbose_name="Scheduled Date", help_text="...")`.
+* `effective_start_time_for_tat`: `DateTimeField(null=True, blank=True, verbose_name="Effective Start Time for TAT", help_text="...")`.
+* `is_rejected_previously`: `BooleanField(default=False, verbose_name="Previously Rejected by QA", help_text="...")`.
 
 #### 5.2.3. Atributos para Detalles de Operación y QA
-Campos `PositiveIntegerField` opcionales para registrar métricas cuantitativas de la operación: `num_updated_users`, `num_updated_properties`, `bulk_updates`, `manual_updated_properties`, `manual_updated_units`, `update_by_csv_rows`, `processing_reports_rows`.
-* `operator_spreadsheet_link`: `URLField` para un enlace a una hoja de cálculo externa.
-* `operating_notes`: `TextField` para notas detalladas del operador o del agente de QA.
+Campos `PositiveIntegerField(null=True, blank=True)`: `num_updated_users`, `num_updated_properties`, `bulk_updates`, `manual_updated_properties`, `manual_updated_units` (verbose\_name="Manual Updated Units"), `update_by_csv_rows`, `processing_reports_rows`.
+* `operator_spreadsheet_link`: `URLField(max_length=1024, ..., verbose_name="Operator Spreadsheet Link")`.
+* `operating_notes`: `TextField(blank=True, null=True)`.
 
 #### 5.2.4. Atributos Específicos por Tipo de Proceso (`type_of_process`)
-El modelo incluye un conjunto extenso de campos que son relevantes solo para ciertos valores de `type_of_process`. Todos son opcionales (`null=True, blank=True`) a nivel de base de datos.
-* **Deactivation/Toggle**: `deactivation_toggle_type`, `_active_policies`, `_properties_with_policies`, `_context`, `_leadership_approval`, `_marked_as_churned`.
-* **Unit Transfer**: `unit_transfer_type`, `_new_partner_prospect_name`, etc.
-* **Generating XML**: `xml_state`, `xml_carrier_rvic` (Boolean), `xml_carrier_ssic` (Boolean), y campos `FileField` para los ZIPs de entrada (`xml_rvic_zip_file`, `xml_ssic_zip_file`) y para los archivos de salida generados por el operador (`operator_rvic_file_slot1`, `operator_rvic_file_slot2`, `operator_ssic_file_slot1`, `operator_ssic_file_slot2`).
-* **Address Validation**: `address_validation_policyholders`, `_opportunity_id`, `_user_email_addresses`.
-* **Stripe Disputes**: `stripe_premium_disputes`, `stripe_ri_disputes` (`PositiveIntegerField`).
-* **Property Records**: `property_records_type`, y numerosos campos `property_records_*` para nuevos nombres, PMC, dirección corregida, tipo de propiedad, unidades, detalles de cobertura, códigos de integración y detalles bancarios.
+Conjunto de campos opcionales (`null=True, blank=True`) para cada `type_of_process`.
+* **Deactivation/Toggle**: `deactivation_toggle_type` (`DEACTIVATION_TOGGLE_CHOICES`), `_active_policies` (Bool), `_properties_with_policies` (Text), `_context` (Text), `_leadership_approval` (`LEADERSHIP_APPROVAL_CHOICES`), `_marked_as_churned` (Bool).
+* **Unit Transfer**: `unit_transfer_type` (`UNIT_TRANSFER_TYPE_CHOICES`), `_new_partner_prospect_name` (Char), `_receiving_partner_psm` (Char), `_new_policyholders` (Text), `_user_email_addresses` (Text), `_prospect_portfolio_size` (PositiveInt), `_prospect_landlord_type` (`UNIT_TRANSFER_LANDLORD_TYPE_CHOICES`), `_proof_of_sale` (URL).
+* **Generating XML**: `xml_state` (`XML_STATE_CHOICES`), `xml_carrier_rvic` (Bool), `xml_carrier_ssic` (Bool), `xml_rvic_zip_file` (File), `xml_ssic_zip_file` (File). Campos `FileField` de salida: `operator_rvic_file_slot1`, `operator_rvic_file_slot2`, `operator_ssic_file_slot1`, `operator_ssic_file_slot2`, con `help_text` descriptivo.
+* **Address Validation**: `address_validation_policyholders` (Text), `_opportunity_id` (Char), `_user_email_addresses` (Text).
+* **Stripe Disputes**: `stripe_premium_disputes` (PositiveInt, verbose\_name="Rhino Super Premium Disputes"), `stripe_ri_disputes` (PositiveInt, verbose\_name="Rhino Super RI Disputes").
+* **Property Records**: `property_records_type` (`PROPERTY_RECORDS_TYPE_CHOICES`), y numerosos campos `property_records_*` para nuevos nombres, PMC, dirección corregida, tipo de propiedad (`PROPERTY_TYPE_CHOICES`), unidades, tipo/multiplicador/monto de cobertura (`COVERAGE_TYPE_CHOICES`, `COVERAGE_MULTIPLIER_CHOICES`, `DecimalField` con validadores Min/Max), tipo de integración (`INTEGRATION_TYPE_CHOICES`), códigos de integración, y detalles bancarios.
 
 #### 5.2.5. Atributos para la Integración con Salesforce
 Específicos para `type_of_process='address_validation'`.
-* `salesforce_standard_opp_id`: ID de Salesforce (18 caracteres).
-* Otros campos para nombre de la oportunidad, número de unidades, enlace a SF, Account Manager, fecha de "Closed Won", software de integración, e información necesaria para activos.
-* Campos de salida de la operación de AV: `assets_uploaded`, `av_number_of_units`, `av_number_of_invalid_units`, `link_to_assets`, `success_output_link`, `failed_output_link`, `rhino_accounts_created`.
+* **Información de la Opportunity:** `salesforce_standard_opp_id` (Char 18, verbose\_name, help\_text), `salesforce_opportunity_name`, `salesforce_number_of_units`, `salesforce_link`, `salesforce_account_manager`, `salesforce_closed_won_date`, `salesforce_leasing_integration_software`, `salesforce_information_needed_for_assets`.
+* **Campos de Salida/Operación para Salesforce:** `assets_uploaded` (Bool), `av_number_of_units` (PositiveInt), `av_number_of_invalid_units` (PositiveInt, default 0), `link_to_assets` (URL), `success_output_link` (URL), `failed_output_link` (URL), `rhino_accounts_created` (Bool).
 
 #### 5.2.6. Atributos para Costos Calculados en Finalización
-Se han añadido tres grupos de campos `DecimalField` para almacenar los costos calculados cuando una solicitud se marca como `completed`. Tienen `verbose_name` en inglés y `default=Decimal('0.0X')`.
-* **Precios al Cliente (`*_client_price_completed`)**: 10 campos de subtotales (uno por cada métrica en `OperationPrice`, ej. `subtotal_user_update_client_price_completed`, `subtotal_xml_file_client_price_completed`) y `grand_total_client_price_completed`. `max_digits=10` (o 12 para total), `decimal_places=2`.
-* **Costos de Operación (`*_operate_cost_completed`)**: 10 campos de subtotales y `grand_total_operate_cost_completed`. `max_digits=10` (o 12 para total), `decimal_places=4`.
-* **Costos de QA (`*_qa_cost_completed`)**: 10 campos de subtotales y `grand_total_qa_cost_completed`. `max_digits=10` (o 12 para total), `decimal_places=4`.
+Tres grupos de campos `DecimalField` (10 subtotales y 1 total por grupo), con `verbose_name` en inglés, `null=True, blank=True, default=Decimal('0.0X')`.
+* **Client Price:** Ej. `subtotal_user_update_client_price_completed`, `grand_total_client_price_completed`.
+* **Operate Cost:** Ej. `subtotal_user_update_operate_cost_completed`, `grand_total_operate_cost_completed`.
+* **QA Cost:** Ej. `subtotal_user_update_qa_cost_completed`, `grand_total_qa_cost_completed`.
 
 #### 5.2.7. Métodos y Propiedades Notorias del Modelo
-* `get_type_prefix()`: Retorna un prefijo de cadena para el `unique_code`.
-* `save()`: Sobrescrito para generar el `unique_code` si es una nueva instancia (formato `TIPO-AÑOQTRNUMERO`, secuencial) y para establecer el `status` a `'pending'` por defecto si no se ha definido.
+* `__str__()`: Devuelve una cadena representando la solicitud.
+* `get_type_prefix()`: Retorna un prefijo para `unique_code`.
+* `save()`: Lógica para generar `unique_code` (formato `TIPO-AÑOQTRNUMERO`) y establecer `status` inicial `'pending'`.
 * `local_timestamp` (propiedad): Retorna `self.timestamp` convertido a la zona horaria del `requested_by`.
-* `calculated_turn_around_time` (propiedad): Calcula la diferencia entre `completed_at` y `effective_start_time_for_tat`.
+* `calculated_turn_around_time` (propiedad): Calcula `completed_at - effective_start_time_for_tat`.
 
 ### 5.3. `AddressValidationFile(models.Model)`
-Permite adjuntar múltiples archivos a una solicitud de "Address Validation".
-* `request`: `ForeignKey` a `UserRecordsRequest`.
-* `uploaded_file`: `FileField` con `validate_file_size`.
-* `uploaded_at`: `DateTimeField`.
+* `request`: `ForeignKey` a `UserRecordsRequest` (`related_name='address_validation_files'`).
+* `uploaded_file`: `FileField(upload_to='address_validation_uploads/', validators=[validate_file_size])`.
+* `uploaded_at`: `DateTimeField(auto_now_add=True)`.
 
 ### 5.4. Modelos de Historial de Acciones
-* **`BlockedMessage`**: Registra información sobre bloqueos (quién, cuándo, razón).
-* **`ResolvedMessage`**: Registra información sobre resoluciones (quién, cuándo, mensaje, archivo/enlace opcional).
-* **`RejectedMessage`**: Registra información sobre rechazos (quién, cuándo, razón, `is_resolved_qa`).
+* **`BlockedMessage`**: `request`, `blocked_by`, `blocked_at`, `reason`.
+* **`ResolvedMessage`**: `request`, `resolved_by`, `resolved_at`, `message`, `resolved_file`, `resolved_link`.
+* **`RejectedMessage`**: `request`, `rejected_by`, `rejected_at`, `reason`, `is_resolved_qa`.
 
 ### 5.5. `OperationPrice(models.Model)`
-Modelo Singleton (`pk=1`) que almacena los precios unitarios para facturación al cliente y los costos internos de operación y QA.
-* **Campos renombrados/actualizados:** `manual_property_update_price` (antes `manual_update_price`) y sus contrapartes de costo.
-* **Nuevos campos de precio/costo:** `manual_unit_update_price`, `address_validation_unit_price`, `stripe_dispute_price`, `xml_file_price`, cada uno con sus correspondientes `_operate_cost` y `_qa_cost`.
-* Todos los campos son `DecimalField` con `verbose_name` en inglés.
+Modelo Singleton (`pk=1`).
+* Campos `DecimalField` para precios al cliente, costos de operación y costos de QA para todas las métricas: `user_update_price`, `property_update_price`, `bulk_update_price`, `manual_property_update_price` (renombrado), `csv_update_price`, `processing_report_price`, y los **nuevos**: `manual_unit_update_price`, `address_validation_unit_price`, `stripe_dispute_price`, `xml_file_price`, junto con sus respectivos `_operate_cost` y `_qa_cost`. Todos con `verbose_name` en inglés.
 
 ### 5.6. `SalesforceAttachmentLog(models.Model)`
-Registra metadatos de archivos adjuntos de Salesforce vinculados a solicitudes de "Address Validation".
-* `request`: `ForeignKey` a `UserRecordsRequest`.
-* `file_name`, `file_extension`, `salesforce_file_link` (URL).
+* `request`: `ForeignKey` a `UserRecordsRequest` (`related_name='salesforce_attachments'`).
+* `file_name`, `file_extension`, `salesforce_file_link`.
 
 ### 5.7. `ScheduledTaskToggle(models.Model)`
-Permite habilitar o deshabilitar tareas programadas específicas desde el admin.
-* `task_name`: `CharField` único, usado como clave primaria (ej. `'salesforce_sync_opportunities'`).
-* `is_enabled`: `BooleanField` (default `True`).
-* `last_modified`: `DateTimeField` (actualización automática).
+* `task_name`: `CharField(unique=True, primary_key=True, help_text="Unique identifier...")`.
+* `is_enabled`: `BooleanField(default=True, help_text="Check to enable...")`.
+* `last_modified`: `DateTimeField(auto_now=True)`.
 
 ---
 ## 6. Opciones Predefinidas (`tasks/choices.py`)
 
-Este archivo es fundamental ya que centraliza todas las tuplas `choices` usadas en los campos `CharField` y `ChoiceField` de los modelos y formularios. Esto incluye `TYPE_CHOICES` para los tipos de proceso, `STATUS_CHOICES` para los estados de las solicitudes, `TEAM_CHOICES` para los equipos, `PRIORITY_CHOICES`, y muchas otras opciones específicas para cada tipo de solicitud (ej. `DEACTIVATION_TOGGLE_CHOICES`, `XML_STATE_CHOICES`, `PROPERTY_RECORDS_TYPE_CHOICES`, etc.). Mantener estas opciones en un solo lugar mejora la consistencia y facilita las modificaciones. El orden de las tuplas en `TEAM_CHOICES` y `TYPE_CHOICES` es ahora utilizado por la vista `client_cost_summary_view` para determinar el orden de visualización de los subtotales en la página de resumen de costos. Todos los textos legibles por el usuario en estas `choices` están en inglés.
+Este archivo define como constantes Python todas las tuplas `choices` (valor almacenado, etiqueta legible) utilizadas en los campos `CharField` y `ChoiceField` de los modelos y formularios. Esto incluye:
+* `TYPE_CHOICES`: Para los 7 tipos de proceso.
+* `TEAM_CHOICES`: Revenue, Support, Compliance, Accounting.
+* `PRIORITY_CHOICES`: Low, Normal, High.
+* `STATUS_CHOICES`: Pending, Scheduled, In Progress, Completed, Cancelled, Blocked, Pending for Approval, QA Pending, QA In Progress.
+* Opciones específicas para cada tipo de proceso, como `DEACTIVATION_TOGGLE_CHOICES`, `UNIT_TRANSFER_TYPE_CHOICES`, `XML_STATE_CHOICES`, `PROPERTY_RECORDS_TYPE_CHOICES`, etc.
+El orden de las tuplas en `TEAM_CHOICES` y `TYPE_CHOICES` es relevante para la visualización en la página de resumen de costos. Todos los textos legibles están en inglés.
 
 ---
 ## 7. Validadores (`tasks/validators.py`)
 
-* **`validate_file_size(value)`**: Validador personalizado que asegura que los archivos subidos por los usuarios no excedan un límite predefinido (actualmente 10MB). Lanza una `ValidationError` si el archivo es demasiado grande. Se aplica a varios campos `FileField` en los modelos.
+* `validate_file_size(value)`: Validador que verifica si un archivo subido excede el límite de 10MB. Lanza `ValidationError` si es demasiado grande. Se aplica a todos los campos `FileField` relevantes.
 
 ---
 ## 8. Formularios (`tasks/forms.py`)
 
-Define los formularios Django para la entrada y validación de datos. Todos los `label` y `help_text` visibles por el usuario están definidos en inglés.
+Todos los `label` y `help_text` están en inglés.
 
 ### 8.1. Formularios de Gestión de Usuario
-* **`CustomUserChangeForm`**: Hereda de `UserChangeForm` para editar `username`, `email`, `first_name`, `last_name`, y `timezone`. Omite el campo `password`.
-* **`CustomPasswordChangeForm`**: Hereda de `PasswordChangeForm` para el cambio seguro de contraseñas.
+* `CustomUserChangeForm`: Para editar `username`, `email`, `first_name`, `last_name`, `timezone`.
+* `CustomPasswordChangeForm`: Para cambiar la contraseña.
 
 ### 8.2. Formularios para la Creación de Solicitudes
-Estos formularios están vinculados al modelo `UserRecordsRequest` (heredan de `forms.ModelForm`) o son `forms.Form` para estructuras más complejas.
-* **`UserGroupForm(forms.Form)`**: Formulario no vinculado a modelo para un grupo de usuarios en "User Records". Campos: `type_of_request`, `user_email_addresses`, `access_level` (condicional), `properties`. Usado con `formset_factory`.
-* **`UserRecordsRequestForm(forms.Form)`**: Para detalles generales al crear "User Records" (partner, instrucciones, adjuntos, prioridad, programación). **Ya no incluye `team_selection`**; la asignación y validación de equipo se maneja en la vista.
-* **Formularios Específicos por Tipo (ej. `DeactivationToggleRequestForm`, `UnitTransferRequestForm`, `GeneratingXmlRequestForm`, `AddressValidationRequestForm`, `StripeDisputesRequestForm`, `PropertyRecordsRequestForm`):**
-    * Heredan de `ModelForm` y definen los campos relevantes para cada `type_of_process`.
-    * Implementan lógica de validación condicional en sus métodos `clean()` para asegurar que se proporcionen los datos correctos según las selecciones del usuario (ej. en `PropertyRecordsRequestForm`, los campos requeridos cambian según `property_records_type`).
-    * Ya no incluyen `team_selection`; la lógica de equipo se maneja en la vista correspondiente.
-    * Incluyen campos para `priority` y programación (`schedule_request`, `scheduled_date`) con validación.
+* **`UserGroupForm(forms.Form)`**: Formulario no vinculado para detalles de grupos en "User Records".
+* **`UserRecordsRequestForm(forms.Form)`**: Para creación de "User Records". Ya no incluye `team_selection`.
+* **Formularios Específicos por Tipo (`ModelForm` para `UserRecordsRequest`):**
+    * `DeactivationToggleRequestForm`: `clean()` valida campos como `properties` y `deactivation_toggle_properties_with_policies` condicionalmente.
+    * `UnitTransferRequestForm`: `clean()` valida campos de "Partner to Prospect" y `properties` (requerido si no hay archivo/enlace).
+    * `GeneratingXmlRequestForm`: `user_file` obligatorio. `priority` por defecto en vista. `clean()` valida selección de carrier y ZIPs condicionales.
+    * `AddressValidationRequestForm`: `clean()` valida `address_validation_opportunity_id` (requerido si no hay archivos múltiples ni `user_link`).
+    * `StripeDisputesRequestForm`: `user_file` obligatorio. `priority` por defecto en vista. `clean()` valida que al menos un tipo de disputa sea mayor a cero.
+    * `PropertyRecordsRequestForm`: `clean()` con lógica compleja para campos `property_records_*` condicionales y anidados (ej. "Coverage Type/Amount") y si no se provee archivo/enlace.
+    * Todos estos formularios manejan campos de `priority` y programación (`schedule_request`, `scheduled_date`) con validación de fecha futura.
 
 ### 8.3. Formularios para Acciones de Flujo de Trabajo y Operación
-* **`BlockForm`, `ResolveForm`, `RejectForm`**: Formularios simples (`forms.Form`) para capturar razones o mensajes.
-* **`OperateForm(forms.ModelForm)`**: Usado en modales para "Send to QA" y "Complete". Su método `__init__` personaliza los campos visibles y requeridos según el `type_of_process` de la solicitud.
-    * Ha sido **actualizado** para manejar condicionalmente los campos de 'Address Validation' (ej. `av_number_of_units`) y 'Stripe Disputes' (ej. `stripe_premium_disputes`).
-* **`GeneratingXmlOperateForm(forms.ModelForm)`**: Formulario especializado para las acciones "Send to QA" y "Complete" de solicitudes "Generating XML".
-    * Maneja la subida/actualización de los archivos XML/ZIP generados (`operator_rvic_file_slot1`, etc.) a través de campos de archivo añadidos dinámicamente en `__init__` según el `xml_state` y los carriers de la solicitud.
-    * Incluye el campo `qa_needs_file_correction` (checkbox) para el flujo donde QA indica que los archivos deben ser corregidos/re-subidos por el operador.
-* **`OperationPriceForm(forms.ModelForm)`**: Para gestionar la instancia Singleton de `OperationPrice`. Lista todos los campos del modelo para edición, reflejando los campos renombrados y los nuevos.
+* **`BlockForm`, `ResolveForm`, `RejectForm`**: Formularios simples para capturar razones/mensajes.
+* **`OperateForm(forms.ModelForm)`**: Formulario genérico para ingresar detalles de operación. Su método `__init__` personaliza los campos visibles y su obligatoriedad (`required`) basado en el `type_of_process` de la instancia de la solicitud.
+    * Para **"Address Validation"**: Hace obligatorios `av_number_of_units`, `av_number_of_invalid_units`, `link_to_assets`, `operating_notes`. Pre-llena `av_number_of_units`.
+    * Para **"Stripe Disputes"**: Hace obligatorios `stripe_premium_disputes`, `stripe_ri_disputes`, `operating_notes`.
+    * Para otros tipos, los campos numéricos y notas son generalmente opcionales.
+* **`GeneratingXmlOperateForm(forms.ModelForm)`**: Específico para operar/completar solicitudes "Generating XML".
+    * Campos: `operating_notes` (opcional), `qa_needs_file_correction` (checkbox).
+    * **Campos de Archivo Dinámicos**: `__init__` añade `FileField`s (ej. `op_ut_rvic_csv`) basados en `xml_state` y carriers, mapeados a `operator_rvic_file_slot1`, etc.
+    * `save()` sobrescrito para manejar la asignación de estos archivos dinámicos.
+* **`OperationPriceForm(forms.ModelForm)`**: Para el modelo `OperationPrice`, incluye todos los campos (con nuevos y renombrados).
 
 ---
 ## 9. Lógica de las Vistas (`tasks/views.py`)
 
 
 ### 9.1. Funciones Auxiliares y Control de Permisos
-Se utilizan funciones helper como `is_admin(user)`, `is_leadership(user)`, `is_agent(user)`, `user_in_group(group_name)` y la nueva `user_is_admin_or_leader(user)` para verificar roles. Decoradores como `@login_required` y `@user_passes_test` con estas funciones restringen el acceso a las vistas. Los decoradores `user_belongs_to_revenue_or_support`, `user_belongs_to_compliance`, y `user_belongs_to_accounting` controlan el acceso a las vistas de creación de solicitudes por equipo.
+Funciones como `is_admin(user)`, `is_leadership(user)`, `is_agent(user)`, `user_in_group(user, group_name)`, y la nueva `user_is_admin_or_leader(user)` se usan con `@user_passes_test` para restringir acceso. Decoradores `user_belongs_to_*_team` controlan el acceso a vistas de creación.
 
 ### 9.2. Vistas Principales (Home, Profile, Choose Request Type)
 * `home`: Página de inicio.
-* `profile`: Gestión de perfil de usuario y cambio de contraseña.
-* `choose_request_type`: Página de selección para iniciar la creación de una nueva solicitud.
+* `profile`: Permite al usuario actualizar su información (`CustomUserChangeForm`) y contraseña (`CustomPasswordChangeForm`).
+* `choose_request_type`: Presenta opciones para crear nuevos tipos de solicitud.
 
 ### 9.3. Vistas de Creación de Solicitudes (Detalle por Tipo)
-Cada tipo de solicitud tiene su propia vista de creación (ej. `user_records_request`, `deactivation_toggle_request`, etc.).
-* **Lógica de Asignación de Equipo Actualizada:** Para los tipos de solicitud que dependen de los equipos Revenue o Support, si el usuario creador pertenece a ambos grupos, la vista ahora muestra un mensaje de error (`messages.error`) indicando la ambigüedad y redirige (probablemente al dashboard). Si el usuario pertenece solo a uno de estos equipos, el campo `team` de la solicitud se asigna automáticamente. El campo `team_selection` en los formularios ha sido eliminado.
-* **Manejo de Programación:** Estas vistas procesan los campos `schedule_request` y `scheduled_date` de los formularios. Si una solicitud se programa, su `status` se establece a `'scheduled'`, se guarda `scheduled_date`, y `effective_start_time_for_tat` se deja como `None` (se establecerá cuando la tarea se active). Si no se programa, el `status` es `'pending'` (o `'pending_approval'` para ciertos tipos de "Deactivation/Toggle" que requieren aprobación de liderazgo y no son creados por un líder), y `effective_start_time_for_tat` se establece al momento de la creación.
-* `address_validation_request` maneja la subida de múltiples archivos a través de `request.FILES.getlist('request_files')` y crea instancias `AddressValidationFile`.
+Cada tipo de solicitud tiene una vista dedicada (ej. `user_records_request`, `deactivation_toggle_request`).
+* **Lógica de Asignación de Equipo Actualizada:** Para solicitudes de Revenue/Support, si el usuario pertenece a ambos grupos (`TEAM_REVENUE` y `TEAM_SUPPORT`), la vista muestra un mensaje de error y redirige. Si pertenece solo a uno, el campo `team` se asigna automáticamente.
+* Manejan la lógica de programación (status `scheduled` o `pending`/`pending_approval` y `effective_start_time_for_tat`).
+* `address_validation_request` maneja la subida de múltiples archivos a `AddressValidationFile` usando `transaction.atomic()`.
 
 ### 9.4. Vistas de Visualización (Dashboard y Detalle de Solicitud)
-* **`portal_operations_dashboard`**: Muestra una lista paginada de todas las solicitudes con filtros por tipo, estado, equipo y rango de fechas. Pasa las variables `is_admin_user` e `is_leadership_user` al contexto para controlar la visibilidad de la nueva columna de costos.
-* **`request_detail`**: Muestra los detalles completos de una solicitud específica. Recupera la solicitud, su historial de acciones (bloqueos, resoluciones, rechazos), y datos específicos del tipo de proceso (como grupos de usuarios para "User Records" o archivos para "Address Validation"). Pasa múltiples variables de contexto para controlar la visibilidad de botones de acción y ahora también `is_admin_user` e `is_leadership_user` para la sección de costos. Para solicitudes "Generating XML", pasa una instancia de `GeneratingXmlOperateForm` (como `form_for_modal`) para ser usada en los modales de operación.
+* **`portal_operations_dashboard`**: Muestra una tabla paginada de `UserRecordsRequest` con filtros por tipo, estado, equipo y rango de fechas. Pasa `is_admin_user` e `is_leadership_user` al contexto para la columna de costos.
+* **`request_detail`**: Muestra detalles completos de una solicitud, incluyendo historial de acciones. Pasa `is_admin_user`, `is_leadership_user` para la sección de costos. Para "Generating XML", instancia y pasa `GeneratingXmlOperateForm` como `form_for_modal`.
 
 ### 9.5. Vista de Resumen de Gastos del Cliente (`client_cost_summary_view`)
-* **Nueva Vista Protegida:** Accesible solo para usuarios autenticados que sean `admin` o `leadership` (usando `@user_passes_test(user_is_admin_or_leader)`).
-* **Filtros de Fecha:** Acepta `start_date` y `end_date` como parámetros GET. Si no se proporcionan, por defecto muestra los datos para el mes actual completo.
-* **Cálculo de Costos:**
-    * Filtra `UserRecordsRequest` por `status='completed'` y el rango de fechas.
-    * Calcula el "Gran Total" sumando `grand_total_client_price_completed` de las solicitudes filtradas.
-    * Calcula "Subtotales por Equipo" agrupando por `team` y sumando `grand_total_client_price_completed`. El orden de los equipos en la salida respeta el orden definido en `TEAM_CHOICES`.
-    * Calcula "Subtotales por Tipo de Proceso" agrupando por `type_of_process` y sumando `grand_total_client_price_completed`. El orden de los procesos en la salida respeta el orden definido en `TYPE_CHOICES`.
-* **Datos para Gráficos (Chart.js):**
-    * Prepara listas de etiquetas (nombres de equipo/proceso) y datos (subtotales) para dos gráficos de tarta (pie charts).
-    * Prepara datos para cinco gráficos de dispersión con líneas suavizadas (`type: 'line'` con `tension`). Cada gráfico es para un tipo de proceso principal ('address\_validation', 'user\_records', 'property\_records', 'unit\_transfer', 'deactivation\_toggle') y muestra dos series: una para el equipo "Revenue" y otra para "Support". Los puntos de datos son `(completed_at, grand_total_client_price_completed)` y cada punto incluye el `pk` de la solicitud para permitir la navegación a su detalle.
-* **Contexto y Plantilla:** Pasa todos los datos calculados y la plantilla de URL para `request_detail` al contexto de `tasks/client_cost_summary.html`.
+* **Nueva Vista Protegida:** `@login_required` y `@user_passes_test(user_is_admin_or_leader)`.
+* **Filtros:** Acepta `start_date` y `end_date` (GET), con el mes actual como default.
+* **Cálculos:** Filtra `UserRecordsRequest` por `status='completed'` y rango de fechas. Agrega `grand_total_client_price_completed` para el gran total. Calcula subtotales por `team` y por `type_of_process`, respetando el orden de `TEAM_CHOICES` y `TYPE_CHOICES`.
+* **Datos para Gráficos:** Prepara listas de etiquetas y datos para dos pie charts (costos por equipo/proceso) y cinco scatter plots con líneas suavizadas (costo vs. `completed_at` para 5 tipos de proceso, desglosado por Revenue/Support). Los puntos de los scatter plots incluyen el `pk` de la solicitud.
+* **Contexto:** Pasa todos los datos, incluyendo una plantilla de URL para `request_detail` (usada por los hipervínculos de los scatter plots), a `client_cost_summary.html`.
 
-### 9.6. Vistas de Acciones del Flujo de Trabajo (Detalle por Acción)
-Manejan los cambios de estado de las solicitudes.
-* `operate_request`: Cambia estado a 'In Progress', asigna operador.
-* `block_request`, `resolve_request`: Crean registros de historial y actualizan Salesforce si es 'Address Validation' y tiene `salesforce_standard_opp_id`.
-* `send_to_qa_request`: Utiliza `OperateForm` o `GeneratingXmlOperateForm` para capturar detalles de operación. Cambia estado a 'QA Pending'. Para `GeneratingXmlOperateForm`, el campo `qa_needs_file_correction` se oculta ya que esta decisión la toma QA, no el operador al enviar.
-* `qa_request`: Agente toma solicitud de 'QA Pending' a 'QA In Progress'.
-* `complete_request`:
-    * Usa `OperateForm` o `GeneratingXmlOperateForm`. Cambia estado a 'Completed'.
-    * **Cálculo y Almacenamiento de Costos:** Al marcar como 'completed', obtiene la instancia de `OperationPrice`. Calcula todos los subtotales (precios al cliente, costos de operación, costos de QA) basados en los conteos de operación de la solicitud (ej. `num_updated_users`, `av_number_of_units`, `stripe_premium_disputes`, conteo de carriers para XML) y los precios/costos unitarios actuales de `OperationPrice`. Estos subtotales y los tres grandes totales se guardan en los nuevos campos `*_completed` del modelo `UserRecordsRequest`.
-    * Actualiza Salesforce si es 'Address Validation'.
-* `cancel_request`, `uncancel_request`, `reject_request`, `approve_deactivation_toggle`, `set_update_needed_flag`, `clear_update_needed_flag`.
+### 9.6. Vistas de Generación de Reportes CSV
+Tres nuevas vistas para la generación de reportes, cada una con su propio formulario de filtros y lógica de consulta.
+* **`generate_revenue_support_report_view(request)`**: Maneja `revenue_support_report_form.html`. Filtros: Fecha, Status (múltiple, incluye Scheduled/PendingApproval, "In Progress" agrupado), Tipo de Proceso (obligatorio, de 5 opciones), Equipo (Revenue, Support, Ambos). Llama a la función helper CSV específica del tipo de proceso seleccionado.
+* **`generate_compliance_xml_report_view(request)`**: Maneja `compliance_xml_report_form.html`. Filtros: Fecha, Status, Estado XML (múltiple), Carriers (RVIC, SSIC; si ambos se seleccionan, busca `xml_carrier_rvic=True` Y `xml_carrier_ssic=True`). Llama a `_generate_generating_xml_csv()`.
+* **`generate_accounting_stripe_report_view(request)`**: Maneja `accounting_stripe_report_form.html`. Filtros: Fecha, Status. Llama a `_generate_stripe_disputes_csv()`.
+* **Funciones Auxiliares `_generate_*_csv(request_items, filename)`**: Siete funciones (una por tipo de proceso) que toman un queryset filtrado, definen encabezados CSV específicos (incluyendo todos los campos generales y específicos del tipo), formatean los datos y retornan un `HttpResponse` CSV.
+
+### 9.7. Vistas de Acciones del Flujo de Trabajo (Detalle por Acción)
+Estas vistas manejan las transiciones de estado y la lógica asociada.
+* `operate_request`: Cambia estado a 'In Progress'.
+* `block_request`, `resolve_request`: Crean `BlockedMessage`/`ResolvedMessage`. Actualizan Salesforce para 'Address Validation' si la solicitud tiene `salesforce_standard_opp_id`.
+* `send_to_qa_request`: Utiliza `OperateForm` o `GeneratingXmlOperateForm`. Para `GeneratingXmlOperateForm`, el campo `qa_needs_file_correction` se oculta (decisión de QA). Establece `is_rejected_previously = False`.
+* `qa_request`: Cambia estado a 'QA In Progress'.
+* `complete_request`: Utiliza `OperateForm` o `GeneratingXmlOperateForm`. Cambia estado a 'Completed'.
+    * **Cálculo y Almacenamiento de Costos:** Obtiene `OperationPrice.objects.first()`. Calcula todos los subtotales de precios al cliente, costos de operación y costos de QA basados en los conteos de la solicitud y los precios/costos unitarios. Almacena estos valores en los campos `*_completed` de `UserRecordsRequest`.
+    * Actualiza Salesforce para 'Address Validation'.
+* `cancel_request`, `uncancel_request`: Manejan cancelación y reactivación.
+* `reject_request`: Crea `RejectedMessage`, revierte estado, establece `is_rejected_previously = True`.
+* `approve_deactivation_toggle`: Para "Deactivation/Toggle", maneja aprobación y estado/TAT según `scheduled_date`.
+* `set_update_needed_flag`, `clear_update_needed_flag`: Gestionan el flag de solicitud de actualización.
 
 ---
 ## 10. Estructura y Contenido de las Plantillas (`tasks/templates/`)
-Textos de UI directamente en inglés.
+Desarrolladas con Bootstrap 5. Textos de UI directamente en inglés.
 
 ### 10.1. Plantilla Base (`base.html`)
 
-Define la estructura común (navbar, footer, mensajes flash).
-* **Nuevo Enlace "Cost Summary"**: Añadido a la barra de navegación. Visible solo si la variable de contexto `is_admin_user` o `is_leadership_user` es verdadera.
+Define la estructura común: navbar, footer, bloques para `title`, `extra_css`, `content`, `extra_js`.
+* **Barra de Navegación Actualizada**:
+    * Enlace "Manage Prices" visible para `user.is_superuser` o `user.is_staff`.
+    * Enlace "Cost Summary" individual visible para `is_admin_user` o `is_leadership_user`.
+    * Menú desplegable "CSV Reports" (antes "Reports") visible para `is_admin_user` o `is_leadership_user`, con enlaces directos a los formularios de generación de reportes para Revenue/Support, Compliance, y Accounting. Se eliminó el sub-encabezado y el separador internos.
 
 ### 10.2. Plantillas de Creación de Solicitudes
-* **`users_records_request.html`** (antes `users_records.html`): Para "User Records", usa `UserRecordsRequestForm` y `UserGroupFormSet`.
-* Otras plantillas como `deactivation_toggle_request.html`, `unit_transfer_request.html`, `generating_xml_request.html`, `address_validation_request.html`, `stripe_disputes_request.html`, `property_records_request.html`. Todas incluyen JS para lógica condicional de campos y manejo de programación.
+* **`users_records_request.html`** (antes `users_records.html`): Para "User Records".
+* Otras plantillas (`deactivation_toggle_request.html`, `generating_xml_request.html`, etc.) para cada tipo de proceso, con sus campos y lógica JS específica para condicionalidad y programación.
 
 ### 10.3. Plantilla del Dashboard (`rhino_operations_dashboard.html`)
 (Antes `portal_operations_dashboard.html`).
-* Muestra tabla de solicitudes con filtros.
-* **Nueva Columna "Total Cost (Client)"**: Visible solo para `admin` o `leadership`. Muestra `grand_total_client_price_completed` para solicitudes completadas. `colspan` ajustado en mensaje `{% empty %}`.
+* Tabla de solicitudes con filtros por tipo, estado, equipo, y rango de fechas.
+* **Nueva Columna "Total Cost (Client)"**: Condicionalmente visible para `admin` o `leadership`, muestra `grand_total_client_price_completed` para solicitudes completadas. `colspan` del mensaje `{% empty %}` ajustado dinámicamente.
 
 ### 10.4. Plantillas de Detalle de Solicitud
-(ej. `user_records_detail.html`, `generating_xml_detail.html`, `address_validation_detail.html`, etc.)
-* Muestran información completa de la solicitud, historial y botones de acción.
-* **Nueva Sección "Price Breakdown"**:
-    * Visible solo para `admin` o `leadership` y si `user_request.status == 'completed'`.
-    * Presentada en una tarjeta centrada de ancho reducido (`col-lg-6 col-md-8`).
-    * Muestra los subtotales `subtotal_*_client_price_completed` y el `grand_total_client_price_completed` almacenados en el modelo.
-* Modales para acciones "Send to QA" / "Complete":
-    * Para "Generating XML": usan `form_for_modal` (instancia de `GeneratingXmlOperateForm`). JS maneja visibilidad de `qa_needs_file_correction` y campos de archivo.
-    * Para "Stripe Disputes": usan `OperateForm` adaptado para mostrar campos de conteo de disputas y notas.
+(ej. `user_records_detail.html`, `generating_xml_detail.html`, etc.)
+* Muestran información completa, historial, y botones de acción condicionales.
+* **Nueva Sección "Price Breakdown"**: Visible para `admin`/`leadership` si `status == 'completed'`. En una tarjeta centrada de ancho reducido. Muestra `grand_total_client_price_completed` y subtotales relevantes.
+* **Modales para `generating_xml_detail.html` y `stripe_disputes_detail.html`**: Usan `GeneratingXmlOperateForm` y `OperateForm` (adaptado) respectivamente.
 
 ### 10.5. Plantilla de Resumen de Gastos (`client_cost_summary.html`)
-* Nueva plantilla con formulario de filtro de fechas.
-* Muestra el gran total de `grand_total_client_price_completed`.
-* Tablas/listas de subtotales por equipo y por tipo de proceso (ordenados según `CHOICES`).
+* Nueva plantilla para `/rhino/client_cost_summary/`.
+* Formulario de filtro de fechas (default mes actual).
+* Muestra Gran Total y tablas/listas de subtotales por equipo y tipo de proceso (ordenadas según `CHOICES`).
 * **Gráficos (Chart.js):**
-    * Dos pie charts para distribución de costos por equipo y por tipo de proceso, con bordes negros.
-    * Cinco gráficos de dispersión con líneas suavizadas (`type: 'line'`, `tension`) para los tipos de proceso 'address\_validation', 'user\_records', 'property\_records', 'unit\_transfer', y 'deactivation\_toggle'. Muestran `grand_total_client_price_completed` (eje Y) vs. `completed_at` (eje X, tipo 'time'). Cada gráfico tiene dos series: una para "Revenue" y otra para "Support".
-    * **Hipervínculos en Scatter Plots:** Los puntos en los gráficos de dispersión son clicables y redirigen a la página de detalle de la solicitud correspondiente.
-* **JavaScript (`extra_js`):**
-    * Incluye Chart.js y el adaptador de tiempo `chartjs-adapter-date-fns` vía CDN.
-    * Inicializa todos los gráficos (2 pie, 5 scatter) con los datos pasados desde la vista (usando `|json_script`).
-    * Configura el `onClick` y `onHover` para los scatter plots para la funcionalidad de hipervínculos y cambio de cursor.
-    * Configura el formateo de tooltips y ejes para moneda y fechas.
+    * Dos pie charts para distribución de costos (equipo y proceso) con bordes negros.
+    * Cinco gráficos de dispersión con líneas suavizadas (`type: 'line'`, `tension`) para los 5 tipos de proceso principales. Ejes: `grand_total_client_price_completed` vs `completed_at`. Dos series por gráfico (Revenue, Support).
+    * Los puntos en los scatter plots son hipervínculos a `request_detail` (requiere pasar `pk` en los datos y plantilla de URL a JS).
+* JavaScript incluye Chart.js y `chartjs-adapter-date-fns`.
+
+### 10.6. Nuevas Plantillas para Formularios de Reportes CSV
+* **`revenue_support_report_form.html`**: Filtros de fecha, status (múltiple), tipo de proceso (desplegable obligatorio), equipo (Revenue, Support, Ambos).
+* **`compliance_xml_report_form.html`**: Filtros de fecha, status, Estado XML (múltiple), Carriers (RVIC, SSIC).
+* **`accounting_stripe_report_form.html`**: Filtros de fecha y status.
 
 ---
 ## 11. Tareas Programadas y en Segundo Plano (`django-q2`)
 
-### 11.1. `tasks/scheduled_jobs.py`
+### 11.1. Procesamiento de Solicitudes Programadas (`tasks/scheduled_jobs.py`)
 
-* `process_scheduled_requests()`: Cambia el estado de solicitudes programadas (`status='scheduled'`) a `'pending'` cuando `scheduled_date` es hoy o anterior, y establece `effective_start_time_for_tat`.
+* `process_scheduled_requests()`: Busca solicitudes con `status='scheduled'` y `scheduled_date <= hoy`. Cambia su `status` a `'pending'` y establece `effective_start_time_for_tat`.
 
-### 11.2. `tasks/salesforce_sync.py`
+### 11.2. Sincronización con Salesforce (`tasks/salesforce_sync.py`)
 
 * `sync_salesforce_opportunities_task()`:
     * **Funcionalidad completada y probada.**
-    * **Control de Pausa/Reanudación:** Al inicio, verifica el modelo `ScheduledTaskToggle` (para `task_name='salesforce_sync_opportunities'`). Si `is_enabled` es `False`, la tarea registra que está pausada y no continúa.
-    * Se conecta a Salesforce, ejecuta una consulta SOQL para obtener Opportunities específicas, y para cada una:
-        * Crea una `UserRecordsRequest` de tipo `'address_validation'`, mapeando campos relevantes.
-        * Crea registros `SalesforceAttachmentLog` para los archivos adjuntos de la Opportunity.
-        * Actualiza un campo en la Opportunity de Salesforce para marcarla como procesada.
+    * **Control de Pausa/Reanudación:** Verifica el modelo `ScheduledTaskToggle` (para `task_name='salesforce_sync_opportunities'`). Si `is_enabled` es `False`, la tarea no se ejecuta.
+    * Se conecta a Salesforce, ejecuta una consulta SOQL detallada para Opportunities, y para cada una:
+        * Crea una `UserRecordsRequest` de tipo `'address_validation'`, mapeando campos relevantes (Partner Name, IDs, nombre de Opportunity, etc.).
+        * Obtiene y crea registros `SalesforceAttachmentLog` para los archivos adjuntos de la Opportunity.
+        * Actualiza el campo `Invisible_Status__c` de la Opportunity en Salesforce a 'In Progress'.
+    * Utiliza un usuario de sistema (`SALESFORCE_SYSTEM_USER_EMAIL`) para `requested_by`.
 
-### 11.3. `tasks/apps.py` (Configuración de Tareas)
+### 11.3. Configuración de Programación de Tareas (`tasks/apps.py`)
 
 * Dentro del método `ready()` de `TasksConfig(AppConfig)`:
     * Se asegura de que `django_q` esté en `INSTALLED_APPS`.
     * Crea o verifica la existencia de las tareas programadas en el modelo `Schedule` de `django-q2`:
-        * `process_scheduled_requests`: Se ejecuta diariamente a la 1:00 PM UTC (`Schedule.DAILY`).
-        * `sync_salesforce_opportunities_task`: Se ejecuta tres veces al día (1 PM, 4 PM, 7 PM UTC) usando `Schedule.CRON` con la expresión `'0 13,16,19 * * *'`.
+        * `process_scheduled_requests`: Ejecución `Schedule.DAILY` (1 PM UTC).
+        * `sync_salesforce_opportunities_task`: Ejecución `Schedule.CRON` ('0 13,16,19 \* \* \*' - 1 PM, 4 PM, 7 PM UTC).
 
 ---
 ## 12. Interfaz de Administración de Django (`tasks/admin.py`)
 
-Personalizaciones para facilitar la gestión de datos.
-* **`CustomUserAdmin`**: Muestra `timezone` en la lista y formularios de edición.
+Personalizaciones para una gestión de datos eficiente.
+* **`CustomUserAdmin`**: Muestra `timezone` y otros campos relevantes.
 * **`UserRecordsRequestAdmin`**:
-    * `list_display`, `list_filter`, `search_fields` configurados para fácil acceso.
-    * **`readonly_fields` y `fieldsets` actualizados para incluir los nuevos campos de costos `*_completed`** y otros campos de solo lectura para mantener la integridad de los datos.
+    * `list_display`, `list_filter`, `search_fields` configurados.
+    * `readonly_fields` extensos para proteger la integridad de los datos (timestamps, datos generados, campos específicos, detalles de operación, **nuevos campos de costos `*_completed`**).
+    * `fieldsets` organizados en secciones colapsables, incluyendo los nuevos campos de costos.
     * Inlines para `AddressValidationFile`, `BlockedMessage`, `ResolvedMessage`, `RejectedMessage`.
     * Acciones personalizadas para disparar manualmente `sync_salesforce_opportunities_task` y `process_scheduled_requests`.
-* **`OperationPriceAdmin`**: `fieldsets` actualizados para los nuevos campos de precios/costos y el campo renombrado.
-* **`ScheduledTaskToggleAdmin`**: Nueva clase admin para gestionar el modelo `ScheduledTaskToggle`, permitiendo habilitar/deshabilitar tareas programadas desde el admin. `list_display` incluye `task_name`, `is_enabled_display`, `last_modified`. `is_enabled` es editable en la lista. `task_name` es no editable después de la creación.
-* Otros admins (`HistoryMessageAdmin`, `SalesforceAttachmentLogAdmin`) con sus configuraciones.
+* **`OperationPriceAdmin`**: `fieldsets` actualizados para reflejar los nuevos campos de precios/costos y el campo renombrado (`manual_property_update_*`). Organizados por "Client Prices", "Operate Costs", "QA Costs".
+* **`ScheduledTaskToggleAdmin`**: Nueva clase admin para el modelo `ScheduledTaskToggle`. Permite editar `is_enabled` directamente en la lista. `task_name` no es editable tras la creación.
+* Otras clases admin (`HistoryMessageAdmin`, `SalesforceAttachmentLogAdmin`, `AddressValidationFileAdmin`) con sus respectivas configuraciones de visualización y permisos.
 
 ---
 ## 13. Configuración del Entorno de Desarrollo
-*(Pasos estándar: clonar el repositorio, crear y activar un entorno virtual Python, instalar dependencias con `pip install -r requirements.txt`, crear y configurar un archivo `.env` con variables como `DJANGO_SECRET_KEY` y `DJANGO_DEBUG`, aplicar migraciones de base de datos con `python manage.py migrate`, crear un superusuario con `python manage.py createsuperuser`, ejecutar el servidor de desarrollo con `python manage.py runserver`, y ejecutar el cluster de Django-Q2 en una terminal separada con `python manage.py qcluster`)*.
+*(Pasos estándar: Clonar el repositorio. Crear y activar un entorno virtual (ej. `python -m venv venv`, `source venv/bin/activate`). Instalar dependencias: `pip install -r requirements.txt`. Crear un archivo `.env` en la raíz del proyecto con variables como `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=True`, y las credenciales de Salesforce. Aplicar migraciones: `python manage.py migrate`. Crear un superusuario: `python manage.py createsuperuser`. Ejecutar el servidor de desarrollo: `python manage.py runserver`. Ejecutar el cluster de Django-Q2 en una terminal separada: `python manage.py qcluster`.)*
 
 ---
 ## 14. Despliegue (Heroku)
-*(La aplicación está preparada para el despliegue en Heroku. Requiere un `Procfile` (con entradas para `web`, `worker`, y `release`), un archivo `runtime.txt` para especificar la versión de Python, y un `requirements.txt` actualizado. El archivo `settings.py` está configurado para adaptarse a variables de entorno de Heroku para `DATABASE_URL`, `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, etc. El archivo `yender.yaml` ha sido eliminado. Se necesitarán buildpacks de Heroku (Python) y add-ons (Heroku Postgres).)*
+*(La aplicación está preparada para el despliegue en Heroku. Requiere un `Procfile` (con entradas `web`, `worker`, `release`), un `runtime.txt`, `requirements.txt` actualizado. `settings.py` está configurado para adaptarse a variables de entorno de Heroku. El archivo `yender.yaml` ha sido eliminado. Se necesitarán buildpacks y add-ons de Heroku (Postgres).)*
 
 ---
 ## 15. Consideraciones Adicionales y Próximos Pasos
-* Realizar pruebas exhaustivas de todas las funcionalidades, especialmente los nuevos cálculos de costos, la página de resumen de gastos con sus filtros y gráficos, y la integración con Salesforce.
-* Evaluar el rendimiento de las consultas para la página de resumen de costos, especialmente si el volumen de solicitudes completadas es alto, y optimizar si es necesario (ej. con índices de base de datos adicionales).
+* Realizar pruebas exhaustivas de todas las funcionalidades, incluyendo los nuevos reportes CSV, los filtros, los cálculos de costos y la interacción de los gráficos en la página de resumen de costos.
+* Optimizar las consultas de base de datos para los reportes y el resumen de costos si el volumen de datos es muy alto.
 * Si se decide implementar la internacionalización completa, se deberán aplicar las etiquetas `{% trans %}` en todas las plantillas y gestionar los archivos de traducción `.po`.
-* Planificar e implementar un sistema de notificaciones por correo electrónico para alertar a los usuarios sobre eventos importantes.
-* Continuar el refinamiento de la interfaz de usuario (UI) y la experiencia de usuario (UX) basado en el feedback.
-* Crear documentación detallada y guías para los usuarios finales de la plataforma.
+* Planificar e implementar un sistema de notificaciones por correo electrónico para eventos clave.
+* Continuar el refinamiento de la interfaz de usuario (UI) y la experiencia de usuario (UX).
+* Crear documentación detallada para los usuarios finales de la plataforma.
 
 ---

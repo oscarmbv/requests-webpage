@@ -11,7 +11,8 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q, Sum, Value, CharField, DecimalField
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.forms import formset_factory
-from django.http import HttpResponse # Necesario si implementas export CSV
+from django.http import HttpResponse
+import csv
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -24,6 +25,8 @@ from django import forms
 from decimal import Decimal
 import calendar
 from django.db.models.functions import Coalesce
+import json
+import os
 
 # Importa los formularios (sin AddressValidationRequestForm)
 from .forms import (
@@ -1823,3 +1826,919 @@ def client_cost_summary_view(request):
         'page_title': 'Cost Summary Report'
     }
     return render(request, 'tasks/cost_summary.html', context)
+
+
+def _generate_address_validation_csv(request_items, filename="address_validation_report.csv"):
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados para Address Validation
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Team', 'Priority',
+        'Partner Name', 'Status', 'Date Completed', 'TAT',
+        'Submitted Main File', 'Submitted Main Link', 'Special Instructions',
+        'Operator', 'Operated At', 'QA Agent', 'QA Pending At', 'QA In Progress At',
+        # Campos de Operación Comunes
+        'Users Updated', 'Properties Updated (Count)', 'Bulk Updates',
+        'Manual Properties Updated (Count)', 'Manual Units Updated',
+        'CSV Rows Updated', 'Processing Reports Rows',
+        'Operator Spreadsheet Link', 'Operating Notes',
+        # Campos Específicos de Address Validation (Submisión Manual)
+        'AV - Policyholders (Manual)',
+        'AV - Opportunity ID (Manual/Custom)',
+        'AV - User Email Addresses (Manual)',
+        # Campos de Integración con Salesforce (Info de la Opportunity)
+        'SF - Standard Opp ID', 'SF - Opportunity Name', 'SF - Number of Units',
+        'SF - Opportunity Link', 'SF - Account Manager', 'SF - Closed Won Date',
+        'SF - Leasing Integration Software', 'SF - Information Needed For Assets',
+        # Campos de Salida de Operación para Address Validation (muchos son de SF)
+        'AV - Assets Uploaded to SF?', 'AV - Number of Units Processed',
+        'AV - Number of Invalid Units', 'AV - Link to Assets (Output)',
+        'AV - Success Output Link', 'AV - Failed Output Link',
+        'AV - Rhino Accounts Created?',
+        # Archivos Adjuntos
+        'Uploaded Address Validation Files',  # Lista de nombres de archivo
+        'Salesforce Attachment Names',  # Lista de nombres de archivo
+        # Campos de Costos (Cliente)
+        'Subtotal Address Validation Unit Price',
+        'Subtotal Bulk Update Price', 'Subtotal Manual Property Update Price', 'Subtotal CSV Update Price',
+        'Subtotal Processing Report Price', 'Subtotal Manual Unit Update Price', 'Total Price'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear fechas y otros campos
+        timestamp_str = req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else ''
+        completed_at_str = req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else ''
+        operated_at_str = req.operated_at.strftime('%Y-%m-%d %H:%M:%S') if req.operated_at else ''
+        qa_pending_at_str = req.qa_pending_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_pending_at else ''
+        qa_in_progress_at_str = req.qa_in_progress_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_in_progress_at else ''
+        sf_closed_won_date_str = req.salesforce_closed_won_date.strftime(
+            '%Y-%m-%d') if req.salesforce_closed_won_date else ''
+        tat_str = str(req.calculated_turn_around_time) if req.calculated_turn_around_time else ''
+        user_file_name = req.user_file.name.split('/')[-1] if req.user_file else ''
+
+        # Listar nombres de archivos adjuntos de AddressValidationFile
+        av_files_list = [os.path.basename(f.uploaded_file.name) for f in req.address_validation_files.all()]
+        av_files_str = ", ".join(av_files_list) if av_files_list else ''
+
+        # Listar nombres de archivos adjuntos de SalesforceAttachmentLog
+        sf_attachments_list = [att.file_name for att in req.salesforce_attachments.all()]
+        sf_attachments_str = ", ".join(sf_attachments_list) if sf_attachments_list else ''
+
+        assets_uploaded_str = 'Yes' if req.assets_uploaded else ('No' if req.assets_uploaded is False else '')
+        rhino_accounts_created_str = 'Yes' if req.rhino_accounts_created else (
+            'No' if req.rhino_accounts_created is False else '')
+
+        row = [
+            req.unique_code,
+            timestamp_str,
+            req.requested_by.email if req.requested_by else '',
+            req.get_team_display(),
+            req.get_priority_display(),
+            req.partner_name,
+            req.get_status_display(),
+            completed_at_str,
+            tat_str,
+            user_file_name,  # El campo user_file genérico
+            req.user_link,  # El campo user_link genérico
+            req.special_instructions,
+            req.operator.email if req.operator else '',
+            operated_at_str,
+            req.qa_agent.email if req.qa_agent else '',
+            qa_pending_at_str,
+            qa_in_progress_at_str,
+            # Campos de Operación
+            req.num_updated_users, req.num_updated_properties, req.bulk_updates,
+            req.manual_updated_properties, req.manual_updated_units,
+            req.update_by_csv_rows, req.processing_reports_rows,
+            req.operator_spreadsheet_link, req.operating_notes,
+            # Campos Específicos de Address Validation (Submisión Manual)
+            req.address_validation_policyholders,
+            req.address_validation_opportunity_id,  # El ID de Opp. custom
+            req.address_validation_user_email_addresses,
+            # Campos de Integración con Salesforce
+            req.salesforce_standard_opp_id,
+            req.salesforce_opportunity_name,
+            req.salesforce_number_of_units,
+            req.salesforce_link,
+            req.salesforce_account_manager,
+            sf_closed_won_date_str,
+            req.salesforce_leasing_integration_software,
+            req.salesforce_information_needed_for_assets,
+            # Campos de Salida de Operación para AV
+            assets_uploaded_str,
+            req.av_number_of_units,
+            req.av_number_of_invalid_units,
+            req.link_to_assets,
+            req.success_output_link,
+            req.failed_output_link,
+            rhino_accounts_created_str,
+            # Archivos Adjuntos
+            av_files_str,
+            sf_attachments_str,
+            # Costos
+            req.subtotal_address_validation_unit_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_bulk_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_property_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_user_records_csv(request_items, filename="user_records_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Team', 'Priority',
+        'Partner Name', 'Status', 'Date Completed', 'TAT',
+        'User Groups Data (JSON)', 'Submitted File', 'Submitted Link', 'Special Instructions',
+        'Operator', 'Operated At', 'QA Agent', 'QA Pending At', 'QA In Progress At',
+        # Campos de operación comunes
+        'Users Updated', 'Properties Updated', 'Bulk Updates', 'Manual Properties Updated',
+        'Manual Units Updated', 'CSV Rows Updated', 'Processing Reports Rows',
+        'Operator Spreadsheet Link', 'Operating Notes',
+        # Campos de costos (Cliente)
+        'Subtotal Bulk Update Price', 'Subtotal Manual Property Update Price', 'Subtotal CSV Update Price',
+        'Subtotal Processing Report Price', 'Subtotal Manual Unit Update Price', 'Total Price'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear user_groups_data
+        user_groups_str = ""
+        if req.user_groups_data:
+            try:
+                user_groups_str = json.dumps(req.user_groups_data)
+            except TypeError:
+                user_groups_str = str(req.user_groups_data)
+
+        row = [
+            req.unique_code,
+            req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else '',
+            req.requested_by.email if req.requested_by else '',
+            req.get_team_display(),
+            req.get_priority_display(),
+            req.partner_name,
+            req.get_status_display(),
+            req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else '',
+            str(req.calculated_turn_around_time) if req.calculated_turn_around_time else '',
+            user_groups_str,
+            req.user_file.name.split('/')[-1] if req.user_file else '',
+            req.user_link,
+            req.special_instructions,
+            req.operator.email if req.operator else '',
+            req.operated_at.strftime('%Y-%m-%d %H:%M:%S') if req.operated_at else '',
+            req.qa_agent.email if req.qa_agent else '',
+            req.qa_pending_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_pending_at else '',
+            req.qa_in_progress_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_in_progress_at else '',
+            req.num_updated_users,
+            req.num_updated_properties,
+            req.bulk_updates,
+            req.manual_updated_properties,
+            req.manual_updated_units,
+            req.update_by_csv_rows,
+            req.processing_reports_rows,
+            req.operator_spreadsheet_link,
+            req.operating_notes,
+            # Costos del Cliente (si está completada)
+            req.subtotal_bulk_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_property_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_property_records_csv(request_items, filename="property_records_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados para Property Records
+    # Incluye campos generales, de operación, costos y TODOS los específicos de Property Records
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Team', 'Priority',
+        'Partner Name', 'Properties Affected (General)', 'Status', 'Date Completed', 'TAT',
+        'Submitted File', 'Submitted Link', 'Special Instructions',
+        'Operator', 'Operated At', 'QA Agent', 'QA Pending At', 'QA In Progress At',
+        # Campos de Operación Comunes
+        'Users Updated', 'Properties Updated (Count)', 'Bulk Updates',
+        'Manual Properties Updated (Count)', 'Manual Units Updated',
+        'CSV Rows Updated', 'Processing Reports Rows',
+        'Operator Spreadsheet Link', 'Operating Notes',
+        # Campos Específicos de Property Records
+        'Property Record Type',
+        'New Property Names', 'New PMC', 'New Policyholder (Legal Entity)',
+        'Corrected Address', 'Updated Property Type', 'Property Units (New/Updated)',
+        'Coverage Type', 'Coverage Multiplier', 'Coverage Amount',
+        'Integration Type', 'Integration Codes', 'Bank Details',
+        # Campos de Costos (Cliente)
+        'Subtotal Bulk Update Price', 'Subtotal Manual Property Update Price', 'Subtotal CSV Update Price',
+        'Subtotal Processing Report Price', 'Subtotal Manual Unit Update Price', 'Total Price'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear fechas y otros campos
+        timestamp_str = req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else ''
+        completed_at_str = req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else ''
+        operated_at_str = req.operated_at.strftime('%Y-%m-%d %H:%M:%S') if req.operated_at else ''
+        qa_pending_at_str = req.qa_pending_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_pending_at else ''
+        qa_in_progress_at_str = req.qa_in_progress_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_in_progress_at else ''
+        tat_str = str(req.calculated_turn_around_time) if req.calculated_turn_around_time else ''
+        user_file_name = req.user_file.name.split('/')[-1] if req.user_file else ''
+
+        row = [
+            req.unique_code,
+            timestamp_str,
+            req.requested_by.email if req.requested_by else '',
+            req.get_team_display(),
+            req.get_priority_display(),
+            req.partner_name,
+            req.properties, # El campo genérico 'properties'
+            req.get_status_display(),
+            completed_at_str,
+            tat_str,
+            user_file_name,
+            req.user_link,
+            req.special_instructions,
+            req.operator.email if req.operator else '',
+            operated_at_str,
+            req.qa_agent.email if req.qa_agent else '',
+            qa_pending_at_str,
+            qa_in_progress_at_str,
+            # Campos de Operación
+            req.num_updated_users,
+            req.num_updated_properties,
+            req.bulk_updates,
+            req.manual_updated_properties,
+            req.manual_updated_units,
+            req.update_by_csv_rows,
+            req.processing_reports_rows,
+            req.operator_spreadsheet_link,
+            req.operating_notes,
+            # Campos Específicos de Property Records
+            req.get_property_records_type_display() if req.property_records_type else '',
+            req.property_records_new_names,
+            req.property_records_new_pmc,
+            req.property_records_new_policyholder,
+            req.property_records_corrected_address,
+            req.get_property_records_updated_type_display() if req.property_records_updated_type else '',
+            req.property_records_units,
+            req.get_property_records_coverage_type_display() if req.property_records_coverage_type else '',
+            req.get_property_records_coverage_multiplier_display() if req.property_records_coverage_multiplier else '',
+            req.property_records_coverage_amount,
+            req.get_property_records_integration_type_display() if req.property_records_integration_type else '',
+            req.property_records_integration_codes,
+            req.property_records_bank_details,
+            # Costos del Cliente (si está completada)
+            req.subtotal_bulk_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_property_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_unit_transfer_csv(request_items, filename="unit_transfer_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados para Unit Transfer
+    # Incluye campos generales, de operación, costos y TODOS los específicos de Unit Transfer
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Team', 'Priority',
+        'Partner Name (Origin)', 'Status', 'Date Completed', 'TAT',
+        'Submitted File', 'Submitted Link', 'Special Instructions',
+        'Operator', 'Operated At', 'QA Agent', 'QA Pending At', 'QA In Progress At',
+        # Campos de Operación Comunes
+        'Users Updated', 'Properties Updated (Count)', 'Bulk Updates',
+        'Manual Properties Updated (Count)', 'Manual Units Updated',
+        'CSV Rows Updated', 'Processing Reports Rows',
+        'Operator Spreadsheet Link', 'Operating Notes',
+        # Campos Específicos de Unit Transfer
+        'Unit Transfer Type',
+        'New Partner/Prospect Name (Destination)',
+        'Receiving Partner PSM',
+        'Properties to Transfer (from general field)',
+        'New Policyholders (if provided)',
+        'User Email Addresses for New Partner (if provided)',
+        'Prospect Portfolio Size',
+        'Prospect Landlord Type',
+        'Proof of Sale (Link)',
+        # Campos de Costos (Cliente)
+        'Subtotal Bulk Update Price', 'Subtotal Manual Property Update Price', 'Subtotal CSV Update Price',
+        'Subtotal Processing Report Price', 'Subtotal Manual Unit Update Price', 'Total Price'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear fechas y otros campos
+        timestamp_str = req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else ''
+        completed_at_str = req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else ''
+        operated_at_str = req.operated_at.strftime('%Y-%m-%d %H:%M:%S') if req.operated_at else ''
+        qa_pending_at_str = req.qa_pending_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_pending_at else ''
+        qa_in_progress_at_str = req.qa_in_progress_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_in_progress_at else ''
+        tat_str = str(req.calculated_turn_around_time) if req.calculated_turn_around_time else ''
+        user_file_name = req.user_file.name.split('/')[-1] if req.user_file else ''
+
+        row = [
+            req.unique_code,
+            timestamp_str,
+            req.requested_by.email if req.requested_by else '',
+            req.get_team_display(),
+            req.get_priority_display(),
+            req.partner_name, # Este es el Partner Name (Origin)
+            req.get_status_display(),
+            completed_at_str,
+            tat_str,
+            user_file_name,
+            req.user_link,
+            req.special_instructions,
+            req.operator.email if req.operator else '',
+            operated_at_str,
+            req.qa_agent.email if req.qa_agent else '',
+            qa_pending_at_str,
+            qa_in_progress_at_str,
+            # Campos de Operación
+            req.num_updated_users,
+            req.num_updated_properties,
+            req.bulk_updates,
+            req.manual_updated_properties,
+            req.manual_updated_units,
+            req.update_by_csv_rows,
+            req.processing_reports_rows,
+            req.operator_spreadsheet_link,
+            req.operating_notes,
+            # Campos Específicos de Unit Transfer
+            req.get_unit_transfer_type_display() if req.unit_transfer_type else '',
+            req.unit_transfer_new_partner_prospect_name,
+            req.unit_transfer_receiving_partner_psm,
+            req.properties, # El campo genérico 'properties' se usa para "Properties to Transfer"
+            req.unit_transfer_new_policyholders,
+            req.unit_transfer_user_email_addresses,
+            req.unit_transfer_prospect_portfolio_size,
+            req.get_unit_transfer_prospect_landlord_type_display() if req.unit_transfer_prospect_landlord_type else '',
+            req.unit_transfer_proof_of_sale,
+            # Costos del Cliente (si está completada)
+            req.subtotal_bulk_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_property_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_deactivation_toggle_csv(request_items, filename="deactivation_toggle_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados para Deactivation and Toggle
+    # Incluye campos generales, de operación, costos y TODOS los específicos de Deactivation/Toggle
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Team', 'Priority',
+        'Partner Name', 'Properties Affected (General)', 'Status', 'Date Completed', 'TAT',
+        'Submitted File', 'Submitted Link', 'Special Instructions',
+        'Operator', 'Operated At', 'QA Agent', 'QA Pending At', 'QA In Progress At',
+        # Campos de Operación Comunes (si aplican y se registran para este tipo)
+        'Users Updated', 'Properties Updated (Count)', 'Bulk Updates',
+        'Manual Properties Updated (Count)', 'Manual Units Updated',
+        'CSV Rows Updated', 'Processing Reports Rows',
+        'Operator Spreadsheet Link', 'Operating Notes',
+        # Campos Específicos de Deactivation and Toggle
+        'Deactivation/Toggle Type',
+        'Active Policies on Properties?',
+        'Properties with Active Policies',
+        'Context/Justification',
+        'Leadership Approval By', # Si está aprobado, mostrará quién. Si no, estará vacío.
+        'Marked as Churned in SF?',
+        # Campos de Costos (Cliente)
+        'Subtotal Bulk Update Price', 'Subtotal Manual Property Update Price', 'Subtotal CSV Update Price',
+        'Subtotal Processing Report Price', 'Subtotal Manual Unit Update Price', 'Total Price'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear fechas y otros campos
+        timestamp_str = req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else ''
+        completed_at_str = req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else ''
+        operated_at_str = req.operated_at.strftime('%Y-%m-%d %H:%M:%S') if req.operated_at else ''
+        qa_pending_at_str = req.qa_pending_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_pending_at else ''
+        qa_in_progress_at_str = req.qa_in_progress_at.strftime('%Y-%m-%d %H:%M:%S') if req.qa_in_progress_at else ''
+        tat_str = str(req.calculated_turn_around_time) if req.calculated_turn_around_time else ''
+        user_file_name = req.user_file.name.split('/')[-1] if req.user_file else ''
+
+        active_policies_str = 'Yes' if req.deactivation_toggle_active_policies else ('No' if req.deactivation_toggle_active_policies is False else '')
+        marked_as_churned_str = 'Yes' if req.deactivation_toggle_marked_as_churned else ('No' if req.deactivation_toggle_marked_as_churned is False else '')
+
+        row = [
+            req.unique_code,
+            timestamp_str,
+            req.requested_by.email if req.requested_by else '',
+            req.get_team_display(),
+            req.get_priority_display(),
+            req.partner_name,
+            req.properties, # El campo genérico 'properties'
+            req.get_status_display(),
+            completed_at_str,
+            tat_str,
+            user_file_name,
+            req.user_link,
+            req.special_instructions,
+            req.operator.email if req.operator else '',
+            operated_at_str,
+            req.qa_agent.email if req.qa_agent else '',
+            qa_pending_at_str,
+            qa_in_progress_at_str,
+            # Campos de Operación (pueden estar vacíos para este tipo de request)
+            req.num_updated_users,
+            req.num_updated_properties,
+            req.bulk_updates,
+            req.manual_updated_properties,
+            req.manual_updated_units,
+            req.update_by_csv_rows,
+            req.processing_reports_rows,
+            req.operator_spreadsheet_link,
+            req.operating_notes,
+            # Campos Específicos de Deactivation and Toggle
+            req.get_deactivation_toggle_type_display() if req.deactivation_toggle_type else '',
+            active_policies_str,
+            req.deactivation_toggle_properties_with_policies,
+            req.deactivation_toggle_context,
+            req.get_deactivation_toggle_leadership_approval_display() if req.deactivation_toggle_leadership_approval else '',
+            marked_as_churned_str,
+            # Costos
+            req.subtotal_bulk_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_property_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_stripe_disputes_csv(request_items, filename="stripe_disputes_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados específicos para Stripe Disputes
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Status', 'Date Completed', 'TAT',
+        'Stripe Premium Disputes (Count)', 'Stripe RI Disputes (Count)',
+        'Submitted File', 'Special Instructions', 'Operating Notes',
+        'Operator', 'QA Agent',
+        'Client Price Subtotal', 'Operate Cost Subtotal', 'QA Cost Subtotal',  # Costos de este proceso
+        'Grand Total Client Price', 'Grand Total Operate Cost', 'Grand Total QA Cost'  # Costos totales del request
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        # Formatear datos para el CSV
+        timestamp_str = req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else ''
+        completed_at_str = req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else ''
+        tat_str = str(req.calculated_turn_around_time) if req.calculated_turn_around_time else ''
+        user_file_name = req.user_file.name.split('/')[-1] if req.user_file else ''
+
+        row = [
+            req.unique_code,
+            timestamp_str,
+            req.requested_by.email if req.requested_by else '',
+            req.get_status_display(),
+            completed_at_str,
+            tat_str,
+            req.stripe_premium_disputes,
+            req.stripe_ri_disputes,
+            user_file_name,
+            req.special_instructions,
+            req.operating_notes,
+            req.operator.email if req.operator else '',
+            req.qa_agent.email if req.qa_agent else '',
+            req.subtotal_stripe_dispute_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_stripe_dispute_operate_cost_completed if req.status == 'completed' else '',
+            req.subtotal_stripe_dispute_qa_cost_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_operate_cost_completed if req.status == 'completed' else '',
+            req.grand_total_qa_cost_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+def _generate_generating_xml_csv(request_items, filename="generating_xml_report.csv"):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    # Encabezados específicos para Generating XML
+    headers = [
+        'Request ID', 'Date Requested', 'Requested By', 'Status', 'Date Completed', 'TAT',
+        'XML State', 'Carrier RVIC Selected', 'Carrier SSIC Selected',
+        'Submitted Spreadsheet', 'Submitted RVIC ZIP', 'Submitted SSIC ZIP',
+        'Operator Notes', 'Operator', 'QA Agent',
+        'Operator RVIC File 1', 'Operator RVIC File 2 (UT ZIP)',
+        'Operator SSIC File 1', 'Operator SSIC File 2 (UT ZIP)',
+        # Costos
+        'Client Price Subtotal', 'Operate Cost Subtotal', 'QA Cost Subtotal',
+        'Grand Total Client Price', 'Grand Total Operate Cost', 'Grand Total QA Cost'
+    ]
+    writer.writerow(headers)
+
+    for req in request_items:
+        row = [
+            req.unique_code,
+            req.timestamp.strftime('%Y-%m-%d %H:%M:%S') if req.timestamp else '',
+            req.requested_by.email if req.requested_by else '',
+            req.get_status_display(),
+            req.completed_at.strftime('%Y-%m-%d %H:%M:%S') if req.completed_at else '',
+            str(req.calculated_turn_around_time) if req.calculated_turn_around_time else '',
+            req.get_xml_state_display() if req.xml_state else '',
+            'Yes' if req.xml_carrier_rvic else 'No',
+            'Yes' if req.xml_carrier_ssic else 'No',
+            req.user_file.name.split('/')[-1] if req.user_file else '',
+            req.xml_rvic_zip_file.name.split('/')[-1] if req.xml_rvic_zip_file else '',
+            req.xml_ssic_zip_file.name.split('/')[-1] if req.xml_ssic_zip_file else '',
+            req.operating_notes,
+            req.operator.email if req.operator else '',
+            req.qa_agent.email if req.qa_agent else '',
+            req.operator_rvic_file_slot1.name.split('/')[-1] if req.operator_rvic_file_slot1 else '',
+            req.operator_rvic_file_slot2.name.split('/')[-1] if req.operator_rvic_file_slot2 else '',
+            req.operator_ssic_file_slot1.name.split('/')[-1] if req.operator_ssic_file_slot1 else '',
+            req.operator_ssic_file_slot2.name.split('/')[-1] if req.operator_ssic_file_slot2 else '',
+            req.subtotal_xml_file_client_price_completed if req.status == 'completed' else '',
+            req.subtotal_xml_file_operate_cost_completed if req.status == 'completed' else '',
+            req.subtotal_xml_file_qa_cost_completed if req.status == 'completed' else '',
+            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.grand_total_operate_cost_completed if req.status == 'completed' else '',
+            req.grand_total_qa_cost_completed if req.status == 'completed' else '',
+        ]
+        writer.writerow(row)
+    return response
+
+@login_required
+@user_passes_test(user_is_admin_or_leader)
+def generate_accounting_stripe_report_view(request):
+    today = timezone.localdate()
+    default_start_date = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    default_end_date = today.replace(day=last_day)
+
+    # Definir los estados relevantes para Stripe Disputes y su orden/agrupación para el filtro
+    # Estos son los valores que se usarán para construir las opciones en el formulario
+    STATUS_OPTIONS_FOR_STRIPE_FILTER_ORDER = [
+        'pending',
+        'in_progress_group',  # Valor especial para representar el grupo
+        'blocked',
+        'completed',
+        'cancelled'
+    ]
+
+    # Mapeo de los valores del formulario a los valores reales de la base de datos
+    STATUS_GROUP_MAPPING = {
+        'in_progress_group': ['in_progress', 'qa_pending', 'qa_in_progress']
+    }
+
+    # Obtener los display names de STATUS_CHOICES
+    status_display_dict = dict(STATUS_CHOICES)
+
+    # Construir las opciones para el formulario
+    status_filter_options_for_template = []
+    for status_key in STATUS_OPTIONS_FOR_STRIPE_FILTER_ORDER:
+        if status_key == 'in_progress_group':
+            display_name = "In Progress (includes QA stages)"
+        else:
+            display_name = status_display_dict.get(status_key, status_key.title())
+        status_filter_options_for_template.append({
+            'value': status_key,
+            'display': display_name
+        })
+
+    selected_statuses_from_form = request.GET.getlist('status')
+
+    if not selected_statuses_from_form and 'generate_csv' in request.GET:
+        pass
+    elif not selected_statuses_from_form:  # Para la carga inicial del formulario
+        selected_statuses_from_form = [opt['value'] for opt in status_filter_options_for_template]
+
+    if request.method == 'GET' and 'generate_csv' in request.GET:
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else default_start_date
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else default_end_date
+        except ValueError:
+            messages.error(request, "Invalid date format. Please use YYYY-MM-DD.")
+            context = {
+                'status_filter_options': status_filter_options_for_template,
+                'selected_statuses': selected_statuses_from_form,
+                'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+                'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+                'page_title': 'Accounting Report - Stripe Disputes'
+            }
+            return render(request, 'tasks/accounting_stripe_report_form.html', context)
+
+        start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
+        end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
+
+        queryset = UserRecordsRequest.objects.filter(
+            type_of_process='stripe_disputes',
+            timestamp__gte=start_datetime_utc,  # o completed_at si prefieres
+            timestamp__lte=end_datetime_utc
+        ).select_related('requested_by', 'operator', 'qa_agent').order_by('-timestamp')
+
+        # Lógica de filtrado de estado actualizada
+        final_status_filter_values = []
+        if selected_statuses_from_form:  # Solo filtrar si hay selecciones
+            for status_val in selected_statuses_from_form:
+                if status_val in STATUS_GROUP_MAPPING:
+                    final_status_filter_values.extend(STATUS_GROUP_MAPPING[status_val])
+                else:
+                    # Asegurarse de que solo se añadan claves de estado válidas y no agrupadores
+                    if status_val in status_display_dict:  # status_display_dict tiene las claves reales
+                        final_status_filter_values.append(status_val)
+
+            if final_status_filter_values:  # Si después de procesar hay valores, filtrar
+                queryset = queryset.filter(
+                    status__in=list(set(final_status_filter_values)))  # Usar set para evitar duplicados
+
+        return _generate_stripe_disputes_csv(queryset,
+                                             filename=f"stripe_disputes_report_{start_date_str}_to_{end_date_str}.csv")
+
+    else:  # Solicitud GET inicial
+        context = {
+            'status_filter_options': status_filter_options_for_template,  # Opciones para el form
+            'selected_statuses': selected_statuses_from_form,  # Los que deben estar marcados
+            'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+            'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+            'page_title': 'Accounting Report - Stripe Disputes'
+        }
+        return render(request, 'tasks/accounting_stripe_report.html', context)
+
+@login_required
+@user_passes_test(user_is_admin_or_leader)
+def generate_compliance_xml_report_view(request):
+    today = timezone.localdate()
+    default_start_date = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    default_end_date = today.replace(day=last_day)
+
+    # Preparar opciones de status para el filtro (como en Stripe Disputes)
+    STATUS_OPTIONS_FOR_XML_FILTER_ORDER = ['pending', 'in_progress_group', 'blocked', 'completed', 'cancelled']
+    STATUS_GROUP_MAPPING = {'in_progress_group': ['in_progress', 'qa_pending', 'qa_in_progress']}
+    status_display_dict = dict(STATUS_CHOICES)
+    status_filter_options_for_template = []
+    for status_key in STATUS_OPTIONS_FOR_XML_FILTER_ORDER:
+        display_name = "In Progress (includes QA stages)" if status_key == 'in_progress_group' else status_display_dict.get(
+            status_key, status_key.title())
+        status_filter_options_for_template.append({'value': status_key, 'display': display_name})
+
+    # Estado inicial de los filtros para GET
+    current_selected_statuses = request.GET.getlist('status')
+    if not current_selected_statuses and not 'generate_csv' in request.GET:  # Carga inicial del form
+        current_selected_statuses = [opt['value'] for opt in status_filter_options_for_template]
+
+    current_selected_xml_states = request.GET.getlist('xml_state')
+    if not current_selected_xml_states and not 'generate_csv' in request.GET:
+        current_selected_xml_states = [s[0] for s in XML_STATE_CHOICES]
+
+    current_selected_carrier_rvic = request.GET.get('carrier_rvic') == 'on'
+    current_selected_carrier_ssic = request.GET.get('carrier_ssic') == 'on'
+    # Si es la carga inicial y no se generan filtros, ambos carriers por defecto
+    if not 'generate_csv' in request.GET and not request.GET.get('carrier_rvic') and not request.GET.get(
+            'carrier_ssic'):
+        current_selected_carrier_rvic = True
+        current_selected_carrier_ssic = True
+
+    if request.method == 'GET' and 'generate_csv' in request.GET:
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        # selected_statuses ya está en current_selected_statuses
+        # selected_xml_states ya está en current_selected_xml_states
+        # selected_carrier_rvic/ssic ya están en current_selected_carrier_rvic/ssic
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else default_start_date
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else default_end_date
+        except ValueError:
+            messages.error(request, _("Invalid date format. Please use YYYY-MM-DD."))
+            # Re-renderizar el formulario
+            context = {
+                'status_filter_options': status_filter_options_for_template,
+                'selected_statuses': current_selected_statuses,
+                'xml_state_choices': XML_STATE_CHOICES,
+                'selected_xml_states': current_selected_xml_states,
+                'selected_carrier_rvic': current_selected_carrier_rvic,
+                'selected_carrier_ssic': current_selected_carrier_ssic,
+                'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+                'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+                'page_title': 'Compliance Report - Generating XML'
+            }
+            return render(request, 'tasks/compliance_xml_report_form.html', context)
+
+        start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
+        end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
+
+        queryset = UserRecordsRequest.objects.filter(
+            type_of_process='generating_xml',
+            timestamp__gte=start_datetime_utc,
+            timestamp__lte=end_datetime_utc
+        ).select_related('requested_by', 'operator', 'qa_agent').order_by('-timestamp')
+
+        # Aplicar filtro de estado
+        final_status_filter_values = []
+        if current_selected_statuses:
+            for status_val in current_selected_statuses:
+                if status_val in STATUS_GROUP_MAPPING:
+                    final_status_filter_values.extend(STATUS_GROUP_MAPPING[status_val])
+                elif status_val in status_display_dict:
+                    final_status_filter_values.append(status_val)
+            if final_status_filter_values:
+                queryset = queryset.filter(status__in=list(set(final_status_filter_values)))
+
+        # Aplicar filtro de XML State
+        if current_selected_xml_states:
+            queryset = queryset.filter(xml_state__in=current_selected_xml_states)
+
+        # Aplicar filtro de Carriers
+        if current_selected_carrier_rvic and current_selected_carrier_ssic:
+            queryset = queryset.filter(xml_carrier_rvic=True, xml_carrier_ssic=True)
+        elif current_selected_carrier_rvic:
+            queryset = queryset.filter(xml_carrier_rvic=True, xml_carrier_ssic=False)
+        elif current_selected_carrier_ssic:
+            queryset = queryset.filter(xml_carrier_rvic=False, xml_carrier_ssic=True)
+        # Si ninguno está seleccionado, no se aplica filtro de carrier (se muestran todos los que pasen los otros filtros)
+        # Esto es porque el default es ambos seleccionados. Si el usuario los deselecciona ambos,
+        # es ambiguo si quiere "ninguno con esos flags" o "no me importa el flag de carrier".
+        # Aquí asumimos "no me importa".
+
+        return _generate_generating_xml_csv(queryset,
+                                            filename=f"generating_xml_report_{start_date_str}_to_{end_date_str}.csv")
+
+    else:  # GET inicial
+        context = {
+            'status_filter_options': status_filter_options_for_template,
+            'selected_statuses': current_selected_statuses,
+            'xml_state_choices': XML_STATE_CHOICES,
+            'selected_xml_states': current_selected_xml_states,
+            'selected_carrier_rvic': current_selected_carrier_rvic,
+            'selected_carrier_ssic': current_selected_carrier_ssic,
+            'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+            'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+            'page_title': 'Compliance Report - Generating XML'
+        }
+        return render(request, 'tasks/compliance_xml_report.html', context)
+
+@login_required
+@user_passes_test(user_is_admin_or_leader)
+def generate_revenue_support_report_view(request):
+    today = timezone.localdate()
+    default_start_date = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    default_end_date = today.replace(day=last_day)
+
+    # Tipos de proceso relevantes para este reporte
+    RELEVANT_PROCESS_TYPES_FOR_RS = [
+        'address_validation', 'user_records', 'property_records',
+        'unit_transfer', 'deactivation_toggle'
+    ]
+    relevant_process_types_choices = [(val, disp) for val, disp in TYPE_CHOICES if val in RELEVANT_PROCESS_TYPES_FOR_RS]
+
+    # Opciones de estado para el filtro
+    STATUS_OPTIONS_FOR_RS_FILTER_ORDER = [
+        'scheduled', 'pending_approval', 'pending',
+        'in_progress_group', 'blocked', 'completed', 'cancelled'
+    ]
+    STATUS_GROUP_MAPPING = {'in_progress_group': ['in_progress', 'qa_pending', 'qa_in_progress']}
+    status_display_dict = dict(STATUS_CHOICES)
+    status_filter_options_for_template = []
+    for status_key in STATUS_OPTIONS_FOR_RS_FILTER_ORDER:
+        display_name = "In Progress (includes QA stages)" if status_key == 'in_progress_group' else status_display_dict.get(
+            status_key, status_key.title())
+        status_filter_options_for_template.append({'value': status_key, 'display': display_name})
+
+    # Estado inicial de los filtros para GET
+    current_selected_statuses = request.GET.getlist('status')
+    if not current_selected_statuses and not 'generate_csv' in request.GET:
+        current_selected_statuses = [opt['value'] for opt in status_filter_options_for_template]
+
+    current_selected_process_type = request.GET.get('type_of_process')
+    current_selected_team_filter = request.GET.get('team_filter', 'both')  # Default a 'both'
+
+    if request.method == 'GET' and 'generate_csv' in request.GET:
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        # selected_statuses ya está en current_selected_statuses
+        # selected_process_type ya está en current_selected_process_type
+        # selected_team_filter ya está en current_selected_team_filter
+
+        if not current_selected_process_type:
+            messages.error(request, _("Process Type is required to generate the report."))
+            # Re-renderizar el formulario
+            context = {
+                'relevant_process_types': relevant_process_types_choices,
+                'selected_process_type': current_selected_process_type,
+                'status_filter_options': status_filter_options_for_template,
+                'selected_statuses': current_selected_statuses,
+                'selected_team_filter': current_selected_team_filter,
+                'TEAM_REVENUE_KEY': TEAM_REVENUE, 'TEAM_SUPPORT_KEY': TEAM_SUPPORT,  # Para el select de equipo
+                'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+                'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+                'page_title': 'Revenue/Support Process Reports',
+                'form_errors': {'type_of_process': "This field is required."}
+            }
+            return render(request, 'tasks/revenue_support_report_form.html', context)
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else default_start_date
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else default_end_date
+        except ValueError:
+            messages.error(request, "Invalid date format. Please use YYYY-MM-DD.")
+            # Re-renderizar el formulario
+            context = {
+                'relevant_process_types': relevant_process_types_choices,
+                'selected_process_type': current_selected_process_type,
+                'status_filter_options': status_filter_options_for_template,
+                'selected_statuses': current_selected_statuses,
+                'selected_team_filter': current_selected_team_filter,
+                'TEAM_REVENUE_KEY': TEAM_REVENUE, 'TEAM_SUPPORT_KEY': TEAM_SUPPORT,
+                'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+                'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+                'page_title': 'Revenue/Support Process Reports'
+            }
+            return render(request, 'tasks/revenue_support_report_form.html', context)
+
+        start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
+        end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
+
+        queryset = UserRecordsRequest.objects.filter(
+            type_of_process=current_selected_process_type,  # Filtrar por el proceso seleccionado
+            timestamp__gte=start_datetime_utc,
+            timestamp__lte=end_datetime_utc
+        ).select_related('requested_by', 'operator', 'qa_agent').order_by('-timestamp')
+
+        # Aplicar filtro de estado
+        final_status_filter_values = []
+        if current_selected_statuses:
+            for status_val in current_selected_statuses:
+                if status_val in STATUS_GROUP_MAPPING:
+                    final_status_filter_values.extend(STATUS_GROUP_MAPPING[status_val])
+                elif status_val in status_display_dict:  # Asegurar que es una clave válida
+                    final_status_filter_values.append(status_val)
+            if final_status_filter_values:
+                queryset = queryset.filter(status__in=list(set(final_status_filter_values)))
+
+        # Aplicar filtro de Equipo
+        if current_selected_team_filter == TEAM_REVENUE:
+            queryset = queryset.filter(team=TEAM_REVENUE)
+        elif current_selected_team_filter == TEAM_SUPPORT:
+            queryset = queryset.filter(team=TEAM_SUPPORT)
+        elif current_selected_team_filter == 'both':  # 'both' significa Revenue o Support
+            queryset = queryset.filter(team__in=[TEAM_REVENUE, TEAM_SUPPORT])
+
+        # Despachar a la función helper CSV correcta
+        report_filename = f"{current_selected_process_type}_report_{start_date_str}_to_{end_date_str}.csv"
+        if current_selected_process_type == 'user_records':
+            return _generate_user_records_csv(queryset, filename=report_filename)
+        elif current_selected_process_type == 'property_records':
+            return _generate_property_records_csv(queryset, filename=report_filename)
+        elif current_selected_process_type == 'unit_transfer':
+            return _generate_unit_transfer_csv(queryset, filename=report_filename)
+        elif current_selected_process_type == 'deactivation_toggle':
+            return _generate_deactivation_toggle_csv(queryset, filename=report_filename)
+        elif current_selected_process_type == 'address_validation':
+            return _generate_address_validation_csv(queryset, filename=report_filename)
+        else:
+            messages.error(request,"Report generation for the selected process type is not yet implemented.")
+            return redirect('tasks:revenue_support_report')
+
+
+    else:  # GET inicial
+        context = {
+            'relevant_process_types': relevant_process_types_choices,
+            'selected_process_type': current_selected_process_type,
+            'status_filter_options': status_filter_options_for_template,
+            'selected_statuses': current_selected_statuses,
+            'selected_team_filter': current_selected_team_filter,
+            'TEAM_REVENUE_KEY': TEAM_REVENUE,  # Pasar claves para los values del select de equipo
+            'TEAM_SUPPORT_KEY': TEAM_SUPPORT,
+            'default_start_date': default_start_date.strftime('%Y-%m-%d'),
+            'default_end_date': default_end_date.strftime('%Y-%m-%d'),
+            'page_title': 'Revenue/Support Process Reports'
+        }
+        return render(request, 'tasks/revenue_support_report.html', context)
