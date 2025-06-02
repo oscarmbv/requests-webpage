@@ -1,0 +1,17 @@
+Subject: {{ subject }}
+
+Hello,
+
+The request {{ request_obj.unique_code }} has been cancelled by {{ cancelled_by_user.email }}.
+
+Details of the cancelled request:
+- Link: {{ request_url }}
+- Type: {{ request_obj.get_type_of_process_display }}
+{% if request_obj.type_of_process == 'property_records' %}- Sub-Type: {{ request_obj.get_property_records_type_display|default_if_none:"" }}{% endif %}
+{% if request_obj.type_of_process == 'unit_transfer' %}- Sub-Type: {{ request_obj.get_unit_transfer_type_display|default_if_none:"" }}{% endif %}
+{% if request_obj.type_of_process == 'deactivation_toggle' %}- Sub-Type: {{ request_obj.get_deactivation_toggle_type_display|default_if_none:"" }}{% endif %}
+{% if request_obj.type_of_process == 'generating_xml' %}- State: {{ request_obj.get_xml_state_display|default:"N/A" }}{% else %}- Partner: {{ request_obj.partner_name|default:"N/A" }}{% endif %}
+{% if request_obj.cancel_reason %}- Reason for Cancellation: {{ request_obj.cancel_reason|safe|escape|striptags|wordwrap:80|linebreaksbr }}{% endif %}
+
+Thank you,
+Requests Platform

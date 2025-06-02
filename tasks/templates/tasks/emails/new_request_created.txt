@@ -1,0 +1,32 @@
+{% load tz %}
+Subject: {{ subject }}
+
+Hello,
+
+{% timezone "America/Caracas" %}
+A new {{ request_obj.get_type_of_process_display }} request ({{ request_obj.unique_code }}) has been submitted by {{ request_obj.requested_by.email }} on {{ request_obj.timestamp|date:"F j, Y, P" }} (Caracas Time).
+{% endtimezone %}
+
+- Priority: {{ request_obj.get_priority_display }}
+{% if request_obj.scheduled_date %}
+- Scheduled for: {{ request_obj.scheduled_date|date:"Y-m-d" }}
+{% endif %}
+{% if request_obj.type_of_process == 'generating_xml' %}
+- State: {{ request_obj.get_xml_state_display|default:"N/A" }}
+{% else %}
+- Partner: {{ request_obj.partner_name|default:"N/A" }}
+{% endif %}
+{% if request_obj.type_of_process == 'property_records' %}
+- Sub-Type: {{ request_obj.get_property_records_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'unit_transfer' %}
+- Sub-Type: {{ request_obj.get_unit_transfer_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'deactivation_toggle' %}
+- Sub-Type: {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}
+{% endif %}
+
+{% if request_url and request_url != "#" %}
+- Link to details: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

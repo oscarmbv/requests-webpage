@@ -1,0 +1,19 @@
+Subject: {{ subject }}
+
+Hello,
+
+The request {{ request_obj.unique_code }} ({{ request_obj.get_type_of_process_display }}) was rejected by {{ rejected_by_user.email }}.
+
+Please correct the issues and send the request to QA again as soon as possible, providing an explanation about the correction in the "Operating Notes" section, especially if the rejection was made by the client.
+
+Reason for Rejection:
+--------------------------------------------------
+{{ rejection_reason_text|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+--------------------------------------------------
+
+{% if request_url and request_url != "#" %}
+You can view the request details here: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

@@ -292,13 +292,13 @@ class UserRecordsRequest(models.Model):
     def get_type_prefix(self):
         """Obtiene el prefijo para el unique_code basado en el tipo."""
         return {
-            'user_records': 'User',
-            'deactivation_toggle': 'Deac',
-            'unit_transfer': 'Tran',
-            'generating_xml': 'XML',
+            'user_records': 'UR',
+            'deactivation_toggle': 'DT',
+            'unit_transfer': 'UT',
+            'generating_xml': 'XF',
             'address_validation': 'AV',
-            'stripe_disputes': 'STRP',
-            'property_records': 'Prop',
+            'stripe_disputes': 'SD',
+            'property_records': 'PR',
         }.get(self.type_of_process, 'Gen')
 
     def save(self, *args, **kwargs):
@@ -520,3 +520,35 @@ class ScheduledTaskToggle(models.Model):
     class Meta:
         verbose_name = "Scheduled Task Toggle"
         verbose_name_plural = "Scheduled Task Toggles"
+
+
+class NotificationToggle(models.Model):
+    """
+    Modelo para habilitar/deshabilitar notificaciones por correo electrónico para eventos específicos.
+    """
+    event_key = models.CharField(
+        max_length=100,
+        unique=True,
+        primary_key=True,
+        help_text="Clave única para el evento de notificación (ej. 'new_request_created')."
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Breve descripción de para qué es este evento de notificación."
+    )
+    is_email_enabled = models.BooleanField(
+        default=True,
+        help_text="Marcar para habilitar las notificaciones por correo para este evento. Desmarcar para deshabilitar."
+    )
+
+    last_modified = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        email_status = 'Habilitado' if self.is_email_enabled else 'Deshabilitado'
+        return f"{self.description or self.event_key} (Email: {email_status})"
+
+    class Meta:
+        verbose_name = "Control de Evento de Notificación"
+        verbose_name_plural = "Controles de Eventos de Notificación"
+        ordering = ['description', 'event_key']

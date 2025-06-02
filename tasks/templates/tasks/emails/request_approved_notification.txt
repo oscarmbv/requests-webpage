@@ -1,0 +1,20 @@
+{% load tz %}
+Subject: {{ subject }}
+
+Hello,
+
+The request {{ request_obj.unique_code }} ({{ request_obj.get_type_of_process_display }}) has been approved by {{ approver_user.email }}.
+
+The request is now in status: {{ request_obj.get_status_display }}.
+{% if request_obj.scheduled_date and request_obj.status == 'scheduled' %}
+It is scheduled to become active on: {{ request_obj.scheduled_date|date:"Y-m-d" }}.
+{% elif request_obj.status == 'pending' and request_obj.effective_start_time_for_tat %}
+It is now pending and active for processing since: {% timezone "America/Caracas" %}{{ request_obj.effective_start_time_for_tat|date:"F j, Y, P" }} (Caracas Time){% endtimezone %}.
+{% endif %}
+
+{% if request_url and request_url != "#" %}
+You can view the request details here: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

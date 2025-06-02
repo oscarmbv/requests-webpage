@@ -364,7 +364,7 @@
                 {# Botón Update Provided #}
                 {% if can_clear_update_flag_action %}
                     {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
-                        <button type="submit" formaction="{% url 'tasks:clear_update_flag' user_request.id %}" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Mark the requested update as provided" %}'><i class="bi bi-check2-circle me-1"></i>{% trans "Update Provided" %}</button>
+                        <a href="#provideUpdateModal" data-bs-toggle="modal" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Provide an update message and clear the flag" %}'><i class="bi bi-chat-left-text-fill me-1"></i>{% trans "Provide Update" %}</a>
                     {% endif %}
                 {% endif %}
             {% endif %}
@@ -481,6 +481,33 @@
                     <div class="mb-3"> <label for="id_operating_notes_comp_dt" class="form-label small">{% trans "Operator/QA Notes" %}</label> <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_dt" rows="3">{{ user_request.operating_notes|default:"" }}</textarea> </div>
                 </div>
                 <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button> </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="provideUpdateModal" tabindex="-1" aria-labelledby="provideUpdateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'tasks:clear_update_flag' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="provideUpdateModalLabel">{% trans "Provide Update Message" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_provide_update_message" class="form-label">{% trans "Update Message" %} <span class="text-danger">*</span></label>
+                        <textarea name="update_message" class="form-control" id="id_provide_update_message" rows="5" required></textarea>
+                        {# Para mostrar errores del formulario si los hubiera, aunque es más simple manejar con messages framework #}
+                        {# {% if provide_update_form.update_message.errors %} #}
+                        {# <div class="invalid-feedback d-block">{{ provide_update_form.update_message.errors|join:", " }}</div> #}
+                        {# {% endif %} #}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Send Update & Clear Flag" %}</button>
+                </div>
             </form>
         </div>
     </div>

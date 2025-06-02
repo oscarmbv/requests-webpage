@@ -1134,3 +1134,11 @@ class GeneratingXmlOperateForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+class ProvideUpdateForm(forms.Form):
+    update_message = forms.CharField(
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'id': 'id_provide_update_message'}), # Añadimos ID para el modal
+        label="Provide Update Message",
+        required=True,
+        help_text="Enter the update details that will be sent in the notification."
+    )

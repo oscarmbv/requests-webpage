@@ -1,0 +1,19 @@
+Subject: {{ subject }}
+
+Hello,
+
+The blocked request {{ request_obj.unique_code }} ({{ request_obj.get_type_of_process_display }}) has been resolved by {{ resolved_by_user.email }}.
+
+Resolution Message:
+--------------------------------------------------
+{{ resolution_message_text|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+--------------------------------------------------
+
+The request is now back in status: {{ request_obj.get_status_display }} and processing can continue.
+
+{% if request_url and request_url != "#" %}
+You can view the updated request details here: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

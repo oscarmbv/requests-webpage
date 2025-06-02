@@ -1,0 +1,26 @@
+{% load tz %}
+{% load duration_filters %}
+Subject: {{ subject }}
+
+Hello,
+
+The {{ request_obj.get_type_of_process_display }} {% if request_obj.type_of_process == 'property_records' %}({{ request_obj.get_property_records_type_display|default_if_none:"" }}){% elif request_obj.type_of_process == 'unit_transfer' %}({{ request_obj.get_unit_transfer_type_display|default_if_none:"" }}){% elif request_obj.type_of_process == 'deactivation_toggle' %}({{ request_obj.get_deactivation_toggle_type_display|default_if_none:"" }}){% endif %} request {{ request_obj.unique_code }} for {% if request_obj.type_of_process == 'generating_xml' %}State: {{ request_obj.get_xml_state_display|default:"N/A" }}{% else %}Partner: {{ request_obj.partner_name|default:"N/A" }}{% endif %} is complete.
+
+{% if request_obj.operator %}- Operated by: {{ request_obj.operator.email }}{% endif %}
+{% if qa_completer_user %}- QA and Completed by: {{ qa_completer_user.email }}{% endif %}
+{% if request_obj.completed_at %}- Completed At: {% timezone "America/Caracas" %}{{ request_obj.completed_at|date:"F j, Y, P" }} (Caracas Time){% endtimezone %}{% endif %}
+{% if request_obj.calculated_turn_around_time %}- Turn Around Time: {{ request_obj.calculated_turn_around_time|format_timedelta }}{% endif %}
+
+{% if request_obj.operating_notes %}
+Final Notes:
+--------------------------------------------------
+{{ request_obj.operating_notes|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+--------------------------------------------------
+{% endif %}
+
+{% if request_url and request_url != "#" %}
+Link to details: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

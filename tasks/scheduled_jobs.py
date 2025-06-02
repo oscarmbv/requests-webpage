@@ -1,8 +1,9 @@
 # tasks/scheduled_jobs.py
-
 from django.utils import timezone
-from .models import UserRecordsRequest  # Asegúrate de que la ruta al modelo sea correcta
+from .models import UserRecordsRequest
 import logging
+from django_q.tasks import async_task
+from .notifications import notify_scheduled_request_activated
 
 logger = logging.getLogger(__name__)  # Usar el logger de Django-Q o el de tu app
 
@@ -32,6 +33,21 @@ def process_scheduled_requests():
                 req.save(update_fields=fields_to_update)
                 logger.info(f"Activated request: {req.unique_code} (ID: {req.id}) - Status changed to 'pending'. TAT start set to: {current_time_utc}. Was scheduled for: {req.scheduled_date}")
                 activated_count += 1
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    async_task(
+                        'tasks.notifications.notify_scheduled_request_activated',
+                        req.pk,  # Pasa el PK de la instancia actualizada
+                        task_name=f"NotifyScheduledActive-{req.unique_code}",
+                        hook='tasks.hooks.print_task_result'  # Opcional
+                    )
+                    logger.info(f"Tarea de notificación 'Scheduled to Pending' para {req.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación 'Scheduled to Pending' para {req.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             except Exception as e:
                 logger.error(f"Error activating request {req.unique_code} (ID: {req.id}): {e}", exc_info=True)
 

@@ -83,14 +83,14 @@ class TaskViewTests(TestCase):
 
     def test_dashboard_unauthenticated(self):
         """Verifica que el dashboard redirija al login si no está autenticado."""
-        response = self.client.get(reverse('tasks:portal_dashboard'))
+        response = self.client.get(reverse('tasks:rhino_dashboard'))
         self.assertEqual(response.status_code, 302) # 302 Found (redirección)
         self.assertIn(reverse('login'), response.url) # Verifica que redirija a login
 
     def test_dashboard_authenticated(self):
         """Verifica que un usuario autenticado pueda ver el dashboard."""
         self.client.login(email='regular@example.com', password='password')
-        response = self.client.get(reverse('tasks:portal_dashboard'))
+        response = self.client.get(reverse('tasks:rhino_dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'tasks/rhino_operations_dashboard.html')
 
@@ -107,7 +107,7 @@ class TaskViewTests(TestCase):
         self.client.login(email='other@example.com', password='password')
         response = self.client.get(reverse('tasks:request_detail', args=[self.test_request.pk]))
         self.assertEqual(response.status_code, 302) # Redirige porque no tiene permiso
-        self.assertRedirects(response, reverse('tasks:portal_dashboard')) # O a donde redirija el error de permiso
+        self.assertRedirects(response, reverse('tasks:rhino_dashboard')) # O a donde redirija el error de permiso
         self.client.logout()
 
         # Agente sí puede ver
@@ -135,7 +135,7 @@ class TaskViewTests(TestCase):
         response = self.client.post(reverse('tasks:user_records_request'), data=form_data)
         # Verificar redirección exitosa
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse('tasks:portal_dashboard'))
+        self.assertRedirects(response, reverse('tasks:rhino_dashboard'))
         # Verificar que el objeto se creó en la BD
         self.assertTrue(UserRecordsRequest.objects.filter(partner_name='New Partner From Test').exists())
         new_request = UserRecordsRequest.objects.get(partner_name='New Partner From Test')

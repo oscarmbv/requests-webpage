@@ -1,0 +1,53 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 24px; color: #007bff; margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p { margin-bottom: 12px; font-size: 16px; }
+        .content strong { color: #555555; }
+        .details-list { list-style-type: none; padding-left: 0; }
+        .details-list li { margin-bottom: 8px; }
+        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .link a:hover { text-decoration: underline; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">{{ subject }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>A new <strong>{{ request_obj.get_type_of_process_display }}</strong> request ({{ request_obj.unique_code }}) has been automatically created from a Salesforce Opportunity.</p>
+
+            <ul class="details-list">
+                <li><strong>Platform Request Link:</strong> <a href="{{ request_url }}">{{ request_url }}</a></li>
+                <li><strong>Partner:</strong> {{ request_obj.partner_name|default:"N/A" }}</li>
+                {% if request_obj.salesforce_opportunity_name %}
+                    <li><strong>SF Opportunity Name:</strong> {{ request_obj.salesforce_opportunity_name }}</li>
+                {% endif %}
+                {% if request_obj.salesforce_number_of_units is not None %}
+                    <li><strong>SF Number of Units:</strong> {{ request_obj.salesforce_number_of_units }}</li>
+                {% endif %}
+                {% if request_obj.salesforce_link %}
+                    <li><strong>SF Opportunity Link:</strong> <a href="{{ request_obj.salesforce_link }}" target="_blank" rel="noopener noreferrer">View in Salesforce</a></li>
+                {% endif %}
+                 {% if request_obj.timestamp %}
+                    <li><strong>Created At (Platform):</strong>
+                        {% timezone "America/Caracas" %}
+                            {{ request_obj.timestamp|date:"F j, Y, P" }} (Caracas Time)
+                        {% endtimezone %}
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

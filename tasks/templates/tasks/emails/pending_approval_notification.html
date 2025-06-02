@@ -1,0 +1,52 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 22px; color: #0d6efd; margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p, .content li { margin-bottom: 10px; font-size: 16px; }
+        .content strong { color: #444444; }
+        .details-list { list-style-type: none; padding-left: 0; margin-top: 15px; }
+        .action-link a { display: inline-block; background-color: #0d6efd; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 15px; }
+        .action-link a:hover { background-color: #0b5ed7; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">{{ subject }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>A new <strong>{{ request_obj.get_deactivation_toggle_type_display }}</strong> request ({{ request_obj.unique_code }}) requires your approval.</p>
+            <p>Submitted by: <strong>{{ request_obj.requested_by.email }}</strong></p>
+
+            <ul class="details-list">
+                {% if request_obj.partner_name %}
+                    <li><strong>Partner:</strong> {{ request_obj.partner_name }}</li>
+                {% endif %}
+                {% if request_obj.properties %}
+                    <li><strong>Properties Affected:</strong><br><pre style="white-space: pre-wrap; background-color: #f8f9fa; padding: 5px; border-radius: 3px;">{{ request_obj.properties }}</pre></li>
+                {% endif %}
+                {% if request_obj.deactivation_toggle_context %}
+                    <li><strong>Context/Justification:</strong><br><pre style="white-space: pre-wrap; background-color: #f8f9fa; padding: 5px; border-radius: 3px;">{{ request_obj.deactivation_toggle_context }}</pre></li>
+                {% endif %}
+                {% if request_obj.scheduled_date %}
+                    <li><strong>Scheduled for:</strong> {{ request_obj.scheduled_date|date:"Y-m-d" }} (if approved)</li>
+                {% endif %}
+            </ul>
+
+            {% if request_url and request_url != "#" %}
+            <p>To review and approve this request, please click the link below. Once on the request details page, use the "Approve Request" button.</p>
+            <p class="action-link"><a href="{{ request_url }}">Review and Approve Request</a></p>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

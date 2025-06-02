@@ -2,16 +2,13 @@
 
 import logging
 from collections import defaultdict
-
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
-
 from simple_salesforce import Salesforce, SalesforceAuthenticationFailed, SalesforceError
-
-# Modelos de tu aplicación 'tasks'
 from .models import UserRecordsRequest, SalesforceAttachmentLog, CustomUser, ScheduledTaskToggle
 from .choices import PRIORITY_NORMAL, TEAM_REVENUE
+from django_q.tasks import async_task
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
@@ -203,6 +200,20 @@ def sync_salesforce_opportunities_task():
                         # Otros campos opcionales que quieras llenar por defecto
                     )
                     logger.info(f"Creado UserRecordsRequest {new_request.unique_code} para Opportunity SF ID {opportunity_sf_id}")
+
+                    #Notificacion
+                    try:
+                        async_task(
+                            'tasks.notifications.notify_new_request_created',
+                            new_request.pk,
+                            task_name=f"NotifyNewSalesforceRequest-{new_request.unique_code}",
+                            hook='tasks.hooks.print_task_result'
+                        )
+                        logger.info(
+                            f"Tarea de notificación para nueva solicitud SF {new_request.unique_code} encolada.")
+                    except Exception as e_async_sf:
+                        logger.error(
+                            f"Error al encolar la tarea de notificación para solicitud SF {new_request.unique_code}: {e_async_sf}", exc_info=True)
 
                     # --- 3. Creación de SalesforceAttachmentLog ---
                     # (Salesforce Implementation.pdf, Paso 3.2, sección "Creación de SalesforceAttachmentLog")

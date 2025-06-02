@@ -13,7 +13,7 @@ from django.contrib import messages
 
 from .models import (
     BlockedMessage, CustomUser, OperationPrice, RejectedMessage, ResolvedMessage,
-    UserRecordsRequest, AddressValidationFile, SalesforceAttachmentLog, ScheduledTaskToggle
+    UserRecordsRequest, AddressValidationFile, SalesforceAttachmentLog, ScheduledTaskToggle, NotificationToggle
 )
 
 # --- Configuración Admin para CustomUser ---
@@ -402,3 +402,11 @@ class ScheduledTaskToggleAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+@admin.register(NotificationToggle)
+class NotificationToggleAdmin(admin.ModelAdmin):
+    list_display = ('event_key', 'description', 'is_email_enabled', 'last_modified')
+    list_editable = ('is_email_enabled', 'description') # Permite editar estos campos en la vista de lista
+    search_fields = ('event_key', 'description')
+    readonly_fields = ('last_modified',) # event_key es primary_key, no editable post-creación
+    list_filter = ('is_email_enabled',)

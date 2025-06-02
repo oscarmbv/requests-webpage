@@ -152,3 +152,34 @@ INTEGRATION_TYPE_CHOICES = [
     ('entrata', 'Entrata'),
     ('eqr', 'EQR'),
 ]
+
+EVENT_KEY_NEW_REQUEST_CREATED = 'new_request_created'
+EVENT_KEY_REQUEST_PENDING_APPROVAL = 'request_pending_approval'
+EVENT_KEY_REQUEST_APPROVED = 'request_approved'
+EVENT_KEY_SCHEDULED_REQUEST_ACTIVATED = 'scheduled_request_activated'
+EVENT_KEY_UPDATE_REQUESTED = 'update_requested'
+EVENT_KEY_UPDATE_PROVIDED = 'update_provided'
+EVENT_KEY_REQUEST_BLOCKED = 'request_blocked'
+EVENT_KEY_REQUEST_RESOLVED = 'request_resolved'
+EVENT_KEY_REQUEST_SENT_TO_QA = 'request_sent_to_qa'
+EVENT_KEY_REQUEST_REJECTED = 'request_rejected'
+EVENT_KEY_REQUEST_CANCELLED = 'request_cancelled'
+EVENT_KEY_REQUEST_UNCANCELLED = 'request_uncancelled'
+EVENT_KEY_REQUEST_COMPLETED = 'request_completed'
+
+# El diccionario ALL_NOTIFICATION_EVENT_KEYS es útil para apps.py
+ALL_NOTIFICATION_EVENT_KEYS = {
+    EVENT_KEY_NEW_REQUEST_CREATED: '1. Nueva Solicitud Creada (Manual y Salesforce)',
+    EVENT_KEY_REQUEST_PENDING_APPROVAL: '2. Solicitud (Deactivation) Pendiente de Aprobación',
+    EVENT_KEY_REQUEST_APPROVED: '3. Solicitud (Deactivation) Aprobada',
+    EVENT_KEY_SCHEDULED_REQUEST_ACTIVATED: '4. Solicitud Programada Activada (a Pendiente)',
+    EVENT_KEY_UPDATE_REQUESTED: '5. Actualización Solicitada para una Tarea',
+    EVENT_KEY_UPDATE_PROVIDED: '6. Actualización Provista para una Tarea',
+    EVENT_KEY_REQUEST_BLOCKED: '7. Solicitud Bloqueada',
+    EVENT_KEY_REQUEST_RESOLVED: '8. Solicitud Bloqueada Resuelta',
+    EVENT_KEY_REQUEST_SENT_TO_QA: '9. Solicitud Enviada a QA',
+    EVENT_KEY_REQUEST_REJECTED: '10. Solicitud Rechazada desde QA/Admin',
+    EVENT_KEY_REQUEST_CANCELLED: '11. Solicitud Cancelada',
+    EVENT_KEY_REQUEST_UNCANCELLED: '12. Solicitud Descancelada',
+    EVENT_KEY_REQUEST_COMPLETED: '13. Solicitud Completada',
+}

@@ -1,0 +1,14 @@
+Subject: {{ subject }}
+
+Hello,
+
+The request {{ request_obj.unique_code }} ({{ request_obj.get_type_of_process_display }}) was sent to the QA queue by {{ operator_user.email }}.
+
+It is now awaiting review by a QA agent.
+
+{% if request_url and request_url != "#" %}
+You can view the request details here: {{ request_url }}
+{% endif %}
+
+Thank you,
+Requests Platform

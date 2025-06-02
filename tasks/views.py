@@ -27,6 +27,12 @@ import calendar
 from django.db.models.functions import Coalesce
 import json
 import os
+from django_q.tasks import async_task
+from .forms import ProvideUpdateForm
+from .notifications import ( notify_request_blocked, notify_update_provided, notify_update_requested,
+                             notify_request_approved, notify_new_request_created, notify_pending_approval_request,
+                             notify_request_sent_to_qa, notify_request_rejected, notify_request_cancelled,
+                             notify_request_uncancelled, notify_request_completed)
 
 # Importa los formularios (sin AddressValidationRequestForm)
 from .forms import (
@@ -160,7 +166,7 @@ def user_records_request(request):
 
     if is_in_revenue and is_in_support:
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     if request.method == 'POST':
         # Pasar user al form principal
@@ -236,7 +242,28 @@ def user_records_request(request):
                 else:
                     pass
 
-                req_instance.save() # Guardar ahora que tiene equipo
+                req_instance.save()
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        req_instance.pk,  # Pasa el PK de la instancia guardada
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{req_instance.unique_code}",
+                        # Nombre opcional para la tarea en Django Q
+                        hook='tasks.hooks.print_task_result'
+                        # Opcional: una función para loguear el resultado de la tarea
+                    )
+                    logger.info(f"Tarea de notificación para nueva solicitud {req_instance.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para {req_instance.unique_code}: {e_async}",
+                        exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
                 if req_instance.status == 'scheduled':
                     messages.success(request,
@@ -249,7 +276,7 @@ def user_records_request(request):
                                      _('User Records Request ({code}) created successfully for {team} team!').format(
                                          code=req_instance.unique_code,
                                          team=req_instance.get_team_display() or "Unassigned"))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except ValueError as ve:  # Para el error de team_selection
                 messages.error(request, str(ve))
             except Exception as e:
@@ -278,7 +305,7 @@ def deactivation_toggle_request(request):
 
     if is_in_revenue and is_in_support:
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     if request.method == 'POST':
          # Pasar user al form
@@ -337,6 +364,39 @@ def deactivation_toggle_request(request):
 
                 deact_toggle_request.save()
 
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+
+                    if deact_toggle_request.status == 'pending_approval':
+                        async_task(
+                            'tasks.notifications.notify_pending_approval_request',
+                            deact_toggle_request.pk,
+                            http_request_host=current_host,
+                            http_request_scheme=current_scheme,
+                            task_name=f"NotifyPendingApproval-{deact_toggle_request.unique_code}",
+                            hook='tasks.hooks.print_task_result'
+                        )
+                        logger.info(
+                            f"Tarea de notificación 'Pending Approval' para {deact_toggle_request.unique_code} encolada.")
+                    else:  # Para 'pending' o 'scheduled'
+                        async_task(
+                            'tasks.notifications.notify_new_request_created',
+                            deact_toggle_request.pk,
+                            http_request_host=current_host,
+                            http_request_scheme=current_scheme,
+                            task_name=f"NotifyNewRequest-{deact_toggle_request.unique_code}",
+                            hook='tasks.hooks.print_task_result'
+                        )
+                        logger.info(
+                            f"Tarea de notificación 'New Request' para {deact_toggle_request.unique_code} encolada.")
+
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para {deact_toggle_request.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
                 # Mensaje de éxito
                 success_message = _('Deactivation/Toggle Request ({code}) for {team} team ').format(
                     code=deact_toggle_request.unique_code,
@@ -354,7 +414,7 @@ def deactivation_toggle_request(request):
                     success_message += _('created successfully!')
 
                 messages.success(request, success_message)
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except Exception as e:
                 logger.error(f"Error saving DeactivationToggleRequest: {e}", exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request."))
@@ -375,7 +435,7 @@ def unit_transfer_request(request):
 
     if is_in_revenue and is_in_support:
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     if request.method == 'POST':
         # Pasar user y FILES
@@ -414,6 +474,25 @@ def unit_transfer_request(request):
 
                 unit_transfer_request.save()
 
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        unit_transfer_request.pk,
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{unit_transfer_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(
+                        f"Tarea de notificación para nueva solicitud {unit_transfer_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para {unit_transfer_request.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
                 if unit_transfer_request.status == 'scheduled':
                     messages.success(request,_('Unit Transfer Request ({code}) has been scheduled for {date} for {team} team!').format(
                         code=unit_transfer_request.unique_code,
@@ -423,7 +502,7 @@ def unit_transfer_request(request):
                     messages.success(request,_('Unit Transfer Request ({code}) created successfully for {team} team!').format(
                                      code=unit_transfer_request.unique_code,
                                      team=unit_transfer_request.get_team_display() or "Unassigned"))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except ValueError as ve:
                 messages.error(request, str(ve))
             except Exception as e:
@@ -458,9 +537,29 @@ def generating_xml_request(request):
                 xml_request.effective_start_time_for_tat = creation_timestamp
 
                 xml_request.save()
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        xml_request.pk,
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{xml_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación para nueva solicitud XML {xml_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para XML {xml_request.unique_code}: {e_async}",
+                        exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
                 logger.info(f"Generating XML Request ({xml_request.unique_code}) created by {request.user.email} with priority '{xml_request.priority}' for team '{xml_request.team}'. TAT start: {creation_timestamp}")
                 messages.success(request, _('Generating XML files Request ({code}) created successfully!').format(code=xml_request.unique_code))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except Exception as e:
                 logger.error(f"Error saving GeneratingXmlRequest: {e}", exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request."))
@@ -567,7 +666,7 @@ def request_detail(request, pk):
     # Verificar permisos de visualización
     if not can_view_request(user, user_request):  # Reemplaza can_view_request con tu lógica si es diferente
         messages.error(request, _("You do not have permission to view this request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     # Obtener datos para el contexto
     is_agent_user = is_agent(user)
@@ -793,6 +892,27 @@ def block_request(request, pk):
                 django_update_successful = True
                 logger.info(f"Request {user_request.unique_code} blocked in Portal by {request.user.email}.")
 
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_request_blocked',
+                        user_request.pk,  # PK de la solicitud
+                        request.user.pk,  # PK del usuario que bloqueó
+                        block_reason,  # El motivo del bloqueo
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyRequestBlocked-{user_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación 'Request Blocked' para {user_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Request Blocked' para {user_request.unique_code}: {e_async}",
+                        exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             except Exception as e_django:
                 logger.error(f"Error blocking request {pk} in Django: {e_django}", exc_info=True)
                 messages.error(request, _("An error occurred while blocking the request in Django."))
@@ -897,8 +1017,28 @@ def resolve_request(request, pk):
                     user_request.effective_start_time_for_tat = current_time  # Reiniciar TAT
                     user_request.save(update_fields=['status', 'effective_start_time_for_tat'])
                 django_update_successful = True
-                logger.info(
-                    f"Request {user_request.unique_code} resolved in Portal by {request.user.email}. TAT reset.")
+                logger.info(f"Request {user_request.unique_code} resolved in Portal by {request.user.email}. TAT reset.")
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_request_resolved',
+                        user_request.pk,  # PK de la solicitud
+                        request.user.pk,  # PK del usuario que resolvió
+                        resolve_message_text,  # El mensaje de resolución
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyRequestResolved-{user_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación 'Request Resolved' para {user_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Request Resolved' para {user_request.unique_code}: {e_async}",
+                        exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
             except Exception as e_django:
                 logger.error(f"Error resolving request {pk} in Django: {e_django}", exc_info=True)
@@ -999,6 +1139,26 @@ def send_to_qa_request(request, pk):
                     saved_instance.save(update_fields=['status', 'qa_pending_at', 'is_rejected_previously'])
 
                 logger.info(f"Request {pk} ({user_request.type_of_process}) sent to QA by {request.user.email}.")
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_request_sent_to_qa',
+                        saved_instance.pk,  # PK de la solicitud
+                        request.user.pk,  # PK del operador que envía a QA
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifySentToQA-{saved_instance.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación 'Sent to QA' para {saved_instance.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Sent to QA' para {saved_instance.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
                 messages.success(request, _('Request sent to QA pending queue.'))
                 return redirect('tasks:request_detail', pk=pk)
             except Exception as e:
@@ -1040,6 +1200,7 @@ def complete_request(request, pk):
         form = CurrentFormClass(request.POST, request.FILES, instance=user_request)
         if form.is_valid():
             django_save_successful = False
+            updated_instance = None
             try:
                 with transaction.atomic():
                     updated_instance = form.save(commit=False)
@@ -1153,6 +1314,27 @@ def complete_request(request, pk):
                 django_save_successful = True
                 logger.info(_("Request %(request_code)s marked as 'completed' in Django by %(user_email)s. Costs calculated and saved.") % {'request_code': user_request.unique_code, 'user_email': request.user.email})
 
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_request_completed',
+                        updated_instance.pk,  # PK de la solicitud completada
+                        request.user.pk,  # PK del agente de QA que completó
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyRequestCompleted-{updated_instance.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(
+                        f"Tarea de notificación 'Request Completed' para {updated_instance.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Request Completed' para {updated_instance.unique_code}: {e_async}",
+                        exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             except Exception as e_django:
                 logger.error(_("Error completing request %(pk)s in Django: %(error)s") % {'pk': pk, 'error': e_django}, exc_info=True)
                 messages.error(request, _("An error occurred while completing the request in Django."))
@@ -1241,6 +1423,25 @@ def cancel_request(request, pk):
             fields_to_update = ['status', 'cancelled', 'cancelled_by', 'cancelled_at']
             user_request.save(update_fields=fields_to_update)
             logger.info(f"User {user.email} cancelled request {pk}.")
+
+            # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+            try:
+                current_host = request.get_host()
+                current_scheme = request.scheme
+                async_task(
+                    'tasks.notifications.notify_request_cancelled',
+                    user_request.pk,  # PK de la solicitud
+                    user.pk,  # PK del usuario que canceló
+                    http_request_host=current_host,
+                    http_request_scheme=current_scheme,
+                    task_name=f"NotifyRequestCancelled-{user_request.unique_code}",
+                    hook='tasks.hooks.print_task_result'
+                )
+                logger.info(f"Tarea de notificación 'Request Cancelled' para {user_request.unique_code} encolada.")
+            except Exception as e_async:
+                logger.error(f"Error al encolar la tarea 'Request Cancelled' para {user_request.unique_code}: {e_async}", exc_info=True)
+            # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             messages.success(request, _(f"Request cancelled by {user.email}."))
             return redirect('tasks:request_detail', pk=pk)
         except Exception as e:
@@ -1272,11 +1473,12 @@ def reject_request(request, pk):
     if request.method == 'POST':
         form = RejectForm(request.POST)
         if form.is_valid():
+            rejection_reason = form.cleaned_data['reason']
             try:
                 RejectedMessage.objects.create(
                     request=user_request,
                     rejected_by=request.user,
-                    reason=form.cleaned_data['reason'],
+                    reason=rejection_reason,
                     is_resolved_qa=False,
                     rejected_at=timezone.now()
                 )
@@ -1293,6 +1495,26 @@ def reject_request(request, pk):
                                     'is_rejected_previously']
                 user_request.save(update_fields=fields_to_update)
                 logger.info(f"Request {pk} rejected by {user.email}. Flag 'is_rejected_previously' set to True.")
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_request_rejected',
+                        user_request.pk,  # PK de la solicitud
+                        user.pk,  # PK del usuario que rechazó
+                        rejection_reason,  # El motivo del rechazo
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyRequestRejected-{user_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación 'Request Rejected' para {user_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Request Rejected' para {user_request.unique_code}: {e_async}", exc_info=True)
+
                 messages.warning(request, _('Request rejected and returned for correction.'))
                 return redirect('tasks:request_detail', pk=pk)
             except Exception as e:
@@ -1343,7 +1565,27 @@ def approve_deactivation_toggle(request, pk):
                 # Opcional: registrar quién aprobó en un campo de historial o en un log.
                 # user_request.deactivation_toggle_leadership_approval = request.user.get_full_name() # Ejemplo
 
-            user_request.save(update_fields=['status', 'effective_start_time_for_tat'])  # Añadir 'scheduled_date' si se modifica
+            user_request.save(update_fields=['status', 'effective_start_time_for_tat'])
+
+            # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+            try:
+                current_host = request.get_host()
+                current_scheme = request.scheme
+                async_task(
+                    'tasks.notifications.notify_request_approved',
+                    user_request.pk,
+                    request.user.pk,
+                    http_request_host=current_host,
+                    http_request_scheme=current_scheme,
+                    task_name=f"NotifyRequestApproved-{user_request.unique_code}",
+                    hook='tasks.hooks.print_task_result'
+                )
+                logger.info(f"Tarea de notificación 'Request Approved' para {user_request.unique_code} encolada.")
+            except Exception as e_async:
+                logger.error(
+                    f"Error al encolar la tarea de notificación 'Request Approved' para {user_request.unique_code}: {e_async}",
+                    exc_info=True)
+            # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
             messages.success(request, _('Deactivation/Toggle Request approved. New status: {status}.').format(status=user_request.get_status_display()))
         except Exception as e:
@@ -1379,7 +1621,7 @@ def address_validation_request(request):
 
     if is_in_revenue and is_in_support:
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     if request.method == 'POST':
         form = AddressValidationRequestForm(request.POST, request.FILES, user=user)
@@ -1431,6 +1673,25 @@ def address_validation_request(request):
 
                 with transaction.atomic():  # Usar transacción para guardar el request y sus archivos
                     av_request.save()
+
+                    # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                    try:
+                        current_host = request.get_host()
+                        current_scheme = request.scheme
+                        async_task(
+                            'tasks.notifications.notify_new_request_created',
+                            av_request.pk,
+                            http_request_host=current_host,
+                            http_request_scheme=current_scheme,
+                            task_name=f"NotifyNewRequest-{av_request.unique_code}",
+                            hook='tasks.hooks.print_task_result'
+                        )
+                        logger.info(
+                            f"Tarea de notificación para nueva solicitud {av_request.unique_code} encolada.")
+                    except Exception as e_async:
+                        logger.error(
+                            f"Error al encolar la tarea de notificación para {av_request.unique_code}: {e_async}", exc_info=True)
+
                     logger.info(f"Saved UserRecordsRequest (Address Validation) PK: {av_request.pk} code: {av_request.unique_code} Team: {av_request.team}")
 
                     # Guardar los múltiples archivos si se subieron
@@ -1453,7 +1714,7 @@ def address_validation_request(request):
                     messages.success(request,_('Address Validation Request ({code}) created successfully for {team} team!').format(
                         code=av_request.unique_code,
                         team=av_request.get_team_display() or "Unassigned"))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except Exception as e:
                 logger.error(f"Error saving AddressValidationRequest or files (PK might be {av_request.pk if av_request and hasattr(av_request, 'pk') else 'N/A'}): {e}",exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request or processing files."))
@@ -1486,9 +1747,29 @@ def stripe_disputes_request(request):
                 dispute_request.effective_start_time_for_tat = creation_timestamp
 
                 dispute_request.save()
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        dispute_request.pk,
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{dispute_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(
+                        f"Tarea de notificación para nueva solicitud {dispute_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para {dispute_request.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
                 logger.info(f"Stripe Disputes Request ({dispute_request.unique_code}) created by {request.user.email} with priority '{dispute_request.priority}' for team '{dispute_request.team}'. TAT start: {creation_timestamp}")
                 messages.success(request, _('Stripe Disputes Request ({code}) created successfully!').format(code=dispute_request.unique_code))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except Exception as e:
                 logger.error(f"Error saving StripeDisputesRequest: {e}", exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request."))
@@ -1508,7 +1789,7 @@ def property_records_request(request):
 
     if is_in_revenue and is_in_support:
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
-        return redirect('tasks:portal_dashboard')
+        return redirect('tasks:rhino_dashboard')
 
     if request.method == 'POST':
         # Pasar user y FILES al form
@@ -1547,8 +1828,27 @@ def property_records_request(request):
                     messages.error(request,_('Failed to assign team. Ensure your user belongs to a valid operational team or a default is set for this request type.'))
                     return render(request, 'tasks/property_records_request.html', {'form': form})
 
-                prop_request.save() # Guardar instancia
+                prop_request.save()
                 form.save_m2m()
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        prop_request.pk,
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{prop_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(
+                        f"Tarea de notificación para nueva solicitud {prop_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea de notificación para {prop_request.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
                 if prop_request.status == 'scheduled':
                     messages.success(request,_('Property Records Request ({code}) has been scheduled for {date} for {team} team!').format(
@@ -1559,7 +1859,7 @@ def property_records_request(request):
                     messages.success(request,_('Property Records Request ({code}) created successfully for {team} team!').format(
                         code=prop_request.unique_code,
                         team=prop_request.get_team_display() or "Unassigned"))
-                return redirect('tasks:portal_dashboard')
+                return redirect('tasks:rhino_dashboard')
             except Exception as e:
                 logger.error(f"Error saving PropertyRecordsRequest: {e}", exc_info=True)
                 messages.error(request, _("An unexpected error occurred while saving the request."))
@@ -1600,6 +1900,27 @@ def set_update_needed_flag(request, pk):
             user_request.update_requested_at = timezone.now()
             user_request.save(update_fields=['update_needed_flag', 'update_requested_by', 'update_requested_at'])
             logger.info(f"User {user.email} set update_needed_flag=True for request {pk}.")
+
+            # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+            try:
+                current_host = request.get_host()
+                current_scheme = request.scheme
+                async_task(
+                    'tasks.notifications.notify_update_requested',
+                    user_request.pk,  # PK de la solicitud
+                    user.pk,  # PK del usuario que solicitó la actualización
+                    http_request_host=current_host,
+                    http_request_scheme=current_scheme,
+                    task_name=f"NotifyUpdateRequested-{user_request.unique_code}",
+                    hook='tasks.hooks.print_task_result'
+                )
+                logger.info(f"Tarea de notificación 'Update Requested' para {user_request.unique_code} encolada.")
+            except Exception as e_async:
+                logger.error(
+                    f"Error al encolar la tarea de notificación 'Update Requested' para {user_request.unique_code}: {e_async}",
+                    exc_info=True)
+            # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             messages.success(request, _(f"Update requested. The assigned agent will be notified (via the visible flag)."))
         except Exception as e:
             logger.error(f"Error setting update_needed_flag=True for request {pk}: {e}", exc_info=True)
@@ -1628,16 +1949,42 @@ def clear_update_needed_flag(request, pk):
         return redirect('tasks:request_detail', pk=pk)
 
     if request.method == 'POST':
-        try:
-            user_request.update_needed_flag = False
-            user_request.save(update_fields=['update_needed_flag'])
-            logger.info(f"User {user.email} set update_needed_flag=False for request {pk}.")
-            messages.success(request, _("Update flag cleared."))
-        except Exception as e:
-            logger.error(f"Error setting update_needed_flag=False for request {pk}: {e}", exc_info=True)
-            messages.error(request, _("An error occurred while clearing the update flag."))
-    else:
-        messages.warning(request, _("Please use the button to mark the update as provided."))
+        form = ProvideUpdateForm(request.POST)
+        if form.is_valid():
+            update_message_text = form.cleaned_data['update_message']
+            try:
+                user_request.update_needed_flag = False
+                user_request.save(update_fields=['update_needed_flag'])
+                logger.info(f"User {user.email} set update_needed_flag=False for request {pk}.")
+
+                # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+                try:
+                    current_host = request.get_host()
+                    current_scheme = request.scheme
+                    async_task(
+                        'tasks.notifications.notify_update_provided',
+                        user_request.pk,
+                        user.pk,  # PK del usuario que está proveyendo la actualización
+                        update_message_text,  # El mensaje del formulario
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyUpdateProvided-{user_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(f"Tarea de notificación 'Update Provided' para {user_request.unique_code} encolada.")
+                except Exception as e_async:
+                    logger.error(
+                        f"Error al encolar la tarea 'Update Provided' para {user_request.unique_code}: {e_async}", exc_info=True)
+                # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
+                messages.success(request, _("Update flag cleared."))
+            except Exception as e:
+                logger.error(f"Error setting update_needed_flag=False for request {pk}: {e}", exc_info=True)
+                messages.error(request, _("An error occurred while clearing the update flag."))
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Error in update message: {error}")
 
     return redirect('tasks:request_detail', pk=pk)
 
@@ -1666,6 +2013,7 @@ def uncancel_request(request, pk):
 
     if request.method == 'POST':
         try:
+            original_cancelled_by_user_pk = user_request.cancelled_by.pk if user_request.cancelled_by else None
             user_request.cancelled = False
             user_request.cancelled_by = None
             user_request.cancelled_at = None
@@ -1677,6 +2025,28 @@ def uncancel_request(request, pk):
             fields_to_update = ['cancelled', 'cancelled_by', 'cancelled_at', 'uncanceled_by', 'uncanceled_at', 'status']
             user_request.save(update_fields=fields_to_update)
             logger.info(f"User {user.email} uncancelled request {pk}. Status set to {'pending'}.")
+
+            # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+            try:
+                current_host = request.get_host()
+                current_scheme = request.scheme
+                async_task(
+                    'tasks.notifications.notify_request_uncancelled',
+                    user_request.pk,  # PK de la solicitud
+                    user.pk,  # PK del usuario que descanceló
+                    original_cancelled_by_user_pk,  # PK de quien canceló originalmente
+                    http_request_host=current_host,
+                    http_request_scheme=current_scheme,
+                    task_name=f"NotifyRequestUncancelled-{user_request.unique_code}",
+                    hook='tasks.hooks.print_task_result'
+                )
+                logger.info(f"Tarea de notificación 'Request Uncancelled' para {user_request.unique_code} encolada.")
+            except Exception as e_async:
+                logger.error(
+                    f"Error al encolar la tarea 'Request Uncancelled' para {user_request.unique_code}: {e_async}",
+                    exc_info=True)
+            # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
+
             messages.success(request, _(f"Request has been uncancelled by {user.email} and returned to Pending status."))
         except Exception as e:
             logger.error(f"Error uncancelling request {pk}: {e}", exc_info=True)

@@ -1,0 +1,74 @@
+{% load tz %}
+{% load duration_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 22px; color: #198754; /* Verde para completado */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p, .content li { margin-bottom: 10px; font-size: 16px; }
+        .content strong { color: #444444; }
+        .details-list { list-style-type: none; padding-left: 0; margin-top:15px; }
+        .notes-section { background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px 15px; margin-top: 15px; margin-bottom: 15px; white-space: pre-wrap; font-size: 0.95em;}
+        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .link a:hover { text-decoration: underline; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">{{ subject }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>The <strong>{{ request_obj.get_type_of_process_display }}</strong>
+                {% if request_obj.type_of_process == 'property_records' %}
+                    ({{ request_obj.get_property_records_type_display|default_if_none:"" }})
+                {% elif request_obj.type_of_process == 'unit_transfer' %}
+                    ({{ request_obj.get_unit_transfer_type_display|default_if_none:"" }})
+                {% elif request_obj.type_of_process == 'deactivation_toggle' %}
+                    ({{ request_obj.get_deactivation_toggle_type_display|default_if_none:"" }})
+                {% endif %}
+                request <strong>{{ request_obj.unique_code }}</strong> for
+                {% if request_obj.type_of_process == 'generating_xml' %}
+                    State: <strong>{{ request_obj.get_xml_state_display|default:"N/A" }}</strong>
+                {% else %}
+                    Partner: <strong>{{ request_obj.partner_name|default:"N/A" }}</strong>
+                {% endif %}
+                is now complete.
+            </p>
+
+            <ul class="details-list">
+                {% if request_obj.operator %}<li><strong>Operated by:</strong> {{ request_obj.operator.email }}</li>{% endif %}
+                {% if qa_completer_user %}<li><strong>QA and Completed by:</strong> {{ qa_completer_user.email }}</li>{% endif %}
+                {% if request_obj.completed_at %}
+                    <li><strong>Completed At:</strong>
+                        {% timezone "America/Caracas" %}
+                            {{ request_obj.completed_at|date:"F j, Y, P" }} (Caracas Time)
+                        {% endtimezone %}
+                    </li>
+                {% endif %}
+                {% if request_obj.calculated_turn_around_time %}
+                    <li><strong>Turn Around Time:</strong> {{ request_obj.calculated_turn_around_time|format_timedelta }}</li>
+                {% endif %}
+            </ul>
+
+            {% if request_obj.operating_notes %}
+                <p><strong>Final Notes:</strong></p>
+                <div class="notes-section">
+                    {{ request_obj.operating_notes|linebreaksbr }}
+                </div>
+            {% endif %}
+
+            {% if request_url and request_url != "#" %}
+            <p class="link">You can view the completed request details here: <a href="{{ request_url }}">{{ request_url }}</a></p>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

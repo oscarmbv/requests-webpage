@@ -1,0 +1,18 @@
+{% load tz %}
+Subject: {{ subject }}
+
+Hello,
+
+A new {{ request_obj.get_type_of_process_display }} request ({{ request_obj.unique_code }}) has been automatically created from a Salesforce Opportunity.
+
+- Platform Request Link: {{ request_url }}
+- Partner: {{ request_obj.partner_name|default:"N/A" }}
+{% if request_obj.salesforce_opportunity_name %}- SF Opportunity Name: {{ request_obj.salesforce_opportunity_name }}{% endif %}
+{% if request_obj.salesforce_number_of_units is not None %}- SF Number of Units: {{ request_obj.salesforce_number_of_units }}{% endif %}
+{% if request_obj.salesforce_link %}- SF Opportunity Link: {{ request_obj.salesforce_link }}{% endif %}
+{% if request_obj.timestamp %}
+- Created At (Platform): {% timezone "America/Caracas" %}{{ request_obj.timestamp|date:"F j, Y, P" }} (Caracas Time){% endtimezone %}
+{% endif %}
+
+Thank you,
+Requests Platform

@@ -1,0 +1,26 @@
+{% load tz %}
+Subject: {{ subject }}
+
+Hello,
+
+The scheduled request {{ request_obj.unique_code }} ({{ request_obj.get_type_of_process_display }}) is now active with status "Pending" and ready to be operated.
+
+- Link: {{ request_url }}
+- Priority: {{ request_obj.get_priority_display }}
+{% if request_obj.type_of_process == 'generating_xml' %}
+- State: {{ request_obj.get_xml_state_display|default:"N/A" }}
+{% else %}
+- Partner: {{ request_obj.partner_name|default:"N/A" }}
+{% endif %}
+{% if request_obj.type_of_process == 'property_records' %}
+- Sub-Type: {{ request_obj.get_property_records_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'unit_transfer' %}
+- Sub-Type: {{ request_obj.get_unit_transfer_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'deactivation_toggle' %}
+- Sub-Type: {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}
+{% endif %}
+- Originally Scheduled For: {{ request_obj.scheduled_date|date:"Y-m-d" }}
+- Activated At: {% timezone "America/Caracas" %}{{ request_obj.effective_start_time_for_tat|date:"F j, Y, P" }} (Caracas Time){% endtimezone %}
+
+Thank you,
+Requests Platform

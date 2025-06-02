@@ -1,0 +1,54 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 22px; color: #ffc107; /* Amarillo para 'update requested' */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p, .content li { margin-bottom: 10px; font-size: 16px; }
+        .content strong { color: #444444; }
+        .details-list { list-style-type: none; padding-left: 0; margin-top:15px; }
+        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .link a:hover { text-decoration: underline; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">{{ subject }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p><strong>{{ update_requester_user.email }}</strong> is requesting an update for the following task:</p>
+
+            <ul class="details-list">
+                <li><strong>Request Code:</strong> {{ request_obj.unique_code }}</li>
+                <li class="link"><strong>Link:</strong> <a href="{{ request_url }}">{{ request_url }}</a></li>
+                <li><strong>Priority:</strong> {{ request_obj.get_priority_display }}</li>
+                <li><strong>Current Status:</strong> {{ request_obj.get_status_display }}</li>
+                <li><strong>Type:</strong> {{ request_obj.get_type_of_process_display }}</li>
+
+                {% if request_obj.type_of_process == 'generating_xml' %}
+                    <li><strong>State:</strong> {{ request_obj.get_xml_state_display|default:"N/A" }}</li>
+                {% else %}
+                    <li><strong>Partner:</strong> {{ request_obj.partner_name|default:"N/A" }}</li>
+                {% endif %}
+
+                {% if request_obj.type_of_process == 'property_records' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_property_records_type_display|default:"N/A" }}</li>
+                {% elif request_obj.type_of_process == 'unit_transfer' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_unit_transfer_type_display|default:"N/A" }}</li>
+                {% elif request_obj.type_of_process == 'deactivation_toggle' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}</li>
+                {% endif %}
+            </ul>
+            <p>Please provide an update on the request details page or contact the requester.</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

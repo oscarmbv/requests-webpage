@@ -1,0 +1,21 @@
+{% load tz %}
+Subject: {{ subject }}
+
+Hello,
+
+A new {{ request_obj.get_deactivation_toggle_type_display }} request ({{ request_obj.unique_code }}) requires your approval.
+Submitted by: {{ request_obj.requested_by.email }}
+
+Details:
+{% if request_obj.partner_name %}- Partner: {{ request_obj.partner_name }}{% endif %}
+{% if request_obj.properties %}- Properties Affected: {{ request_obj.properties|safe|escape|striptags|wordwrap:80|linebreaksbr }}{% endif %}
+{% if request_obj.deactivation_toggle_context %}- Context/Justification: {{ request_obj.deactivation_toggle_context|safe|escape|striptags|wordwrap:80|linebreaksbr }}{% endif %}
+{% if request_obj.scheduled_date %}- Scheduled for: {{ request_obj.scheduled_date|date:"Y-m-d" }} (if approved){% endif %}
+
+{% if request_url and request_url != "#" %}
+To review and approve this request, please visit: {{ request_url }}
+Once on the request details page, use the "Approve Request" button.
+{% endif %}
+
+Thank you,
+Requests Platform

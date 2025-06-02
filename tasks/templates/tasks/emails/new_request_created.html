@@ -1,0 +1,50 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        /* ... (tus estilos) ... */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">New Request Created: {{ request_obj.unique_code }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            {% timezone "America/Caracas" %} {# <--- INICIO BLOQUE TIMEZONE #}
+            <p>A new <strong>{{ request_obj.get_type_of_process_display }}</strong> request has been submitted by <strong>{{ request_obj.requested_by.email }}</strong> on {{ request_obj.timestamp|date:"F j, Y, P" }} (Caracas Time).</p>
+            {% endtimezone %} {# <--- FIN BLOQUE TIMEZONE #}
+
+            <ul class="details-list">
+                <li><strong>Priority:</strong> {{ request_obj.get_priority_display }}</li>
+                {% if request_obj.scheduled_date %}
+                    <li><strong>Scheduled for:</strong> {{ request_obj.scheduled_date|date:"Y-m-d" }}</li>
+                {% endif %}
+
+                {% if request_obj.type_of_process == 'generating_xml' %}
+                    <li><strong>State:</strong> {{ request_obj.get_xml_state_display|default:"N/A" }}</li>
+                {% else %}
+                    <li><strong>Partner:</strong> {{ request_obj.partner_name|default:"N/A" }}</li>
+                {% endif %}
+
+                {% if request_obj.type_of_process == 'property_records' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_property_records_type_display|default:"N/A" }}</li>
+                {% elif request_obj.type_of_process == 'unit_transfer' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_unit_transfer_type_display|default:"N/A" }}</li>
+                {% elif request_obj.type_of_process == 'deactivation_toggle' %}
+                    <li><strong>Sub-Type:</strong> {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}</li>
+                {% endif %}
+            </ul>
+
+            {% if request_url and request_url != "#" %}
+            <p class="link"><strong>Link to details:</strong> <a href="{{ request_url }}">{{ request_url }}</a></p>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

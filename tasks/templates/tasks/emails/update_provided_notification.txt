@@ -1,0 +1,34 @@
+Subject: {{ subject }}
+
+Hello,
+
+An update has been provided by {{ updated_by_user.email }} for the request {{ request_obj.unique_code }}.
+
+Update Message:
+--------------------------------------------------
+{{ update_message_text|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+--------------------------------------------------
+
+Request Details:
+- Link: {{ request_url }}
+- Priority: {{ request_obj.get_priority_display }}
+- Current Status: {{ request_obj.get_status_display }}
+- Type: {{ request_obj.get_type_of_process_display }}
+{% if request_obj.type_of_process == 'generating_xml' %}
+- State: {{ request_obj.get_xml_state_display|default:"N/A" }}
+{% else %}
+- Partner: {{ request_obj.partner_name|default:"N/A" }}
+{% endif %}
+{% if request_obj.type_of_process == 'property_records' %}
+- Sub-Type: {{ request_obj.get_property_records_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'unit_transfer' %}
+- Sub-Type: {{ request_obj.get_unit_transfer_type_display|default:"N/A" }}
+{% elif request_obj.type_of_process == 'deactivation_toggle' %}
+- Sub-Type: {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}
+{% endif %}
+{% if request_obj.update_requested_by %}
+(This update was originally requested by: {{ request_obj.update_requested_by.email }})
+{% endif %}
+
+Thank you,
+Requests Platform

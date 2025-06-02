@@ -1,0 +1,45 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 24px; color: #198754; /* Color verde para aprobación */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p { margin-bottom: 12px; font-size: 16px; }
+        .content strong { color: #444444; }
+        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .link a:hover { text-decoration: underline; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">{{ subject }}</div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>The request <strong>{{ request_obj.unique_code }}</strong> ({{ request_obj.get_type_of_process_display }}) has been approved by <strong>{{ approver_user.email }}</strong>.</p>
+
+            <p>The request is now in status: <strong>{{ request_obj.get_status_display }}</strong>.</p>
+            {% if request_obj.scheduled_date and request_obj.status == 'scheduled' %}
+                <p>It is scheduled to become active on: {{ request_obj.scheduled_date|date:"Y-m-d" }}.</p>
+            {% elif request_obj.status == 'pending' and request_obj.effective_start_time_for_tat %}
+                <p>It is now pending and active for processing since:
+                    {% timezone "America/Caracas" %}
+                        {{ request_obj.effective_start_time_for_tat|date:"F j, Y, P" }} (Caracas Time)
+                    {% endtimezone %}.
+                </p>
+            {% endif %}
+
+            {% if request_url and request_url != "#" %}
+            <p class="link">You can view the request details here: <a href="{{ request_url }}">{{ request_url }}</a></p>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Requests Platform.</p>
+        </div>
+    </div>
+</body>
+</html>

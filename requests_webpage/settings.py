@@ -203,6 +203,21 @@ Q_CLUSTER = {
     'log_level': env('DJANGO_Q_LOG_LEVEL', default='INFO'),
 }
 
+#Telegram Bot Settings
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default=None)
+TELEGRAM_DEFAULT_CHAT_ID = env('TELEGRAM_DEFAULT_CHAT_ID', default=None)
+
+#Email (SendGrid) Settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env.int('EMAIL_PORT')
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+
+SITE_DOMAIN = env('SITE_DOMAIN', default='http://localhost:8000')
+
 # --- Credenciales y Configuraciones de Salesforce ---
 SF_USERNAME = env('SF_USERNAME', default=None)
 SF_PASSWORD = env('SF_PASSWORD', default=None)

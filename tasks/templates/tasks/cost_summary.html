@@ -23,14 +23,36 @@
 <div class="container mt-4">
     <h1 class="mb-4">{{ page_title|default:"Client Cost Summary Report" }}</h1>
 
-    {# Formulario de Filtro de Fecha (sin cambios) #}
+    {# Formulario de Filtro de Fecha #}
     <div class="card summary-card">
-        {# ... tu código de filtro de fecha ... #}
+        <div class="card-header">
+            Date Range Filter
+        </div>
+        <div class="card-body">
+            <form method="get" class="row gx-3 gy-2 align-items-center">
+                <div class="col-sm-4">
+                    <label for="start_date" class="form-label">Start Date:</label>
+                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="col-sm-4">
+                    <label for="end_date" class="form-label">End Date:</label>
+                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="col-sm-auto align-self-end">
+                    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     {# Gran Total (sin cambios) #}
     <div class="card summary-card">
-        {# ... tu código de gran total ... #}
+        <div class="card-header bg-primary text-white">
+            Overall Summary
+        </div>
+        <div class="card-body">
+            <h4>Grand Total Client Cost ({{ start_date }} to {{ end_date }}): <strong>${{ grand_total_cost|floatformat:2 }}</strong></h4>
+        </div>
     </div>
 
     {# Pie Charts (sin cambios en su estructura HTML, solo el JS se expandirá) #}
