@@ -8,7 +8,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q, Sum, Value, CharField, DecimalField
+from django.db.models import Q, Sum, Value, CharField, DecimalField, Count, Avg, ExpressionWrapper, F, fields
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -2063,11 +2063,12 @@ def client_cost_summary_view(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
+    # --- Lógica de fechas (sin cambios) ---
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request,"Invalid start date format. Using default.")
+            messages.error(request, "Invalid start date format. Using default.")
             start_date = today.replace(day=1)
     else:
         start_date = today.replace(day=1)
@@ -2076,7 +2077,7 @@ def client_cost_summary_view(request):
         try:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request,"Invalid end date format. Using default.")
+            messages.error(request, "Invalid end date format. Using default.")
             _, last_day_of_month = calendar.monthrange(today.year, today.month)
             end_date = today.replace(day=last_day_of_month)
     else:
@@ -2086,53 +2087,89 @@ def client_cost_summary_view(request):
     start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
     end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
 
+    # --- Query base (sin cambios) ---
     completed_requests_in_period = UserRecordsRequest.objects.filter(
         status='completed',
         completed_at__gte=start_datetime_utc,
         completed_at__lte=end_datetime_utc
     ).select_related('requested_by')
 
-    grand_total_dict = completed_requests_in_period.aggregate(
-        total=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'), output_field=DecimalField()))
+    # --- Expresión para calcular la duración (TAT) a nivel de DB ---
+    duration_expression = ExpressionWrapper(
+        F('completed_at') - F('effective_start_time_for_tat'),
+        output_field=fields.DurationField()
     )
-    grand_total_cost = grand_total_dict['total']
 
-    team_summary_from_db = completed_requests_in_period.values('team').annotate(
-        subtotal=Coalesce(Sum('grand_total_client_price_completed'),
-                          Value(Decimal('0.00'), output_field=DecimalField()))
+    # --- Cálculo de los agregados generales (Overall Summary) ---
+    overall_summary = completed_requests_in_period.aggregate(
+        total_requests=Count('pk'),
+        grand_total_cost=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        overall_average_tat=Avg(duration_expression)
     )
-    team_subtotals_map = {item['team']: item['subtotal'] for item in team_summary_from_db}
-    team_subtotals_list_ordered = []
+
+    total_requests_count = overall_summary.get('total_requests', 0)
+    grand_total_cost = overall_summary.get('grand_total_cost', Decimal('0.00'))
+    overall_average_tat = overall_summary.get('overall_average_tat')
+
+    average_cost_per_request = grand_total_cost / total_requests_count if total_requests_count > 0 else Decimal('0.00')
+
+    # --- Anotaciones por Equipo (con las nuevas métricas) ---
+    team_summary_from_db = completed_requests_in_period.values('team').annotate(
+        subtotal=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        request_count=Count('pk'),
+        avg_cost=Avg('grand_total_client_price_completed'),
+        avg_tat=Avg(duration_expression)
+    ).order_by('-subtotal')
+
+    team_summary_list = []
     team_chart_labels = []
     team_chart_data = []
-    for team_key, team_display_name in TEAM_CHOICES:
-        subtotal = team_subtotals_map.get(team_key, Decimal('0.00'))
-        team_subtotals_list_ordered.append({'name': team_display_name, 'subtotal': subtotal})
-        if subtotal > 0:
+    team_choices_dict = dict(TEAM_CHOICES)
+    for team_data in team_summary_from_db:
+        team_display_name = team_choices_dict.get(team_data['team'], team_data['team'] or "Unassigned")
+        team_summary_list.append({
+            'name': team_display_name,
+            'subtotal': team_data['subtotal'],
+            'request_count': team_data['request_count'],
+            'avg_cost': team_data['avg_cost'],
+            'avg_tat': team_data['avg_tat'],
+        })
+        if team_data['subtotal'] > 0:
             team_chart_labels.append(team_display_name)
-            team_chart_data.append(float(subtotal))
+            team_chart_data.append(float(team_data['subtotal']))
 
+    # --- Anotaciones por Tipo de Proceso (con las nuevas métricas) ---
     process_summary_from_db = completed_requests_in_period.values('type_of_process').annotate(
-        subtotal=Coalesce(Sum('grand_total_client_price_completed'),
-                          Value(Decimal('0.00'), output_field=DecimalField()))
-    )
-    process_subtotals_map = {item['type_of_process']: item['subtotal'] for item in process_summary_from_db}
-    process_subtotals_list_ordered = []
+        subtotal=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        request_count=Count('pk'),
+        avg_cost=Avg('grand_total_client_price_completed'),
+        avg_tat=Avg(duration_expression)
+    ).order_by('-subtotal')
+
+    process_summary_list = []
     process_chart_labels = []
     process_chart_data = []
-    for process_key, process_display_name in TYPE_CHOICES:
-        subtotal = process_subtotals_map.get(process_key, Decimal('0.00'))
-        process_subtotals_list_ordered.append({'name': process_display_name, 'subtotal': subtotal})
-        if subtotal > 0:
+    process_choices_dict = dict(TYPE_CHOICES)
+    for process_data in process_summary_from_db:
+        process_display_name = process_choices_dict.get(process_data['type_of_process'],
+                                                        process_data['type_of_process'])
+        process_summary_list.append({
+            'name': process_display_name,
+            'subtotal': process_data['subtotal'],
+            'request_count': process_data['request_count'],
+            'avg_cost': process_data['avg_cost'],
+            'avg_tat': process_data['avg_tat'],
+        })
+        if process_data['subtotal'] > 0:
             process_chart_labels.append(process_display_name)
-            process_chart_data.append(float(subtotal))
+            process_chart_data.append(float(process_data['subtotal']))
 
+    # --- INICIO: LÓGICA REINTEGRADA PARA LOS GRÁFICOS DE DISPERSIÓN ---
     target_processes_for_scatter = [
         'address_validation', 'user_records', 'property_records',
         'unit_transfer', 'deactivation_toggle'
     ]
     target_teams_for_scatter = [TEAM_REVENUE, TEAM_SUPPORT]
-
     scatter_charts_data = {}
     type_choices_dict_scatter = dict(TYPE_CHOICES)
 
@@ -2144,16 +2181,14 @@ def client_cost_summary_view(request):
         for team_key in target_teams_for_scatter:
             team_name_display = dict(TEAM_CHOICES).get(team_key, team_key)
             team_specific_requests = process_specific_requests.filter(team=team_key).order_by('completed_at')
-
             data_points = []
             for req in team_specific_requests:
                 if req.completed_at and req.grand_total_client_price_completed is not None:
                     data_points.append({
                         'x': req.completed_at.isoformat(),
                         'y': float(req.grand_total_client_price_completed),
-                        'pk': req.pk  # <--- AÑADIR PK DE LA SOLICITUD
+                        'pk': req.pk
                     })
-
             if data_points:
                 border_color = 'rgba(255, 99, 132, 1)' if team_key == TEAM_REVENUE else 'rgba(54, 162, 235, 1)'
                 bg_color = 'rgba(255, 99, 132, 0.2)' if team_key == TEAM_REVENUE else 'rgba(54, 162, 235, 0.2)'
@@ -2167,33 +2202,40 @@ def client_cost_summary_view(request):
                     'pointRadius': 3,
                     'pointBackgroundColor': border_color
                 })
-
         if current_process_datasets:
             scatter_charts_data[process_key] = {
                 'chart_title': f'Cost Trend for {process_name_display}',
                 'datasets': current_process_datasets
             }
+    # --- FIN: LÓGICA REINTEGRADA PARA LOS GRÁFICOS DE DISPERSIÓN ---
 
     try:
         request_detail_url_template = reverse('tasks:request_detail', args=[0]).replace('/0/', '/REPLACE_PK/')
     except Exception as e:
         logger.error(f"Could not generate URL template for request_detail: {e}")
-        request_detail_url_template = "/rhino/request/REPLACE_PK/"  # Fallback manual
-        messages.error(request,"Error generating URL template for chart links.")
+        request_detail_url_template = "/rhino/request/REPLACE_PK/"
+        messages.error(request, "Error generating URL template for chart links.")
 
     context = {
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
+
+        'total_requests_count': total_requests_count,
         'grand_total_cost': grand_total_cost,
-        'team_subtotals': team_subtotals_list_ordered,
-        'process_subtotals': process_subtotals_list_ordered,
+        'average_cost_per_request': average_cost_per_request,
+        'overall_average_tat': overall_average_tat,
+
+        'team_summary': team_summary_list,
+        'process_summary': process_summary_list,
+
         'team_chart_labels': team_chart_labels,
         'team_chart_data': team_chart_data,
         'process_chart_labels': process_chart_labels,
         'process_chart_data': process_chart_data,
-        'scatter_charts_data': scatter_charts_data,
+        'scatter_charts_data': scatter_charts_data,  # <-- Se pasa el diccionario poblado
         'request_detail_url_template': request_detail_url_template,
-        'page_title': 'Cost Summary Report'
+
+        'page_title': 'Cost & Performance Summary'
     }
     return render(request, 'tasks/cost_summary.html', context)
 

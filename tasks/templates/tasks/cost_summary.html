@@ -1,19 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
-
+{% load duration_filters %}
 {% block title %}{{ page_title|default:"Client Cost Summary" }}{% endblock %}
-
 {% block extra_css %}
 <style>
     .summary-card { margin-bottom: 20px; }
+
+    /* --- ESTILOS NUEVOS PARA KPI BOXES Y TABLAS --- */
+    .kpi-box { text-align: center; padding: 20px; border-radius: 8px; }
+    .kpi-box .kpi-value { font-size: 2.2rem; font-weight: bold; }
+    .kpi-box .kpi-label { font-size: 1rem; color: #6c757d; }
+    .table th { white-space: nowrap; }
+
+    /* --- ESTILOS ORIGINALES Y NECESARIOS PARA LOS GRÁFICOS (REINTEGRADOS) --- */
     .chart-container {
         width: 100%;
-        /* max-width: 450px; para pie charts */
         margin: 15px auto;
     }
-    .scatter-chart-container { /* Contenedor para los nuevos gráficos de dispersión */
+    .scatter-chart-container {
         width: 100%;
-        height: 350px; /* Altura fija para mejor visualización */
+        height: 350px; /* <-- La línea crucial que faltaba */
         margin-bottom: 30px;
     }
 </style>
@@ -21,79 +27,132 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">{{ page_title|default:"Client Cost Summary Report" }}</h1>
+    <h1 class="mb-4">{{ page_title|default:"Cost & Performance Summary Report" }}</h1>
 
     {# Formulario de Filtro de Fecha #}
     <div class="card summary-card">
-        <div class="card-header">
-            Date Range Filter
-        </div>
+        <div class="card-header">Filters</div>
         <div class="card-body">
-            <form method="get" class="row gx-3 gy-2 align-items-center">
-                <div class="col-sm-4">
-                    <label for="start_date" class="form-label">Start Date:</label>
-                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ start_date }}">
-                </div>
-                <div class="col-sm-4">
-                    <label for="end_date" class="form-label">End Date:</label>
-                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ end_date }}">
-                </div>
-                <div class="col-sm-auto align-self-end">
-                    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+            <form method="get" action="{% url 'tasks:client_cost_summary' %}">
+                <div class="row align-items-end g-3">
+                    <div class="col-md-5">
+                        <label for="start_date" class="form-label fw-bold">Start Date:</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="end_date" class="form-label fw-bold">End Date:</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
-    {# Gran Total (sin cambios) #}
+    {# --- CAMBIO: Overall Summary Card actualizada --- #}
     <div class="card summary-card">
-        <div class="card-header bg-primary text-white">
-            Overall Summary
-        </div>
+        <div class="card-header bg-dark text-white">Overall Summary</div>
         <div class="card-body">
-            <h4>Grand Total Client Cost ({{ start_date }} to {{ end_date }}): <strong>${{ grand_total_cost|floatformat:2 }}</strong></h4>
-        </div>
-    </div>
-
-    {# Pie Charts (sin cambios en su estructura HTML, solo el JS se expandirá) #}
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card summary-card">
-                <div class="card-header bg-info text-white">Cost Subtotals by Team</div>
-                <div class="card-body">
-                    {% if team_subtotals %}
-                        <ul class="list-group list-group-flush mb-3">
-                            {% for item in team_subtotals %}{% if item.subtotal > 0 %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ item.name }}
-                                <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
-                            </li>
-                            {% endif %}{% endfor %}
-                        </ul>
-                    {% else %}<p>No cost data available for teams in this period.</p>{% endif %}
-                    <div class="chart-container" style="max-width: 400px;">
-                        <canvas id="teamPieChart"></canvas>
-                    </div>
+            <div class="row">
+                <div class="col-md-3 kpi-box">
+                    <div class="kpi-value">${{ grand_total_cost|floatformat:2 }}</div>
+                    <div class="kpi-label">Grand Total Cost</div>
+                </div>
+                <div class="col-md-3 kpi-box">
+                    <div class="kpi-value">{{ total_requests_count }}</div>
+                    <div class="kpi-label">Total Completed Requests</div>
+                </div>
+                <div class="col-md-3 kpi-box">
+                    <div class="kpi-value">${{ average_cost_per_request|floatformat:2 }}</div>
+                    <div class="kpi-label">Average Cost per Request</div>
+                </div>
+                <div class="col-md-3 kpi-box">
+                    <div class="kpi-value">{{ overall_average_tat|format_timedelta|default:"N/A" }}</div>
+                    <div class="kpi-label">Average Turn Around Time</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+    </div>
+
+    {# --- CAMBIO: Tablas y Gráficos por Equipo y Proceso --- #}
+    <div class="row">
+        <div class="col-lg-6">
             <div class="card summary-card">
-                <div class="card-header bg-secondary text-white">Cost Subtotals by Process Type</div>
+                <div class="card-header bg-info text-white">Summary by Team</div>
                 <div class="card-body">
-                    {% if process_subtotals %}
-                        <ul class="list-group list-group-flush mb-3">
-                            {% for item in process_subtotals %}{% if item.subtotal > 0 %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ item.name }}
-                                <span class="badge bg-primary rounded-pill">${{ item.subtotal|floatformat:2 }}</span>
-                            </li>
-                            {% endif %}{% endfor %}
-                        </ul>
-                    {% else %}<p>No cost data available for process types in this period.</p>{% endif %}
-                    <div class="chart-container" style="max-width: 400px;">
+                    {# --- CAMBIO: Gráfico primero --- #}
+                    <div class="chart-container" style="max-width: 400px; margin: auto;">
+                        <canvas id="teamPieChart"></canvas>
+                    </div>
+
+                    {# --- CAMBIO: Tabla después --- #}
+                    {% if team_summary %}
+                        <div class="table-responsive mt-4">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Team</th>
+                                        <th class="text-end">Total Cost</th>
+                                        <th class="text-center">Count</th>
+                                        <th class="text-end">Avg. Cost</th>
+                                        <th class="text-end">Avg. TAT</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for item in team_summary %}
+                                    <tr>
+                                        <td>{{ item.name }}</td>
+                                        <td class="text-end">${{ item.subtotal|floatformat:2 }}</td>
+                                        <td class="text-center">{{ item.request_count }}</td>
+                                        <td class="text-end">${{ item.avg_cost|floatformat:2 }}</td>
+                                        <td class="text-end">{{ item.avg_tat|format_timedelta|default:"-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}<p>No cost data available for teams in this period.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card summary-card">
+                <div class="card-header bg-secondary text-white">Summary by Process Type</div>
+                <div class="card-body">
+                    {# --- CAMBIO: Gráfico primero --- #}
+                    <div class="chart-container" style="max-width: 400px; margin: auto;">
                         <canvas id="processPieChart"></canvas>
                     </div>
+
+                    {# --- CAMBIO: Tabla después --- #}
+                    {% if process_summary %}
+                        <div class="table-responsive mt-4">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Process Type</th>
+                                        <th class="text-end">Total Cost</th>
+                                        <th class="text-center">Count</th>
+                                        <th class="text-end">Avg. Cost</th>
+                                        <th class="text-end">Avg. TAT</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for item in process_summary %}
+                                    <tr>
+                                        <td>{{ item.name }}</td>
+                                        <td class="text-end">${{ item.subtotal|floatformat:2 }}</td>
+                                        <td class="text-center">{{ item.request_count }}</td>
+                                        <td class="text-end">${{ item.avg_cost|floatformat:2 }}</td>
+                                        <td class="text-end">{{ item.avg_tat|format_timedelta|default:"-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}<p>No cost data available for process types in this period.</p>{% endif %}
                 </div>
             </div>
         </div>
