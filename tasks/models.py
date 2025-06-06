@@ -285,9 +285,56 @@ class UserRecordsRequest(models.Model):
     subtotal_xml_file_qa_cost_completed = models.DecimalField(verbose_name="XML File Subtotal (QA Cost)", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
     grand_total_qa_cost_completed = models.DecimalField(verbose_name="Grand Total (QA Cost) at Completion", max_digits=8, decimal_places=5, null=True, blank=True, default=0.00000)
 
+    discount_percentage = models.DecimalField(
+        verbose_name="Discount Percentage",
+        max_digits=4,  # Permite valores hasta 999.9, suficiente para 100.0
+        decimal_places=1,
+        default=Decimal('0.0'),
+        validators=[
+            MinValueValidator(Decimal('0.0')),
+            MaxValueValidator(Decimal('100.0'))
+        ],
+        help_text="Enter a percentage value (e.g., 15 for 15%) to be discounted from the grand total."
+    )
+
+    final_price_client_completed = models.DecimalField(
+        verbose_name="Final Price (with discount)",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0.00,
+        help_text="The final client price after any discounts have been applied. This field is calculated automatically."
+    )
+
     def __str__(self):
         team_display = self.get_team_display() or "Unassigned"
         return f"{self.get_type_of_process_display()} Request ({self.unique_code}) - Team: {team_display}"
+
+    @property
+    def calculated_discount_amount(self):
+        """
+        Calcula el monto monetario del descuento basado en el porcentaje.
+        Retorna un objeto Decimal.
+        """
+        if self.grand_total_client_price_completed is not None and self.discount_percentage is not None:
+            if self.discount_percentage > 0:
+                # Se asegura de que el cálculo se haga con Decimal para mantener la precisión
+                discount_value = self.grand_total_client_price_completed * (
+                            self.discount_percentage / Decimal('100.0'))
+                return discount_value.quantize(Decimal('0.01'))  # Redondear a 2 decimales
+        return Decimal('0.00')
+
+    @property
+    def final_price_after_discount(self):
+        """
+        Calcula el precio final después de aplicar el descuento.
+        Retorna un objeto Decimal.
+        """
+        if self.grand_total_client_price_completed is not None:
+            # Reutiliza la propiedad anterior para el cálculo
+            return self.grand_total_client_price_completed - self.calculated_discount_amount
+        return Decimal('0.00')
 
     def get_type_prefix(self):
         """Obtiene el prefijo para el unique_code basado en el tipo."""
@@ -329,6 +376,9 @@ class UserRecordsRequest(models.Model):
 
         if is_new and not self.status:
             self.status = 'pending'
+
+        if self.grand_total_client_price_completed is not None:
+            self.final_price_client_completed = self.final_price_after_discount
 
         super().save(*args, **kwargs)
 

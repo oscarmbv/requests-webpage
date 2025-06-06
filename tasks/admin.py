@@ -205,6 +205,42 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
 
     actions = ['trigger_salesforce_sync_action', 'trigger_scheduled_jobs_action']
 
+    def get_fieldsets(self, request, obj=None):
+        # Empezar con los fieldsets base
+        fieldsets = list(self.fieldsets)
+
+        # Si el usuario es superusuario (o usa tu helper is_admin(request.user)), añade el fieldset de descuento
+        if request.user.is_superuser:
+            fieldsets.append(
+                (_('Discount Management (Admin Only)'), {
+                    'fields': ('discount_percentage',),
+                    'classes': ('collapse',),  # Opcional: hacerlo colapsable
+                    'description': "Set a discount percentage for this request. This will adjust the final price."
+                })
+            )
+        else:
+            # Si no es admin, podría ser bueno mostrar el descuento como solo lectura si se aplicó
+            if obj and obj.discount_percentage > 0:
+                fieldsets.append(
+                    (_('Discount Information'), {
+                        'fields': ('discount_percentage',),
+                        'classes': ('collapse',),
+                    })
+                )
+
+        return tuple(fieldsets)
+
+    def get_readonly_fields(self, request, obj=None):
+        # Empezar con la lista de campos de solo lectura base
+        readonly = list(super().get_readonly_fields(request, obj))
+
+        # Si el usuario NO es superusuario, hacer el campo de descuento de solo lectura
+        if not request.user.is_superuser:
+            if 'discount_percentage' not in readonly:
+                readonly.append('discount_percentage')
+
+        return readonly
+
     def trigger_salesforce_sync_action(self, request, queryset):
         """
         Acción de Admin para encolar la tarea de sincronización de Salesforce.

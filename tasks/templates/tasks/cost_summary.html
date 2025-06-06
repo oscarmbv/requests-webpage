@@ -3,6 +3,7 @@
 {% load duration_filters %}
 {% block title %}{{ page_title|default:"Client Cost Summary" }}{% endblock %}
 {% block extra_css %}
+{% load tz %}
 <style>
     .summary-card { margin-bottom: 20px; }
 
@@ -42,6 +43,16 @@
                     <div class="col-md-5">
                         <label for="end_date" class="form-label fw-bold">End Date:</label>
                         <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Display Timezone:</label>
+                        <div class="btn-group w-100" role="group" aria-label="Timezone selection">
+                            <input type="radio" class="btn-check" name="timezone_display" id="tz-local" value="local" {% if display_timezone != 'utc' %}checked{% endif %} onchange="this.form.submit();">
+                            <label class="btn btn-outline-primary" for="tz-local">Local ({{ user_timezone_name }})</label>
+
+                            <input type="radio" class="btn-check" name="timezone_display" id="tz-utc" value="utc" {% if display_timezone == 'utc' %}checked{% endif %} onchange="this.form.submit();">
+                            <label class="btn btn-outline-primary" for="tz-utc">UTC (Billing)</label>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary w-100">Apply Filter</button>

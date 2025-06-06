@@ -44,4 +44,5 @@ urlpatterns = [
     path('request/<int:pk>/set_update_flag/', views.set_update_needed_flag, name='set_update_flag'),
     path('request/<int:pk>/clear_update_flag/', views.clear_update_needed_flag, name='clear_update_flag'),
     path('request/<int:pk>/uncancel/', views.uncancel_request, name='uncancel_request'),
+    path('request/<int:pk>/unassign/', views.unassign_agent, name='unassign_agent'),
 ]

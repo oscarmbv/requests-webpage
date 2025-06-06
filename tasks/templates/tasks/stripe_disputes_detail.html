@@ -299,9 +299,23 @@
                             {% endif %}
 
                             {% if user_request.grand_total_client_price_completed is not None %}
-                            <hr class="my-2">
-                            <dt class="col-sm-8 text-sm-end fw-bold">{% trans "Grand Total:" %}</dt> {# Cambiado "Grand Total (Client Price):" a solo "Grand Total:" por brevedad #}
-                            <dd class="col-sm-4 fw-bold">${{ user_request.grand_total_client_price_completed|floatformat:2 }}</dd>
+                                <hr class="my-2">
+                                {# Mostrar el total antes del descuento solo si hay un descuento aplicado #}
+                                {% if user_request.discount_percentage > 0 %}
+                                    <dt class="col-sm-8 text-sm-end">{% trans "Grand Total (Before Discount):" %}</dt>
+                                    <dd class="col-sm-4">${{ user_request.grand_total_client_price_completed|floatformat:2 }}</dd>
+
+                                    <dt class="col-sm-8 text-sm-end text-danger">{% trans "Discount" %} ({{ user_request.discount_percentage|floatformat:"-2" }}%):</dt>
+                                    <dd class="col-sm-4 text-danger">-${{ user_request.calculated_discount_amount|floatformat:2 }}</dd>
+
+                                    <hr class="my-2">
+                                    <dt class="col-sm-8 text-sm-end fw-bold">{% trans "Final Price:" %}</dt>
+                                    <dd class="col-sm-4 fw-bold">${{ user_request.final_price_after_discount|floatformat:2 }}</dd>
+                                {% else %}
+                                    {# Si no hay descuento, mostrar solo el Grand Total como antes #}
+                                    <dt class="col-sm-8 text-sm-end fw-bold">{% trans "Grand Total:" %}</dt>
+                                    <dd class="col-sm-4 fw-bold">${{ user_request.grand_total_client_price_completed|floatformat:2 }}</dd>
+                                {% endif %}
                             {% endif %}
                         </dl>
                     </div>
@@ -349,6 +363,15 @@
             {% endif %}
             {% if can_uncancel_request %}
                  <button type="submit" formaction="{% url 'tasks:uncancel_request' user_request.id %}" class="btn btn-outline-warning btn-sm me-1 mb-1" onclick="return confirm('{% trans "Are you sure you want to uncancel this request and return it to Pending?" %}');"><i class="bi bi-arrow-counterclockwise me-1"></i>{% trans "Uncancel" %}</button>
+            {% endif %}
+            {% if can_unassign %}
+                <button type="submit"
+                        formaction="{% url 'tasks:unassign_agent' user_request.id %}"
+                        class="btn btn-outline-secondary btn-sm me-1 mb-1"
+                        onclick="return confirm('Are you sure you want to unassign from this request? It will be returned to the previous pending queue.');"
+                        title="{% trans 'Unassign yourself from this task and return it to the queue' %}">
+                    <i class="bi bi-person-x-fill me-1"></i>{% trans "Unassign" %}
+                </button>
             {% endif %}
         </form>
         <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2 mb-1">{% trans "Back to Dashboard" %}</a>

@@ -176,9 +176,25 @@
                         </td>
                         {% if user.is_authenticated %}
                             {% if is_admin_user or is_leadership_user %}
-                                <td>
+                                <td class="text-end">
+                                    {# Solo mostramos precio para solicitudes completadas #}
                                     {% if request_item.status == 'completed' and request_item.grand_total_client_price_completed is not None %}
-                                        ${{ request_item.grand_total_client_price_completed|floatformat:2 }}
+
+                                        {# Si hay un descuento, mostramos ambos precios para claridad #}
+                                        {% if request_item.discount_percentage > 0 %}
+                                            <span class="text-danger" style="text-decoration: line-through; font-size: 0.9em;">
+                                                ${{ request_item.grand_total_client_price_completed|floatformat:2 }}
+                                            </span>
+                                            <br>
+                                            <strong class="text-success">
+                                                ${{ request_item.final_price_after_discount|floatformat:2 }}
+                                            </strong>
+
+                                        {# Si no hay descuento, mostramos solo el precio normal #}
+                                        {% else %}
+                                            ${{ request_item.grand_total_client_price_completed|floatformat:2 }}
+                                        {% endif %}
+
                                     {% else %}
                                         -
                                     {% endif %}

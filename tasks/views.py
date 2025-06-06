@@ -24,7 +24,7 @@ from simple_salesforce import Salesforce, SalesforceError
 from django import forms
 from decimal import Decimal
 import calendar
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Cast
 import json
 import os
 from django_q.tasks import async_task
@@ -707,7 +707,6 @@ def request_detail(request, pk):
             processed_group_data = []
             total_user_records_emails = 0
             prefill_user_count = None  # Asegurar que sea None si hay error
-
     elif user_request.type_of_process == 'unit_transfer':
         email_string = user_request.unit_transfer_user_email_addresses or ""
         # Dividir por coma o nueva línea, quitar espacios y contar elementos no vacíos
@@ -716,7 +715,6 @@ def request_detail(request, pk):
         # Pre-llenar si hay emails en el campo específico de unit transfer
         if unit_transfer_email_count > 0:
             prefill_user_count = unit_transfer_email_count
-
     elif user_request.type_of_process == 'address_validation':
         logger.info(f"Fetching address validation files for request PK: {user_request.pk}")
         address_files = user_request.address_validation_files.all()
@@ -727,6 +725,14 @@ def request_detail(request, pk):
         except Exception as e:
             logger.error(f"Error fetching address validation files for request PK {user_request.pk}: {e}", exc_info=True)
             address_files = None # Asegurar que es None si hay error
+
+    can_unassign = False
+
+    if user_request.status == 'in_progress' and (user == user_request.operator or is_admin_user):
+        can_unassign = True
+    elif user_request.status == 'qa_in_progress' and (user == user_request.qa_agent or is_admin_user):
+        can_unassign = True
+
 
     can_reject_request = False
     # Define en qué estados se puede rechazar
@@ -816,6 +822,7 @@ def request_detail(request, pk):
         'update_needed': user_request.update_needed_flag,
         'can_cancel_request': can_cancel_request,
         'can_uncancel_request': can_uncancel_request,
+        'can_unassign': can_unassign,
     }
 
     if user_request.type_of_process == 'generating_xml':
@@ -2056,14 +2063,16 @@ def uncancel_request(request, pk):
 
     return redirect('tasks:request_detail', pk=pk)
 
+
 @login_required
 @user_passes_test(user_is_admin_or_leader)
 def client_cost_summary_view(request):
+    display_timezone_pref = request.GET.get('timezone_display', 'local')
     today = timezone.localdate()
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
-    # --- Lógica de fechas (sin cambios) ---
+    # Lógica de fechas
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -2087,127 +2096,120 @@ def client_cost_summary_view(request):
     start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
     end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
 
-    # --- Query base (sin cambios) ---
+    # Query base de solicitudes completadas
     completed_requests_in_period = UserRecordsRequest.objects.filter(
         status='completed',
         completed_at__gte=start_datetime_utc,
         completed_at__lte=end_datetime_utc
-    ).select_related('requested_by')
-
-    # --- Expresión para calcular la duración (TAT) a nivel de DB ---
-    duration_expression = ExpressionWrapper(
-        F('completed_at') - F('effective_start_time_for_tat'),
-        output_field=fields.DurationField()
     )
 
-    # --- Cálculo de los agregados generales (Overall Summary) ---
+    # Estrategia de Anotación en Dos Pasos para el Precio Final
+    discount_amount_expression = ExpressionWrapper(
+        F('grand_total_client_price_completed') * (
+                    Cast(F('discount_percentage'), DecimalField(max_digits=5, decimal_places=2)) / Decimal('100.0')),
+        output_field=DecimalField(max_digits=8, decimal_places=2)
+    )
+    requests_with_discount_amount = completed_requests_in_period.annotate(
+        calculated_discount=discount_amount_expression
+    )
+    final_price_expression = ExpressionWrapper(
+        F('grand_total_client_price_completed') - F('calculated_discount'),
+        output_field=DecimalField(max_digits=8, decimal_places=2)
+    )
+    requests_with_final_price = requests_with_discount_amount.annotate(
+        final_price=final_price_expression
+    )
+
+    # Expresión para calcular la duración (TAT)
+    duration_expression = ExpressionWrapper(F('completed_at') - F('effective_start_time_for_tat'),
+                                            output_field=fields.DurationField())
+
+    # Cálculo de los agregados generales (Overall Summary)
     overall_summary = completed_requests_in_period.aggregate(
         total_requests=Count('pk'),
-        grand_total_cost=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        grand_total_cost=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
         overall_average_tat=Avg(duration_expression)
     )
-
     total_requests_count = overall_summary.get('total_requests', 0)
     grand_total_cost = overall_summary.get('grand_total_cost', Decimal('0.00'))
     overall_average_tat = overall_summary.get('overall_average_tat')
-
     average_cost_per_request = grand_total_cost / total_requests_count if total_requests_count > 0 else Decimal('0.00')
 
-    # --- Anotaciones por Equipo (con las nuevas métricas) ---
+    # Anotaciones por Equipo
     team_summary_from_db = completed_requests_in_period.values('team').annotate(
-        subtotal=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        subtotal=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
         request_count=Count('pk'),
-        avg_cost=Avg('grand_total_client_price_completed'),
+        avg_cost=Avg('final_price_client_completed'),
         avg_tat=Avg(duration_expression)
     ).order_by('-subtotal')
-
     team_summary_list = []
-    team_chart_labels = []
-    team_chart_data = []
     team_choices_dict = dict(TEAM_CHOICES)
     for team_data in team_summary_from_db:
         team_display_name = team_choices_dict.get(team_data['team'], team_data['team'] or "Unassigned")
-        team_summary_list.append({
-            'name': team_display_name,
-            'subtotal': team_data['subtotal'],
-            'request_count': team_data['request_count'],
-            'avg_cost': team_data['avg_cost'],
-            'avg_tat': team_data['avg_tat'],
-        })
-        if team_data['subtotal'] > 0:
-            team_chart_labels.append(team_display_name)
-            team_chart_data.append(float(team_data['subtotal']))
+        team_summary_list.append(
+            {'name': team_display_name, 'subtotal': team_data['subtotal'], 'request_count': team_data['request_count'],
+             'avg_cost': team_data['avg_cost'], 'avg_tat': team_data['avg_tat']})
 
-    # --- Anotaciones por Tipo de Proceso (con las nuevas métricas) ---
+    # Anotaciones por Tipo de Proceso
     process_summary_from_db = completed_requests_in_period.values('type_of_process').annotate(
-        subtotal=Coalesce(Sum('grand_total_client_price_completed'), Value(Decimal('0.00'))),
+        subtotal=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
         request_count=Count('pk'),
-        avg_cost=Avg('grand_total_client_price_completed'),
+        avg_cost=Avg('final_price_client_completed'),
         avg_tat=Avg(duration_expression)
     ).order_by('-subtotal')
-
     process_summary_list = []
-    process_chart_labels = []
-    process_chart_data = []
     process_choices_dict = dict(TYPE_CHOICES)
     for process_data in process_summary_from_db:
         process_display_name = process_choices_dict.get(process_data['type_of_process'],
                                                         process_data['type_of_process'])
-        process_summary_list.append({
-            'name': process_display_name,
-            'subtotal': process_data['subtotal'],
-            'request_count': process_data['request_count'],
-            'avg_cost': process_data['avg_cost'],
-            'avg_tat': process_data['avg_tat'],
-        })
-        if process_data['subtotal'] > 0:
-            process_chart_labels.append(process_display_name)
-            process_chart_data.append(float(process_data['subtotal']))
+        process_summary_list.append({'name': process_display_name, 'subtotal': process_data['subtotal'],
+                                     'request_count': process_data['request_count'],
+                                     'avg_cost': process_data['avg_cost'], 'avg_tat': process_data['avg_tat']})
+    #Piecharts
+    team_chart_labels = []
+    team_chart_data = []
+    for item in team_summary_list:
+        if item.get('subtotal', 0) > 0:
+            team_chart_labels.append(item.get('name'))
+            team_chart_data.append(float(item.get('subtotal')))
 
-    # --- INICIO: LÓGICA REINTEGRADA PARA LOS GRÁFICOS DE DISPERSIÓN ---
-    target_processes_for_scatter = [
-        'address_validation', 'user_records', 'property_records',
-        'unit_transfer', 'deactivation_toggle'
-    ]
+    process_chart_labels = []
+    process_chart_data = []
+    for item in process_summary_list:
+        if item.get('subtotal', 0) > 0:
+            process_chart_labels.append(item.get('name'))
+            process_chart_data.append(float(item.get('subtotal')))
+
+    # Lógica para Gráficos de Dispersión
+    target_processes_for_scatter = ['address_validation', 'user_records', 'property_records', 'unit_transfer',
+                                    'deactivation_toggle']
     target_teams_for_scatter = [TEAM_REVENUE, TEAM_SUPPORT]
     scatter_charts_data = {}
     type_choices_dict_scatter = dict(TYPE_CHOICES)
-
     for process_key in target_processes_for_scatter:
-        process_name_display = type_choices_dict_scatter.get(process_key, process_key.replace("_", " ").title())
-        process_specific_requests = completed_requests_in_period.filter(type_of_process=process_key)
+        process_specific_requests = requests_with_final_price.filter(type_of_process=process_key)
         current_process_datasets = []
-
         for team_key in target_teams_for_scatter:
-            team_name_display = dict(TEAM_CHOICES).get(team_key, team_key)
             team_specific_requests = process_specific_requests.filter(team=team_key).order_by('completed_at')
             data_points = []
             for req in team_specific_requests:
-                if req.completed_at and req.grand_total_client_price_completed is not None:
+                if req.completed_at and req.final_price_client_completed is not None:
                     data_points.append({
                         'x': req.completed_at.isoformat(),
-                        'y': float(req.grand_total_client_price_completed),
+                        'y': float(req.final_price_client_completed),
                         'pk': req.pk
                     })
             if data_points:
                 border_color = 'rgba(255, 99, 132, 1)' if team_key == TEAM_REVENUE else 'rgba(54, 162, 235, 1)'
                 bg_color = 'rgba(255, 99, 132, 0.2)' if team_key == TEAM_REVENUE else 'rgba(54, 162, 235, 0.2)'
-                current_process_datasets.append({
-                    'label': team_name_display,
-                    'data': data_points,
-                    'borderColor': border_color,
-                    'backgroundColor': bg_color,
-                    'tension': 0.3,
-                    'fill': False,
-                    'pointRadius': 3,
-                    'pointBackgroundColor': border_color
-                })
+                current_process_datasets.append(
+                    {'label': dict(TEAM_CHOICES).get(team_key, team_key), 'data': data_points,
+                     'borderColor': border_color, 'backgroundColor': bg_color, 'tension': 0.3, 'fill': False,
+                     'pointRadius': 3, 'pointBackgroundColor': border_color})
         if current_process_datasets:
             scatter_charts_data[process_key] = {
-                'chart_title': f'Cost Trend for {process_name_display}',
-                'datasets': current_process_datasets
-            }
-    # --- FIN: LÓGICA REINTEGRADA PARA LOS GRÁFICOS DE DISPERSIÓN ---
+                'chart_title': f'Cost Trend for {type_choices_dict_scatter.get(process_key, process_key)}',
+                'datasets': current_process_datasets}
 
     try:
         request_detail_url_template = reverse('tasks:request_detail', args=[0]).replace('/0/', '/REPLACE_PK/')
@@ -2216,25 +2218,25 @@ def client_cost_summary_view(request):
         request_detail_url_template = "/rhino/request/REPLACE_PK/"
         messages.error(request, "Error generating URL template for chart links.")
 
+    user_timezone_name = request.user.timezone if request.user.is_authenticated and request.user.timezone else 'UTC'
+
     context = {
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
-
         'total_requests_count': total_requests_count,
         'grand_total_cost': grand_total_cost,
         'average_cost_per_request': average_cost_per_request,
         'overall_average_tat': overall_average_tat,
-
         'team_summary': team_summary_list,
         'process_summary': process_summary_list,
-
         'team_chart_labels': team_chart_labels,
         'team_chart_data': team_chart_data,
         'process_chart_labels': process_chart_labels,
         'process_chart_data': process_chart_data,
-        'scatter_charts_data': scatter_charts_data,  # <-- Se pasa el diccionario poblado
+        'scatter_charts_data': scatter_charts_data,
         'request_detail_url_template': request_detail_url_template,
-
+        'display_timezone': display_timezone_pref,
+        'user_timezone_name': user_timezone_name,
         'page_title': 'Cost & Performance Summary'
     }
     return render(request, 'tasks/cost_summary.html', context)
@@ -3154,3 +3156,56 @@ def generate_revenue_support_report_view(request):
             'page_title': 'Revenue/Support Process Reports'
         }
         return render(request, 'tasks/revenue_support_report.html', context)
+
+
+def unassign_agent(request, pk):
+    user_request = get_object_or_404(UserRecordsRequest, pk=pk)
+    user = request.user
+
+    # --- Lógica de Permisos ---
+    is_admin_user = is_admin(user)
+    can_unassign = False
+
+    # Los líderes no pueden usar esta función
+    if user_request.status == 'in_progress' and (user == user_request.operator or is_admin_user):
+        can_unassign = True
+    elif user_request.status == 'qa_in_progress' and (user == user_request.qa_agent or is_admin_user):
+        can_unassign = True
+
+    if not can_unassign:
+        messages.error(request, _("You do not have permission to perform this action."))
+        return redirect('tasks:request_detail', pk=pk)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                if user_request.status == 'in_progress':
+                    # Desasignar Operador
+                    unassigned_user_email = user_request.operator.email if user_request.operator else 'N/A'
+                    user_request.status = 'pending'
+                    user_request.operator = None
+                    user_request.operated_at = None
+                    # No se resetea effective_start_time_for_tat
+                    user_request.save(update_fields=['status', 'operator', 'operated_at'])
+                    logger.info(
+                        f"User {user.email} unassigned operator ({unassigned_user_email}) from request {pk}. Status set to 'pending'.")
+                    messages.success(request,
+                                     _('Operator unassigned successfully. The request has been returned to the "Pending" queue.'))
+
+                elif user_request.status == 'qa_in_progress':
+                    # Desasignar Agente de QA
+                    unassigned_qa_email = user_request.qa_agent.email if user_request.qa_agent else 'N/A'
+                    user_request.status = 'qa_pending'
+                    user_request.qa_agent = None
+                    user_request.qa_in_progress_at = None
+                    user_request.save(update_fields=['status', 'qa_agent', 'qa_in_progress_at'])
+                    logger.info(
+                        f"User {user.email} unassigned QA agent ({unassigned_qa_email}) from request {pk}. Status set to 'QA Pending'.")
+                    messages.success(request,
+                                     _('QA Agent unassigned successfully. The request has been returned to the "QA Pending" queue.'))
+
+        except Exception as e:
+            logger.error(f"Error trying to unassign agent for request {pk}: {e}", exc_info=True)
+            messages.error(request, _("An unexpected error occurred. Please try again."))
+
+    return redirect('tasks:request_detail', pk=pk)
