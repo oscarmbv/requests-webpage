@@ -328,7 +328,7 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
             'request_obj': request_obj,
             # request_url se añade dentro de send_request_notification_email
         }
-        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal
+        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal, cuando agreguemos a Shay, tambien incluir un correo de nosotros.
 
         logger.info(
             f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
@@ -707,7 +707,7 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('oscarmbv@gmail.com')  #Temporal
 
         if request_obj.update_requested_by and request_obj.update_requested_by.email:
             recipients_email_set.add(request_obj.update_requested_by.email)
@@ -1462,13 +1462,18 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('oscarmbv@gmail.com')  # Tu correo temporal
 
+        # 1. Usuario que creó originalmente la solicitud (Requested By)
         if request_obj.requested_by and request_obj.requested_by.email:
             recipients_email_set.add(request_obj.requested_by.email)
+
+        # 2. Operador asignado (Operated By)
         if request_obj.operator and request_obj.operator.email:
-            if request_obj.operator.pk != qa_completer_user.pk:
-                recipients_email_set.add(request_obj.operator.email)
+            recipients_email_set.add(request_obj.operator.email)
+
+        if qa_completer_user and qa_completer_user.email:
+            recipients_email_set.add(qa_completer_user.email)
 
         email_recipient_list = list(recipients_email_set)
 

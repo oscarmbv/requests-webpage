@@ -15,6 +15,7 @@
         .notes-section { background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px 15px; margin-top: 15px; margin-bottom: 15px; white-space: pre-wrap; font-size: 0.95em;}
         .link a { color: #007bff; text-decoration: none; font-weight: bold; }
         .link a:hover { text-decoration: underline; }
+        .footer-note { font-size: 0.9em; color: #6c757d; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eeeeee;}
         .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
     </style>
 </head>
@@ -63,7 +64,17 @@
             {% endif %}
 
             {% if request_url and request_url != "#" %}
-            <p class="link">You can view the completed request details here: <a href="{{ request_url }}">{{ request_url }}</a></p>
+            <p class="link">
+                {% if request_obj.type_of_process == 'generating_xml' %}
+                    You can view the completed request details and download the generated files here:
+                {% else %}
+                    You can view the completed request details here:
+                {% endif %}
+                <a href="{{ request_url }}">{{ request_url }}</a>
+            </p>
+            <div class="footer-note">
+                <p><em>If any corrections are needed, you can go to the request details page and use the "Reject" button to return it to the operator for review, or you can reply to this email.</em></p>
+            </div>
             {% endif %}
         </div>
         <div class="footer">
