@@ -2359,7 +2359,7 @@ def _generate_address_validation_csv(request_items, filename="address_validation
             req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
             req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
             req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2427,7 +2427,7 @@ def _generate_user_records_csv(request_items, filename="user_records_report.csv"
             req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
             req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
             req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2520,7 +2520,7 @@ def _generate_property_records_csv(request_items, filename="property_records_rep
             req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
             req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
             req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2612,7 +2612,7 @@ def _generate_unit_transfer_csv(request_items, filename="unit_transfer_report.cs
             req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
             req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
             req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2702,7 +2702,7 @@ def _generate_deactivation_toggle_csv(request_items, filename="deactivation_togg
             req.subtotal_csv_update_client_price_completed if req.status == 'completed' else '',
             req.subtotal_processing_report_client_price_completed if req.status == 'completed' else '',
             req.subtotal_manual_unit_update_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2718,8 +2718,7 @@ def _generate_stripe_disputes_csv(request_items, filename="stripe_disputes_repor
         'Stripe Premium Disputes (Count)', 'Stripe RI Disputes (Count)',
         'Submitted File', 'Special Instructions', 'Operating Notes',
         'Operator', 'QA Agent',
-        'Client Price Subtotal', 'Operate Cost Subtotal', 'QA Cost Subtotal',  # Costos de este proceso
-        'Grand Total Client Price', 'Grand Total Operate Cost', 'Grand Total QA Cost'  # Costos totales del request
+        'Grand Total Client Price',
     ]
     writer.writerow(headers)
 
@@ -2744,12 +2743,7 @@ def _generate_stripe_disputes_csv(request_items, filename="stripe_disputes_repor
             req.operating_notes,
             req.operator.email if req.operator else '',
             req.qa_agent.email if req.qa_agent else '',
-            req.subtotal_stripe_dispute_client_price_completed if req.status == 'completed' else '',
-            req.subtotal_stripe_dispute_operate_cost_completed if req.status == 'completed' else '',
-            req.subtotal_stripe_dispute_qa_cost_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_operate_cost_completed if req.status == 'completed' else '',
-            req.grand_total_qa_cost_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
@@ -2768,8 +2762,7 @@ def _generate_generating_xml_csv(request_items, filename="generating_xml_report.
         'Operator RVIC File 1', 'Operator RVIC File 2 (UT ZIP)',
         'Operator SSIC File 1', 'Operator SSIC File 2 (UT ZIP)',
         # Costos
-        'Client Price Subtotal', 'Operate Cost Subtotal', 'QA Cost Subtotal',
-        'Grand Total Client Price', 'Grand Total Operate Cost', 'Grand Total QA Cost'
+        'Grand Total Client Price',
     ]
     writer.writerow(headers)
 
@@ -2794,12 +2787,7 @@ def _generate_generating_xml_csv(request_items, filename="generating_xml_report.
             req.operator_rvic_file_slot2.name.split('/')[-1] if req.operator_rvic_file_slot2 else '',
             req.operator_ssic_file_slot1.name.split('/')[-1] if req.operator_ssic_file_slot1 else '',
             req.operator_ssic_file_slot2.name.split('/')[-1] if req.operator_ssic_file_slot2 else '',
-            req.subtotal_xml_file_client_price_completed if req.status == 'completed' else '',
-            req.subtotal_xml_file_operate_cost_completed if req.status == 'completed' else '',
-            req.subtotal_xml_file_qa_cost_completed if req.status == 'completed' else '',
-            req.grand_total_client_price_completed if req.status == 'completed' else '',
-            req.grand_total_operate_cost_completed if req.status == 'completed' else '',
-            req.grand_total_qa_cost_completed if req.status == 'completed' else '',
+            req.final_price_after_discount if req.status == 'completed' else '',
         ]
         writer.writerow(row)
     return response
