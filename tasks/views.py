@@ -753,7 +753,6 @@ def request_detail(request, pk):
         )
     # --- *** INICIO CÁLCULOS NUEVOS BOTONES UPDATE *** ---
     can_request_update_action = False
-    can_clear_update_flag_action = False
 
     # Estados activos (no finalizados) donde se puede pedir/proveer update
     active_statuses = [st[0] for st in STATUS_CHOICES if st[0] not in ['completed', 'cancelled']]
@@ -769,8 +768,20 @@ def request_detail(request, pk):
             can_request_update_action = True
 
         # ¿Puede el usuario actual (agente) marcar el update como provisto? (Agente Y flag está prendida)
-        if is_agent_user and user_request.update_needed_flag:
-            can_clear_update_flag_action = True
+        can_provide_update = False
+
+        if user_request.status == 'in_progress' and (user == user_request.operator or is_admin_user):
+            can_provide_update = True
+
+        elif user_request.status == 'qa_in_progress' and (user == user_request.qa_agent or is_admin_user):
+            can_provide_update = True
+
+        elif user_request.status == 'pending' and user_request.team and (
+                user_in_group(user, user_request.team) or is_admin_user):
+            can_provide_update = True
+
+        elif user_request.status == 'qa_pending' and (is_agent(user) or is_admin_user):
+            can_provide_update = True
 
     can_cancel_request = False
     can_uncancel_request = False
@@ -818,7 +829,7 @@ def request_detail(request, pk):
         'prefill_user_count': prefill_user_count,
         'can_reject_request': can_reject_request,
         'can_request_update_action': can_request_update_action,
-        'can_clear_update_flag_action': can_clear_update_flag_action,
+        'can_provide_update': can_provide_update,
         'update_needed': user_request.update_needed_flag,
         'can_cancel_request': can_cancel_request,
         'can_uncancel_request': can_uncancel_request,
@@ -1944,15 +1955,14 @@ def clear_update_needed_flag(request, pk):
     user_request = get_object_or_404(UserRecordsRequest, pk=pk)
     user = request.user
 
-    # Permiso: Solo Agentes
-    is_permitted = is_agent(user)
-
-    # Solo permitir si la bandera está activa
-    if not user_request.update_needed_flag or user_request.status == 'scheduled':  # <--- No limpiar si está programada
-        is_permitted = False
+    is_permitted = False
+    active_statuses_for_update = ['pending', 'in_progress', 'qa_pending', 'qa_in_progress']
+    if user_request.status in active_statuses_for_update:
+        if (user == user_request.operator) or (user == user_request.qa_agent) or is_admin(user):
+            is_permitted = True
 
     if not is_permitted:
-        messages.error(request, _("You do not have permission to mark this update as provided, or it's not needed."))
+        messages.error(request, _("You do not have permission to provide an update for this request at this time."))
         return redirect('tasks:request_detail', pk=pk)
 
     if request.method == 'POST':
@@ -1960,9 +1970,12 @@ def clear_update_needed_flag(request, pk):
         if form.is_valid():
             update_message_text = form.cleaned_data['update_message']
             try:
-                user_request.update_needed_flag = False
-                user_request.save(update_fields=['update_needed_flag'])
-                logger.info(f"User {user.email} set update_needed_flag=False for request {pk}.")
+                if user_request.update_needed_flag:
+                    user_request.update_needed_flag = False
+                    user_request.save(update_fields=['update_needed_flag'])
+                    logger.info(f"User {user.email} set update_needed_flag=False for request {pk}.")
+                else:
+                    logger.info(f"User {user.email} provided a proactive update for request {pk}.")
 
                 # ----> INICIO: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
                 try:
@@ -1984,7 +1997,7 @@ def clear_update_needed_flag(request, pk):
                         f"Error al encolar la tarea 'Update Provided' para {user_request.unique_code}: {e_async}", exc_info=True)
                 # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
-                messages.success(request, _("Update flag cleared."))
+                messages.success(request, _("Update provided and notifications sent."))
             except Exception as e:
                 logger.error(f"Error setting update_needed_flag=False for request {pk}: {e}", exc_info=True)
                 messages.error(request, _("An error occurred while clearing the update flag."))

@@ -416,7 +416,7 @@
                     <a href="#completeFormModal_pr" data-bs-toggle="modal" data-form-action="{% url 'tasks:complete_request' user_request.id %}" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i>Complete</a>
                 {% endif %}
                 {# Botón Update Provided #}
-                {% if can_clear_update_flag_action %}
+                {% if can_provide_update %}
                     {% if user_request.status == 'pending' or user_request.status == 'in_progress' or user_request.status == 'qa_pending' or user_request.status == 'qa_in_progress' %}
                         <a href="#provideUpdateModal" data-bs-toggle="modal" class="btn btn-outline-success btn-sm me-1 mb-1" title='{% trans "Provide an update message and clear the flag" %}'><i class="bi bi-chat-left-text-fill me-1"></i>{% trans "Provide Update" %}</a>
                     {% endif %}
@@ -535,7 +535,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
-                    <button type="submit" class="btn btn-primary">{% trans "Send Update & Clear Flag" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Send Update" %}</button>
                 </div>
             </form>
         </div>
