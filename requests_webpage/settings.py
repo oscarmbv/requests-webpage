@@ -194,31 +194,41 @@ if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 else:
-    # --- CONFIGURACIÓN PARA PRODUCCIÓN (Amazon S3) ---
-    # Usa el backend de S3 de django-storages para todos los FileField.
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # --- NUEVA CONFIGURACIÓN PARA PRODUCCIÓN (Cloudflare R2) ---
 
-    # Credenciales y configuración de S3 cargadas desde variables de entorno.
-    # Asegúrate de configurar estas variables en Heroku (Settings -> Config Vars).
-    AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default=None)
-    AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default=None)
-    AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default=None)
-    AWS_S3_REGION_NAME = env('AWS_S3_REGION_NAME', default=None)  # ej: 'us-east-1'
+    # django-storages usa estas variables estándar de AWS, pero las apuntaremos a R2.
+    AWS_ACCESS_KEY_ID = env('CLOUDFLARE_R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = env('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = env('CLOUDFLARE_R2_BUCKET_NAME')
 
-    # (Opcional) Un subdirectorio dentro de tu bucket para organizar los archivos.
-    AWS_LOCATION = env('AWS_S3_LOCATION_MEDIA', default='media')
+    # Esta es la URL del endpoint de R2. La construiremos a partir de tu Account ID.
+    # Ejemplo: https://<TU_ACCOUNT_ID>.r2.cloudflarestorage.com
+    AWS_S3_ENDPOINT_URL = env('CLOUDFLARE_R2_ENDPOINT_URL')
 
-    # Construcción de la URL pública para tus archivos.
-    # Esta es la URL base que Django usará para generar el atributo .url de tus FileField.
-    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{AWS_LOCATION}/'
+    # Configuraciones adicionales para asegurar la compatibilidad
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None  # R2 no usa ACLs como S3, es mejor dejarlo en None.
+    AWS_S3_VERIFY = True
 
-    # (Opcional) Política de acceso por defecto para nuevos archivos subidos.
-    # 'public-read' es común si los archivos deben ser visibles públicamente en tu web.
-    AWS_DEFAULT_ACL = env('AWS_DEFAULT_ACL', default='public-read')
+    # Definimos la ubicación de los archivos de medios (subidos por usuarios) y estáticos.
+    PUBLIC_MEDIA_LOCATION = 'media'
+    STATIC_LOCATION = 'static'
 
-    # (Opcional) Otros parámetros que quieras añadir a los archivos subidos a S3.
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',  # Cache por 1 día en el navegador del cliente.
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": PUBLIC_MEDIA_LOCATION,
+                "file_overwrite": AWS_S3_FILE_OVERWRITE,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": STATIC_LOCATION,
+            },
+        },
     }
 
 # Usar esta configuración base para LOGGING
