@@ -1,0 +1,11 @@
+# Configuración general: Git intentará adivinar la mejor opción.
+* text=auto
+
+# Forzar saltos de línea de Linux (LF) para archivos que lo necesitan.
+# Esto es crucial para la compatibilidad entre Windows, macOS y Linux.
+*.sh    text eol=lf
+*.py    text eol=lf
+Dockerfile text eol=lf
+fly.toml text eol=lf
+.dockerignore text eol=lf
+requirements.txt text eol=lf

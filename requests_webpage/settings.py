@@ -76,8 +76,13 @@ SECRET_KEY = env('DJANGO_SECRET_KEY', default='una_key_por_defecto_muy_segura_si
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DJANGO_DEBUG')
 
-ALLOWED_HOSTS_STRING = env('DJANGO_ALLOWED_HOSTS', default='127.0.0.1,localhost')
-ALLOWED_HOSTS = ALLOWED_HOSTS_STRING.split(',') + ['.herokuapp.com']
+# Obtiene el nombre de la app desde la variable de entorno que Fly.io provee automáticamente
+FLY_APP_NAME = env('FLY_APP_NAME', default='localhost')
+
+# Define los hosts permitidos.
+# Añadimos el dominio de fly.dev, y también los de desarrollo local.
+ALLOWED_HOSTS = [f"{FLY_APP_NAME}.fly.dev", 'localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = [f"https://{FLY_APP_NAME}.fly.dev"]
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/rhino/dashboard/'
@@ -136,19 +141,11 @@ WSGI_APPLICATION = 'requests_webpage.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(
-        conn_max_age=600,
-        ssl_require=env('DJANGO_DB_SSL_REQUIRE', cast=bool, default=False), # SSL para DB en Heroku
-        default=f'sqlite:///{os.path.join(BASE_DIR, "db.sqlite3")}' # [cite: 13]
-    )
+    'default': env.db('DATABASE_URL', default=f'sqlite:///{os.path.join(BASE_DIR, "db.sqlite3")}')
 }
-
-if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
-    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 # Seguridad extra para producción
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -175,7 +172,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -303,8 +299,3 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = env.int('DJANGO_SECURE_HSTS_SECONDS', default=31536000) # 1 año
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True)
     SECURE_HSTS_PRELOAD = env.bool('DJANGO_SECURE_HSTS_PRELOAD', default=True)
-    # Configura CSRF_TRUSTED_ORIGINS con tu dominio de Heroku en las variables de entorno
-    # DJANGO_CSRF_TRUSTED_ORIGINS=https://tu-app.herokuapp.com,https://www.tudominio.com
-    CSRF_TRUSTED_ORIGINS_STRING = env('DJANGO_CSRF_TRUSTED_ORIGINS', default='')
-    if CSRF_TRUSTED_ORIGINS_STRING:
-        CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS_STRING.split(',')
