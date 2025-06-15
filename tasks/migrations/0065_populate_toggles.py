@@ -20,7 +20,7 @@ def create_initial_toggles(apps, schema_editor):
     ]
     for name in scheduled_toggles_to_create:
         ScheduledTaskToggle.objects.using(db_alias).get_or_create(
-            name=name,
+            task_name=name,
             defaults={'is_enabled': True}
         )
         print(f"Checked/Created ScheduledTaskToggle: {name}")
