@@ -8,37 +8,45 @@ def create_initial_toggles(apps, schema_editor):
     """
     Crea los toggles de tareas programadas y notificaciones si no existen.
     """
-    # Obtenemos los modelos de la versión histórica de la app 'tasks'
     ScheduledTaskToggle = apps.get_model('tasks', 'ScheduledTaskToggle')
     NotificationToggle = apps.get_model('tasks', 'NotificationToggle')
     db_alias = schema_editor.connection.alias
 
-    # --- Toggles para Tareas Programadas ---
+    # --- Toggles para Tareas Programadas (Corregido a task_name) ---
     scheduled_toggles_to_create = [
         'salesforce_sync_opportunities',
-        # Añade aquí cualquier otro toggle de tarea programada que necesites
     ]
     for name in scheduled_toggles_to_create:
-        ScheduledTaskToggle.objects.using(db_alias).get_or_create(
-            task_name=name,
+        toggle, created = ScheduledTaskToggle.objects.using(db_alias).get_or_create(
+            task_name=name,  # CORRECCIÓN #1
             defaults={'is_enabled': True}
         )
-        print(f"Checked/Created ScheduledTaskToggle: {name}")
+        if created:
+            print(f"Created ScheduledTaskToggle: {name}")
 
-    # --- Toggles para Notificaciones ---
-    # (Aquí he replicado la lógica que vi en tu código, puedes ajustarla si es necesario)
-    notification_events = [
-        'new_request_created', 'request_approved', 'request_rejected',
-        'request_completed', 'request_blocked', 'request_cancelled',
-        'request_uncancelled', 'update_provided', 'update_requested',
-        'sent_to_qa', 'request_resolved', 'salesforce_new_request'
-    ]
-    for event in notification_events:
-        NotificationToggle.objects.using(db_alias).get_or_create(
-            event_name=event,
-            defaults={'is_enabled': True}
+    # --- Toggles para Notificaciones (Corregido a event_key) ---
+    NOTIFICATION_EVENTS_SETUP = {
+        'new_request_created': '1. Nueva Solicitud Creada (Manual y Salesforce)',
+        'request_pending_approval': '2. Solicitud (Deactivation) Pendiente de Aprobación',
+        'request_approved': '3. Solicitud (Deactivation) Aprobada',
+        'scheduled_request_activated': '4. Solicitud Programada Activada (a Pendiente)',
+        'update_requested': '5. Actualización Solicitada para una Tarea',
+        'update_provided': '6. Actualización Provista para una Tarea',
+        'request_blocked': '7. Solicitud Bloqueada',
+        'request_resolved': '8. Solicitud Bloqueada Resuelta',
+        'request_sent_to_qa': '9. Solicitud Enviada a QA',
+        'request_rejected': '10. Solicitud Rechazada desde QA/Admin',
+        'request_cancelled': '11. Solicitud Cancelada',
+        'request_uncancelled': '12. Solicitud Descancelada',
+        'request_completed': '13. Solicitud Completada',
+    }
+    for event_key, description in NOTIFICATION_EVENTS_SETUP.items():
+        toggle, created = NotificationToggle.objects.using(db_alias).get_or_create(
+            event_key=event_key,  # CORRECCIÓN #2
+            defaults={'description': description, 'is_email_enabled': True}
         )
-        print(f"Checked/Created NotificationToggle: {event}")
+        if created:
+            print(f"Created NotificationToggle: {event_key}")
 
 
 class Migration(migrations.Migration):
