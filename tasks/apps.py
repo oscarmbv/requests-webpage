@@ -40,7 +40,7 @@ class TasksConfig(AppConfig):
                         name=schedule_name_daily,
                         func=function_path_daily,
                         schedule_type=Schedule.DAILY,
-                        next_run=datetime.datetime.now(tz=timezone.utc).replace(
+                        next_run=datetime.datetime.now(tz=datetime.timezone.utc).replace(
                             hour=13, minute=0, second=0, microsecond=0
                         ),
                         repeats=-1,
