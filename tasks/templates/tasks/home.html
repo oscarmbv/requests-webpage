@@ -1,13 +1,13 @@
 {% extends "base.html" %} {# Hereda de la plantilla base mejorada #}
 {% load static %} {# Cargar static si necesitas imágenes u otros assets aquí #}
 
-{% block title %}Home - Requests Platform{% endblock %} {# Título específico para esta página #}
+{% block title %}Home - Rhino Requests Portal{% endblock %} {# Título específico para esta página #}
 
 {% block content %}
 {# Usar un div estilizado como "jumbotron" o "hero unit" para la bienvenida #}
 <div class="p-5 mb-4 bg-light rounded-3">
   <div class="container-fluid py-5">
-    <h1 class="display-5 fw-bold">Welcome to the Requests Platform</h1>
+    <h1 class="display-5 fw-bold">Welcome to the Rhino Requests Portal</h1>
     <p class="col-md-8 fs-4">Manage your operational requests efficiently.</p>
     {# Añadir botones para acciones comunes #}
     <a href="{% url 'tasks:rhino_dashboard' %}" class="btn btn-primary btn-lg me-2" type="button">Go to Dashboard</a>
@@ -28,8 +28,7 @@
       <div class="col-md-6">
         <div class="h-100 p-5 bg-body-tertiary border rounded-3">
           <h2>Need Help?</h2>
-          <p>Find documentation or contact support (example section).</p>
-          <button class="btn btn-outline-secondary" type="button">Contact Support</button> {# Ejemplo #}
+          <a class="btn btn-outline-secondary" href="mailto:info@gryphuslabs.com" role="button">Contact Support</a>
         </div>
       </div>
     </div>
