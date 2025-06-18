@@ -7,6 +7,11 @@ import sentry_sdk
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env(
+    DJANGO_DEBUG=(bool, False),
+    SF_VERSION=(str, '59.0') # Default para la versión de API de Salesforce
+)
+
 SENTRY_DSN = env('SENTRY_DSN', default=None)
 if SENTRY_DSN:
     sentry_sdk.init(
@@ -14,11 +19,6 @@ if SENTRY_DSN:
         # Activa el monitoreo de rendimiento para identificar cuellos de botella.
         enable_tracing=True,
     )
-
-env = environ.Env(
-    DJANGO_DEBUG=(bool, False),
-    SF_VERSION=(str, '59.0') # Default para la versión de API de Salesforce
-)
 
 ENV_PATH = os.path.join(BASE_DIR, '.env')
 if os.path.exists(ENV_PATH):
