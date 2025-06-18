@@ -2,9 +2,18 @@ from pathlib import Path
 import os
 import environ
 import dj_database_url
+import sentry_sdk
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+SENTRY_DSN = env('SENTRY_DSN', default=None)
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        # Activa el monitoreo de rendimiento para identificar cuellos de botella.
+        enable_tracing=True,
+    )
 
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
