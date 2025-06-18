@@ -87,11 +87,16 @@ DEBUG = env('DJANGO_DEBUG')
 
 # Obtiene el nombre de la app desde la variable de entorno que Fly.io provee automáticamente
 FLY_APP_NAME = env('FLY_APP_NAME', default='localhost')
+CUSTOM_DOMAIN = env.str('CUSTOM_DOMAIN', default=None)
 
 # Define los hosts permitidos.
 # Añadimos el dominio de fly.dev, y también los de desarrollo local.
 ALLOWED_HOSTS = [f"{FLY_APP_NAME}.fly.dev", 'localhost', '127.0.0.1']
+if CUSTOM_DOMAIN:
+    ALLOWED_HOSTS.append(CUSTOM_DOMAIN)
 CSRF_TRUSTED_ORIGINS = [f"https://{FLY_APP_NAME}.fly.dev"]
+if CUSTOM_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{CUSTOM_DOMAIN}")
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/rhino/dashboard/'
