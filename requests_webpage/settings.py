@@ -99,7 +99,7 @@ if CUSTOM_DOMAIN:
     CSRF_TRUSTED_ORIGINS.append(f"https://{CUSTOM_DOMAIN}")
 
 LOGOUT_REDIRECT_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/rhino/dashboard/'
+LOGIN_REDIRECT_URL = '/dashboard/'
 # Application definition
 
 INSTALLED_APPS = [

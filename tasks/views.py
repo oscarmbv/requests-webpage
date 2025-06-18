@@ -2228,7 +2228,7 @@ def client_cost_summary_view(request):
         request_detail_url_template = reverse('tasks:request_detail', args=[0]).replace('/0/', '/REPLACE_PK/')
     except Exception as e:
         logger.error(f"Could not generate URL template for request_detail: {e}")
-        request_detail_url_template = "/rhino/request/REPLACE_PK/"
+        request_detail_url_template = "/request/REPLACE_PK/"
         messages.error(request, "Error generating URL template for chart links.")
 
     user_timezone_name = request.user.timezone if request.user.is_authenticated and request.user.timezone else 'UTC'

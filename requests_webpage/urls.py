@@ -8,7 +8,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
-    path('rhino/', include('tasks.urls', namespace='tasks')),
+    path('', include('tasks.urls', namespace='tasks')),
 ]
 
 if settings.DEBUG:
