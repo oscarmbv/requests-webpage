@@ -116,25 +116,60 @@ def send_request_notification_email(subject, template_name_base, context, recipi
         logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
-def send_slack_notification(message_payload):
+def send_slack_notification(request_instance, message_text, user_to_mention=None):
     """
-    Envía una notificación a Slack usando un Incoming Webhook.
-    'message_payload' debe ser un diccionario con formato de Slack Block Kit.
+    Envía una notificación a Slack, gestionando hilos y menciones de usuario.
     """
     webhook_url = settings.SLACK_WEBHOOK_URL
     if not webhook_url:
-        print("SLACK_WEBHOOK_URL no está configurada. Saltando notificación.")
+        logger.warning("SLACK_WEBHOOK_URL no está configurada. Saltando notificación de Slack.")
         return
 
+    # 1. Construir el texto con la mención, si aplica
+    mention_text = ""
+    if user_to_mention and user_to_mention.slack_member_id:
+        mention_text = f"<@{user_to_mention.slack_member_id}> "
+
+    full_message = f"{mention_text}{message_text}"
+
+    # 2. Construir el payload de Slack
+    payload = {
+        "text": full_message,  # Texto de fallback para notificaciones push
+        "blocks": [{
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": full_message
+            }
+        }]
+    }
+
+    # 3. Añadir el identificador de hilo (thread_ts) si ya existe
+    if request_instance.slack_thread_ts:
+        payload['thread_ts'] = request_instance.slack_thread_ts
+
+    # 4. Enviar la petición a Slack
     try:
         response = requests.post(
             webhook_url,
-            data=json.dumps(message_payload),
-            headers={'Content-Type': 'application/json'}
+            data=json.dumps(payload),
+            headers={'Content-Type': 'application/json'},
+            timeout=5 # Buen hábito: añadir un timeout
         )
-        response.raise_for_status()  # Lanza un error si la petición no fue exitosa
+        response.raise_for_status()
+        logger.info(f"Notificación de Slack enviada para la solicitud #{request_instance.id}")
+
+        # 5. Si era un mensaje nuevo, guardar el timestamp del hilo
+        if not request_instance.slack_thread_ts:
+            response_data = response.json()
+            if response_data.get('ok'):
+                thread_ts = response_data.get('ts')
+                # Guardamos el timestamp en la solicitud para futuras respuestas
+                request_instance.slack_thread_ts = thread_ts
+                request_instance.save(update_fields=['slack_thread_ts'])
+
     except requests.exceptions.RequestException as e:
-        print(f"Error al enviar notificación a Slack: {e}")
+        logger.error(f"Error al enviar notificación a Slack para la solicitud #{request_instance.id}: {e}")
 
 def escape_markdown_v2(text):
     """

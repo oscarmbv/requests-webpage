@@ -34,18 +34,20 @@ class CustomUserChangeForm(UserChangeForm):
     password = None
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'first_name', 'last_name', 'timezone')
+        fields = ('username', 'email', 'first_name', 'last_name', 'timezone', 'slack_member_id')
         widgets = { # Widgets con clases Bootstrap
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'timezone': forms.Select(attrs={'class': 'form-select'}),
+            'slack_member_id': forms.TextInput(attrs={'class': 'form-control'}),
         }
         labels = { # Labels traducibles
             'username': _('Username'), 'email': _('Email Address'),
             'first_name': _('First Name'), 'last_name': _('Last Name'),
             'timezone': _('Timezone'),
+            'slack_member_id': _('Slack Member ID'),
         }
     def clean_email(self): # Validación de email único
         email = self.cleaned_data.get('email')

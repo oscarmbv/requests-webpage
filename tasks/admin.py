@@ -16,20 +16,21 @@ from .models import (
     UserRecordsRequest, AddressValidationFile, SalesforceAttachmentLog, ScheduledTaskToggle, NotificationToggle
 )
 
-# --- Configuración Admin para CustomUser ---
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    fieldsets = UserAdmin.fieldsets + (
-        (_('Timezone Info'), {'fields': ('timezone',)}),
-    )
     add_fieldsets = UserAdmin.add_fieldsets + (
         (_('Timezone Info'), {'fields': ('timezone', 'first_name', 'last_name', 'email')}),
     )
-    list_display = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'timezone')
     list_filter = UserAdmin.list_filter + ('timezone',)
     search_fields = ('email', 'username', 'first_name', 'last_name')
     ordering = ('email',)
 
+    list_display = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'timezone', 'slack_member_id')
+
+    fieldsets = UserAdmin.fieldsets + (
+        (_('Timezone Info'), {'fields': ('timezone',)}),
+        (_('Integrations'), {'fields': ('slack_member_id',)})
+    )
 
 # --- Inlines para Historial en UserRecordsRequest Admin ---
 class BlockedMessageInline(admin.TabularInline):
