@@ -276,6 +276,7 @@ Q_CLUSTER = {
     'bulk': 10,
     'orm': 'default',
     'catch_up': False,
+    'lock_limit': 1,
     'log_level': env('DJANGO_Q_LOG_LEVEL', default='INFO'),
 }
 
