@@ -9,6 +9,7 @@ from django_q.tasks import async_task
 from .models import UserRecordsRequest, CustomUser, NotificationToggle
 from .choices import TYPE_CHOICES
 import pytz
+import json
 from django.utils import timezone
 from .models import BlockedMessage
 from .choices import (
@@ -115,6 +116,25 @@ def send_request_notification_email(subject, template_name_base, context, recipi
         logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
+def send_slack_notification(message_payload):
+    """
+    Envía una notificación a Slack usando un Incoming Webhook.
+    'message_payload' debe ser un diccionario con formato de Slack Block Kit.
+    """
+    webhook_url = settings.SLACK_WEBHOOK_URL
+    if not webhook_url:
+        print("SLACK_WEBHOOK_URL no está configurada. Saltando notificación.")
+        return
+
+    try:
+        response = requests.post(
+            webhook_url,
+            data=json.dumps(message_payload),
+            headers={'Content-Type': 'application/json'}
+        )
+        response.raise_for_status()  # Lanza un error si la petición no fue exitosa
+    except requests.exceptions.RequestException as e:
+        print(f"Error al enviar notificación a Slack: {e}")
 
 def escape_markdown_v2(text):
     """

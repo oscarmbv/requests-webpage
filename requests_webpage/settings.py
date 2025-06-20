@@ -280,6 +280,8 @@ Q_CLUSTER = {
     'log_level': env('DJANGO_Q_LOG_LEVEL', default='INFO'),
 }
 
+SLACK_WEBHOOK_URL = env.str('SLACK_WEBHOOK_URL', default=None)
+
 #Telegram Bot Settings
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default=None)
 TELEGRAM_DEFAULT_CHAT_ID = env('TELEGRAM_DEFAULT_CHAT_ID', default=None)
