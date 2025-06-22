@@ -5,7 +5,14 @@
     <meta charset="UTF-8">
     <title>{{ subject }}</title>
     <style>
-        /* ... (tus estilos) ... */
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { font-size: 22px; color: #0d6efd; /* Azul estándar */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .content p { margin-bottom: 12px; font-size: 16px; }
+        .content strong { color: #444444; }
+        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .link a:hover { text-decoration: underline; }
+        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
     </style>
 </head>
 <body>
@@ -13,12 +20,13 @@
         <div class="header">New Request Created: {{ request_obj.unique_code }}</div>
         <div class="content">
             <p>Hello,</p>
-            {% timezone "America/Caracas" %} {# <--- INICIO BLOQUE TIMEZONE #}
+            {% timezone "America/Caracas" %}
             <p>A new <strong>{{ request_obj.get_type_of_process_display }}</strong> request has been submitted by <strong>{{ request_obj.requested_by.email }}</strong> on {{ request_obj.timestamp|date:"F j, Y, P" }} (Caracas Time).</p>
-            {% endtimezone %} {# <--- FIN BLOQUE TIMEZONE #}
+            {% endtimezone %}
 
             <ul class="details-list">
                 <li><strong>Priority:</strong> {{ request_obj.get_priority_display }}</li>
+
                 {% if request_obj.scheduled_date %}
                     <li><strong>Scheduled for:</strong> {{ request_obj.scheduled_date|date:"Y-m-d" }}</li>
                 {% endif %}
@@ -37,6 +45,12 @@
                     <li><strong>Sub-Type:</strong> {{ request_obj.get_deactivation_toggle_type_display|default:"N/A" }}</li>
                 {% endif %}
             </ul>
+
+            {% if request_obj.status == 'pending_approval' %}
+                <p style="color: #8a6d3b; background-color: #fcf8e3; border: 1px solid #faebcc; padding: 10px; border-radius: 4px;">
+                    <strong>Note:</strong> The request needs approval from leadership before it can be operated.
+                </p>
+            {% endif %}
 
             {% if request_url and request_url != "#" %}
             <p class="link"><strong>Link to details:</strong> <a href="{{ request_url }}">{{ request_url }}</a></p>

@@ -1,16 +1,18 @@
 # tasks/notifications.py
 import logging
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.urls import reverse
 import requests  # Para Telegram
 from django_q.tasks import async_task
 from .models import UserRecordsRequest, CustomUser, NotificationToggle
+from .utils import format_datetime_to_str
 from .choices import TYPE_CHOICES
 import pytz
 import json
 from django.utils import timezone
+from email.utils import make_msgid
 from .models import BlockedMessage
 from .choices import (
     EVENT_KEY_NEW_REQUEST_CREATED,
@@ -79,62 +81,94 @@ def get_absolute_url_for_request(request_obj, http_request=None):
 
     return final_url
 
-
-def send_request_notification_email(subject, template_name_base, context, recipient_list, request_obj=None,
-                                    http_request_for_url=None):
+def send_request_notification_email(subject, template_name_base, context, recipient_list, request_obj):
     """
-    Envía un correo electrónico de notificación formateado (HTML y texto).
-    template_name_base es el nombre del archivo sin .html o .txt
+    Envía un correo electrónico de notificación formateado (HTML y texto),
+    manejando automáticamente la creación y continuación de hilos de conversación.
     """
     if not recipient_list:
         logger.warning(f"No recipients provided for email subject: {subject}")
         return False
 
-    if 'request_obj' not in context and request_obj:
-        context['request_obj'] = request_obj
-
-    context['request_url'] = get_absolute_url_for_request(request_obj, http_request_for_url)
-    # Para asegurar que las plantillas siempre tengan estas variables, incluso si están vacías
-    context.setdefault('event_details_html', 'Detalles del evento no proporcionados.')
-    context.setdefault('event_details_plain', 'Detalles del evento no proporcionados.')
+    # Aseguramos que el contexto tenga las variables necesarias
+    context['request_obj'] = request_obj
+    context['request_url'] = get_absolute_url_for_request(request_obj)  # Asumimos que no pasamos http_request aquí
 
     try:
         html_message = render_to_string(f'tasks/emails/{template_name_base}.html', context)
         plain_message = render_to_string(f'tasks/emails/{template_name_base}.txt', context)
 
-        send_mail(
+        headers = {}
+        # Verificamos si ya existe un hilo para esta solicitud
+        if request_obj.email_thread_id:
+            subject = f"Re: {subject}"
+            headers['In-Reply-To'] = request_obj.email_thread_id
+            headers['References'] = request_obj.email_thread_id
+            logger.info(f"Enviando email como respuesta en el hilo: {request_obj.email_thread_id}")
+            msg_id = make_msgid()  # Creamos un ID para este nuevo mensaje
+        else:
+            logger.info(f"Iniciando nuevo hilo de email para la solicitud: {request_obj.unique_code}")
+            msg_id = make_msgid(domain=settings.SITE_DOMAIN.split('//')[-1])  # Usamos nuestro dominio para el ID
+
+        headers['Message-ID'] = msg_id
+
+        email = EmailMessage(
             subject,
             plain_message,
             settings.DEFAULT_FROM_EMAIL,
             recipient_list,
-            html_message=html_message,
-            fail_silently=False,
+            headers=headers
         )
+        email.attach_alternative(html_message, "text/html")
+        email.send(fail_silently=False)
+
+        # Si iniciamos un nuevo hilo, guardamos el Message-ID en la base de datos
+        if not request_obj.email_thread_id:
+            request_obj.email_thread_id = msg_id
+            request_obj.save(update_fields=['email_thread_id'])
+            logger.info(f"Nuevo email_thread_id '{msg_id}' guardado para la solicitud {request_obj.unique_code}.")
+
         logger.info(f"Email sent successfully to {recipient_list} for subject: {subject}")
         return True
     except Exception as e:
         logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
-def send_slack_notification(request_instance, message_text, user_to_mention=None):
+def send_slack_notification(request_instance, message_text, user_to_mention=None, users_to_mention=None):
     """
-    Envía una notificación a Slack, gestionando hilos y menciones de usuario.
+    Envía una notificación a Slack, gestionando hilos y menciones de usuario (individual o múltiple).
+    Utiliza el Block Kit de Slack para un formato de mensaje más rico.
     """
     webhook_url = settings.SLACK_WEBHOOK_URL
     if not webhook_url:
         logger.warning("SLACK_WEBHOOK_URL no está configurada. Saltando notificación de Slack.")
         return
 
-    # 1. Construir el texto con la mención, si aplica
-    mention_text = ""
-    if user_to_mention and user_to_mention.slack_member_id:
-        mention_text = f"<@{user_to_mention.slack_member_id}> "
+    # 1. Recopilar todos los usuarios a mencionar de ambos parámetros.
+    all_users_to_mention = []
+    if user_to_mention:
+        all_users_to_mention.append(user_to_mention)
+    if users_to_mention:
+        all_users_to_mention.extend(users_to_mention)
 
-    full_message = f"{mention_text}{message_text}"
+    # 2. Construir el string de menciones, asegurando que sean usuarios únicos.
+    mention_texts = []
+    processed_user_ids = set()  # Usamos un set para evitar mencionar a un usuario dos veces.
 
-    # 2. Construir el payload de Slack
+    for user in all_users_to_mention:
+        # Verificamos que el usuario exista, tenga ID de Slack y no haya sido procesado ya.
+        if user and user.slack_member_id and user.id not in processed_user_ids:
+            mention_texts.append(f"<@{user.slack_member_id}>")
+            processed_user_ids.add(user.id)
+
+    mention_string = " ".join(mention_texts)
+
+    # 3. Combinar las menciones con el mensaje principal.
+    full_message = f"{mention_string} {message_text}".strip()
+
+    # 4. Construir el payload de Slack usando tu estructura de Block Kit.
     payload = {
-        "text": full_message,  # Texto de fallback para notificaciones push
+        "text": full_message,  # Texto de fallback para notificaciones push.
         "blocks": [{
             "type": "section",
             "text": {
@@ -144,27 +178,26 @@ def send_slack_notification(request_instance, message_text, user_to_mention=None
         }]
     }
 
-    # 3. Añadir el identificador de hilo (thread_ts) si ya existe
+    # 5. Añadir el identificador de hilo (thread_ts) si ya existe (tu lógica original).
     if request_instance.slack_thread_ts:
         payload['thread_ts'] = request_instance.slack_thread_ts
 
-    # 4. Enviar la petición a Slack
+    # 6. Enviar la petición a Slack (tu lógica original de envío y manejo de errores).
     try:
         response = requests.post(
             webhook_url,
             data=json.dumps(payload),
             headers={'Content-Type': 'application/json'},
-            timeout=5 # Buen hábito: añadir un timeout
+            timeout=5
         )
-        response.raise_for_status()
+        response.raise_for_status()  # Lanza un error para respuestas 4xx/5xx.
         logger.info(f"Notificación de Slack enviada para la solicitud #{request_instance.id}")
 
-        # 5. Si era un mensaje nuevo, guardar el timestamp del hilo
+        # Si era un mensaje nuevo, guardar el timestamp del hilo.
         if not request_instance.slack_thread_ts:
             response_data = response.json()
             if response_data.get('ok'):
                 thread_ts = response_data.get('ts')
-                # Guardamos el timestamp en la solicitud para futuras respuestas
                 request_instance.slack_thread_ts = thread_ts
                 request_instance.save(update_fields=['slack_thread_ts'])
 
@@ -281,7 +314,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
             'timestamp_in_caracas_str': timestamp_in_caracas.strftime("%B %d, %Y, %I:%M %p %Z"),
             # request_url se añade dentro de send_request_notification_email
         }
-        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal
+        email_recipient_list = ['info@gryphuslabs.com']
 
         logger.info(
             f"Preparando email para '{current_event_key}' de {request_obj.unique_code} a: {email_recipient_list}")
@@ -312,21 +345,52 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
             requested_by_escaped = escape_markdown_v2(request_obj.requested_by.email)
             timestamp_caracas_str_escaped = escape_markdown_v2(timestamp_in_caracas.strftime("%Y-%m-%d %H:%M %Z"))
 
-            additional_info_line_telegram = ""
+            sub_type_display = None
+            if request_obj.type_of_process == 'property_records':
+                sub_type_display = request_obj.get_property_records_type_display()
+            elif request_obj.type_of_process == 'unit_transfer':
+                sub_type_display = request_obj.get_unit_transfer_type_display()
+            elif request_obj.type_of_process == 'deactivation_toggle':
+                sub_type_display = request_obj.get_deactivation_toggle_type_display()
+
+            additional_details_telegram = []
+
+            if sub_type_display:
+                additional_details_telegram.append(f"Sub-Type: {escape_markdown_v2(sub_type_display)}")
+
             if request_obj.type_of_process == 'generating_xml':
                 xml_state_display = request_obj.get_xml_state_display()
                 if xml_state_display:
-                    additional_info_line_telegram = f"State: {escape_markdown_v2(xml_state_display)}\n"
+                    additional_details_telegram.append(f"State: {escape_markdown_v2(xml_state_display)}")
             elif request_obj.partner_name:
-                additional_info_line_telegram = f"Partner: {escape_markdown_v2(request_obj.partner_name)}\n"
+                additional_details_telegram.append(f"Partner: {escape_markdown_v2(request_obj.partner_name)}")
 
-            telegram_message_text = (
-                f"*{req_code_escaped}*: New {type_display_escaped} request\n"
-                f"Sent by: {requested_by_escaped}\n"
-                f"At: {timestamp_caracas_str_escaped}\n"
-                f"{additional_info_line_telegram}"
-                f"[View Request Details]({url_for_telegram_link})"
-            )
+            if request_obj.scheduled_date:
+                scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, request_obj.requested_by)
+                additional_details_telegram.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
+
+            if request_obj.scheduled_date:
+                scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, request_obj.requested_by)
+                additional_details_telegram.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
+
+            type_display_escaped = escape_markdown_v2(type_display)
+            req_code_escaped = escape_markdown_v2(request_obj.unique_code)
+            requested_by_escaped = escape_markdown_v2(request_obj.requested_by.email)
+            priority_escaped = escape_markdown_v2(request_obj.get_priority_display())
+            team_escaped = escape_markdown_v2(request_obj.get_team_display() or "N/A")
+
+            main_lines = [
+                f"✅ *{req_code_escaped}*: New *{type_display_escaped}* request",
+                f"Sent by: {requested_by_escaped}",
+                f"Team: {team_escaped}",
+                f"Priority: {priority_escaped}"
+            ]
+
+            all_lines = main_lines + additional_details_telegram
+            link_line = f"\n[View Request Details]({url_for_telegram_link})"
+            all_lines.append(link_line)
+
+            telegram_message_text = "\n".join(all_lines)
 
         logger.info(f"Preparando mensaje de Telegram para '{current_event_key}' de {request_obj.unique_code} a chat_id: {settings.TELEGRAM_DEFAULT_CHAT_ID}")
         send_telegram_message(
@@ -337,6 +401,56 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
     else:
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados. No se enviará Telegram para '{current_event_key}' de {request_obj.unique_code}.")
+
+    # --- LÓGICA DE SLACK ---
+    creator_user = request_obj.requested_by
+    team_display = request_obj.get_team_display() or "Not Assigned"
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+
+    message_title = f"✅ New Request Created: *{slack_request_link}* - _{type_display}_"
+
+    details_list = [
+        f"> *Requested by:* {creator_user.get_full_name() or creator_user.email}",
+        f"> *Team:* {team_display}"
+    ]
+
+    sub_type_display = None
+    if request_obj.type_of_process == 'property_records':
+        sub_type_display = request_obj.get_property_records_type_display()
+    elif request_obj.type_of_process == 'unit_transfer':
+        sub_type_display = request_obj.get_unit_transfer_type_display()
+    elif request_obj.type_of_process == 'deactivation_toggle':
+        sub_type_display = request_obj.get_deactivation_toggle_type_display()
+
+    if sub_type_display:
+        details_list.append(f"> *Sub-Type:* {sub_type_display}")
+
+    if request_obj.type_of_process == 'generating_xml':
+        xml_state_display = request_obj.get_xml_state_display()
+        if xml_state_display:
+            details_list.append(f"> *State:* {xml_state_display}")
+    elif request_obj.partner_name:
+        details_list.append(f"> *Partner:* {request_obj.partner_name}")
+
+    details_list.append(f"> *Priority:* {request_obj.get_priority_display()}")
+
+    if request_obj.scheduled_date:
+        scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
+        details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
+
+    if request_obj.status == UserRecordsRequest.Status.PENDING_APPROVAL:
+        details_list.append(f"> 🟡 *Status:* The request needs approval from leadership before operate.")
+
+    message_details = "\n".join(details_list)
+    slack_message_text = f"{message_title}\n{message_details}"
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        user_to_mention=None
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones de Slack para la solicitud {request_obj.unique_code} procesadas con éxito.")
 
 #2
 def notify_pending_approval_request(request_pk, http_request_host=None, http_request_scheme=None):
@@ -383,7 +497,7 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
             'request_obj': request_obj,
             # request_url se añade dentro de send_request_notification_email
         }
-        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal, cuando agreguemos a Shay, tambien incluir un correo de nosotros.
+        email_recipient_list = ['schang@sayrhino.com', 'info@gryphuslabs.com']
 
         logger.info(
             f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
@@ -478,7 +592,7 @@ def notify_request_approved(request_pk, approver_user_pk, http_request_host=None
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')  # Temporal
+        recipients_email_set.add('info@gryphuslabs.com')
 
         # Notificar al usuario que creó originalmente la solicitud
         if request_obj.requested_by and request_obj.requested_by.email:
@@ -529,6 +643,19 @@ def notify_request_approved(request_pk, approver_user_pk, http_request_host=None
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no están configurados. No se enviará Telegram para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    approver_name = approver_user.get_full_name() or approver_user.email
+    slack_message_text = f"🟢 Request *{slack_request_link}* has been *approved* by {approver_name}."
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        user_to_mention=None
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #4
 def notify_scheduled_request_activated(request_pk):  # No necesita http_request_host/scheme
     """
@@ -560,7 +687,7 @@ def notify_scheduled_request_activated(request_pk):  # No necesita http_request_
         }
 
         # ---- Destinatarios de Email ----
-        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal
+        email_recipient_list = ['info@gryphuslabs.com']
         # Podrías añadir otros destinatarios aquí, como request_obj.requested_by.email
 
         logger.info(
@@ -596,6 +723,18 @@ def notify_scheduled_request_activated(request_pk):  # No necesita http_request_
     else:
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no están configurados. No se enviará mensaje de Telegram para '{current_event_key}' de {request_obj.unique_code}.")
+
+    # --- LÓGICA DE SLACK ---
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    slack_message_text = f"🗓️ Scheduled request *{slack_request_link}* is now *active* and has been moved to the Pending queue."
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        user_to_mention=None
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
 
 #5
 def notify_update_requested(request_pk, update_requester_user_pk, http_request_host=None, http_request_scheme=None):
@@ -647,7 +786,7 @@ def notify_update_requested(request_pk, update_requester_user_pk, http_request_h
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')  # Tu correo temporal
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.operator and request_obj.operator.email:
             recipients_email_set.add(request_obj.operator.email)
@@ -715,6 +854,31 @@ def notify_update_requested(request_pk, update_requester_user_pk, http_request_h
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no están configurados. No se enviará Telegram para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    requester_name = update_requester_user.get_full_name() or update_requester_user.email
+
+    slack_message_text = (
+        f"📝 An update has been requested for *{slack_request_link}* by {requester_name}.\n"
+    )
+
+    users_to_notify = []
+    if request_obj.operator:
+        users_to_notify.append(request_obj.operator)
+    if request_obj.qa_agent:
+        users_to_notify.append(request_obj.qa_agent)
+
+    logger.info(
+        f"[{current_event_key}] Se notificará por Slack a los siguientes usuarios: {[user.email for user in set(users_to_notify)]}")
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #6
 def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_request_host=None,
                            http_request_scheme=None):
@@ -762,7 +926,7 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')  #Temporal
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.update_requested_by and request_obj.update_requested_by.email:
             recipients_email_set.add(request_obj.update_requested_by.email)
@@ -833,6 +997,35 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no están configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    provider_name = updated_by_user.get_full_name() or updated_by_user.email
+
+    slack_message_text = (
+        f"ℹ️ An update has been provided for *{slack_request_link}* by {provider_name}.\n"
+        f'> *Update:* "{update_message}"'
+    )
+
+    users_to_notify = []
+    if updated_by_user:
+        users_to_notify.append(updated_by_user)
+    if request_obj.operator:
+        users_to_notify.append(request_obj.operator)
+    if request_obj.qa_agent:
+        users_to_notify.append(request_obj.qa_agent)
+    if request_obj.requested_by:
+        users_to_notify.append(request_obj.requested_by)
+
+    logger.info(f"[{current_event_key}] Se notificará por Slack a los siguientes usuarios: {[user.email for user in users_to_notify]}")
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #7
 def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_request_host=None,
                            http_request_scheme=None):
@@ -881,7 +1074,7 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.requested_by and request_obj.requested_by.email:
             recipients_email_set.add(request_obj.requested_by.email)
@@ -939,6 +1132,23 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no están configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    blocker_name = blocked_by_user.get_full_name() or blocked_by_user.email
+
+    slack_message_text = (
+        f"🚫 Request *{slack_request_link}* has been *blocked* by {blocker_name}.\n"
+        f"> *Reason:* {block_reason}"
+    )
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        user_to_mention=request_obj.requested_by
+    )
+
+    logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #8
 def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message, http_request_host=None,
                             http_request_scheme=None):
@@ -986,9 +1196,9 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('info@gryphuslabs.com')
 
-        if request_obj.requested_by and request_obj.requested_by.email:
+        if request_obj.requested_by and request_obj.requested_by.email and request_obj.requested_by != resolved_by_user:
             recipients_email_set.add(request_obj.requested_by.email)
             # Actualizar el email para el saludo en la plantilla si el creador es el principal notificado
             if not email_context['recipient_user_email']:  # Solo si no se ha establecido antes
@@ -1056,6 +1266,38 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    resolver_name = resolved_by_user.get_full_name() or resolved_by_user.email
+
+    slack_message_text = f"✅ Request *{slack_request_link}* has been *resolved* by {resolver_name} and is no longer blocked."
+
+    users_to_notify = []
+
+    if request_obj.operator and request_obj.operator != resolved_by_user:
+        users_to_notify.append(request_obj.operator)
+
+        # Notificar a la persona que bloqueó la solicitud, si existe y no es quien la resolvió.
+    if request_obj.blocked_by and request_obj.blocked_by != resolved_by_user:
+        users_to_notify.append(request_obj.blocked_by)
+
+        # Notificar al creador original de la solicitud, si existe y no es quien la resolvió.
+    if request_obj.requested_by and request_obj.requested_by != resolved_by_user:
+        users_to_notify.append(request_obj.requested_by)
+
+    # 3. Llamamos a nuestra función de notificación UNA SOLA VEZ con la lista de usuarios.
+    # El log nos ayuda a depurar y ver a quién se intenta notificar.
+    logger.info(f"[{current_event_key}] Se notificará por Slack a los siguientes usuarios: {[user.email for user in set(users_to_notify)]}")
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #9
 def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=None, http_request_scheme=None):
     """
@@ -1097,7 +1339,7 @@ def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=No
         }
 
         # ---- Destinatarios de Email ----
-        email_recipient_list = ['oscarmbv@gmail.com']  # Temporal
+        email_recipient_list = ['info@gryphuslabs.com']
         # Podrías añadir a un grupo de QA aquí o al creador original
 
         logger.info(
@@ -1138,6 +1380,23 @@ def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=No
     else:
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
+
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    sender_name = operator_user.get_full_name() or operator_user.email
+
+    slack_message_text = f"🔬 Request *{slack_request_link}* has been sent to QA by {sender_name}."
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        user_to_mention=None,
+        users_to_mention=None
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
 
 #10
 def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, http_request_host=None,
@@ -1187,20 +1446,27 @@ def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, h
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.operator and request_obj.operator.email:
             recipients_email_set.add(request_obj.operator.email)
             logger.info(
                 f"Notificación '{current_event_key}' para {request_obj.unique_code}: Se añadirá al operador {request_obj.operator.email}")
-            # Ajustar el saludo para el operador
+            # Ajustar el saludo para el operador si es el primer destinatario principal
             if not email_context['recipient_user_email']:
                 email_context['recipient_user_email'] = request_obj.operator.email
-        else:
-            logger.warning(
-                f"'{current_event_key}' para {request_obj.unique_code}: No hay operador asignado con email para notificar.")
-            if not email_context['recipient_user_email']:  # Fallback si no hay operador
-                email_context['recipient_user_email'] = "Team"
+
+        # 3. Notificar al Agente de QA, si está asignado y NO es quien rechazó la solicitud
+        if request_obj.qa_agent and request_obj.qa_agent.email and request_obj.qa_agent != rejected_by_user:
+            recipients_email_set.add(request_obj.qa_agent.email)
+            logger.info(
+                f"Notificación '{current_event_key}' para {request_obj.unique_code}: Se añadirá al agente de QA {request_obj.qa_agent.email}")
+            # Ajustar el saludo para el QA si es el primer destinatario principal
+            if not email_context['recipient_user_email']:
+                email_context['recipient_user_email'] = request_obj.qa_agent.email
+
+        if not email_context['recipient_user_email']:
+            email_context['recipient_user_email'] = "Team"
 
         email_recipient_list = list(recipients_email_set)
 
@@ -1250,6 +1516,33 @@ def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, h
         logger.warning(
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    rejecter_name = rejected_by_user.get_full_name() or rejected_by_user.email
+
+    slack_message_text = (
+        f"❌ Request *{slack_request_link}* has been *rejected* by {rejecter_name}.\n"
+        f"> *Reason:* {rejection_reason}"
+    )
+
+    users_to_notify = []
+
+    if request_obj.operator:
+        users_to_notify.append(request_obj.operator)
+
+    if request_obj.qa_agent and request_obj.qa_agent != rejected_by_user:
+        users_to_notify.append(request_obj.qa_agent)
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #11
 def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host=None, http_request_scheme=None):
     """
@@ -1294,7 +1587,7 @@ def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.operator and request_obj.operator.email:
             recipients_email_set.add(request_obj.operator.email)
@@ -1354,6 +1647,37 @@ def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host
     else:
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    canceller_name = cancelled_by_user.get_full_name() or cancelled_by_user.email
+
+    slack_message_text = f"🛑 Request *{slack_request_link}* has been *cancelled* by {canceller_name}."
+
+    users_to_notify = []
+
+    # Notificar al Operador, si existe y no es quien canceló.
+    if request_obj.operator and request_obj.operator != cancelled_by_user:
+        users_to_notify.append(request_obj.operator)
+
+    # Notificar al Agente de QA, si existe y no es quien canceló.
+    if request_obj.qa_agent and request_obj.qa_agent != cancelled_by_user:
+        users_to_notify.append(request_obj.qa_agent)
+
+    # Notificar al Creador de la solicitud, si existe y no es quien canceló.
+    if request_obj.requested_by and request_obj.requested_by != cancelled_by_user:
+        users_to_notify.append(request_obj.requested_by)
+
+    # 3. Llamamos a nuestra función de notificación UNA SOLA VEZ con la lista de usuarios.
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #12
 def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_cancelled_by_user_pk,
                                http_request_host=None, http_request_scheme=None):
@@ -1410,7 +1734,7 @@ def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_canc
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')
+        recipients_email_set.add('info@gryphuslabs.com')
 
         if request_obj.operator and request_obj.operator.email:
             recipients_email_set.add(request_obj.operator.email)
@@ -1473,6 +1797,39 @@ def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_canc
     else:
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    uncanceller_name = uncancelled_by_user.get_full_name() or uncancelled_by_user.email
+
+    slack_message_text = f"🔄 Request *{slack_request_link}* has been *un-cancelled* by {uncanceller_name} and is active again."
+
+    users_to_notify = []
+
+    if request_obj.operator and request_obj.operator != uncancelled_by_user:
+        users_to_notify.append(request_obj.operator)
+
+        # Notificar al Agente de QA, si existe y no es quien reactivó.
+    if request_obj.qa_agent and request_obj.qa_agent != uncancelled_by_user:
+        users_to_notify.append(request_obj.qa_agent)
+
+        # Notificar a la persona que la canceló originalmente, si existe y no es quien la reactivó.
+    if original_cancelled_by_user and original_cancelled_by_user != uncancelled_by_user:
+        users_to_notify.append(original_cancelled_by_user)
+
+        # Notificar al Creador de la solicitud, si existe y no es quien la reactivó.
+    if request_obj.requested_by and request_obj.requested_by != uncancelled_by_user:
+        users_to_notify.append(request_obj.requested_by)
+
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
+
 #13
 def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, http_request_scheme=None):
     """
@@ -1517,7 +1874,7 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('oscarmbv@gmail.com')  # Tu correo temporal
+        recipients_email_set.add('info@gryphuslabs.com')
 
         # 1. Usuario que creó originalmente la solicitud (Requested By)
         if request_obj.requested_by and request_obj.requested_by.email:
@@ -1596,3 +1953,53 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
             )
     else:
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
+
+    # --- LÓGICA DE SLACK ---
+    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
+    operator_name = request_obj.operator.get_full_name() or request_obj.operator.email if request_obj.operator else "N/A"
+    qa_name = qa_completer_user.get_full_name() or qa_completer_user.email
+    tat_display = "N/A"
+
+    if request_obj.calculated_turn_around_time:
+        delta = request_obj.calculated_turn_around_time
+        total_seconds = int(delta.total_seconds())
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+        parts = []
+        if days > 0: parts.append(f"{days}d")
+        if hours > 0: parts.append(f"{hours}h")
+        if minutes > 0 or not parts: parts.append(f"{minutes}m")
+        tat_display = " ".join(parts) if parts else "0m"
+
+    notes_section = ""
+    if request_obj.operating_notes:
+        notes_section = f"\n> *Notes:* {request_obj.operating_notes}"
+
+    slack_message_text = (
+        f"🏁 Request *{slack_request_link}* has been *completed*!\n"
+        f"> *Operated by:* {operator_name}\n"
+        f"> *QA by:* {qa_name}\n"
+        f"> *Turn Around Time:* {tat_display}"
+        f"{notes_section}"
+    )
+
+    users_to_notify = []
+
+    if request_obj.operator and request_obj.operator != qa_completer_user:
+        users_to_notify.append(request_obj.operator)
+
+    # Notificar al Creador de la solicitud, si existe y no es quien completó el QA.
+    if request_obj.requested_by and request_obj.requested_by != qa_completer_user:
+        users_to_notify.append(request_obj.requested_by)
+
+    # 3. Llamamos a nuestra función de notificación UNA SOLA VEZ.
+    send_slack_notification(
+        request_instance=request_obj,
+        message_text=slack_message_text,
+        users_to_mention=users_to_notify
+    )
+
+    logger.info(
+        f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
