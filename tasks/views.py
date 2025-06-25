@@ -158,6 +158,7 @@ def choose_request_type(request):
 
 # --- Vistas de Creación ---
 @login_required
+@user_passes_test(user_belongs_to_revenue_or_support)
 def user_records_request(request):
     UserGroupFormSet = formset_factory(UserGroupForm, extra=1, min_num=1, can_delete=False)
     user = request.user
