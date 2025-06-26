@@ -348,9 +348,13 @@ class UserRecordsRequest(models.Model):
         Calcula el precio final después de aplicar el descuento.
         Retorna un objeto Decimal.
         """
+        from decimal import Decimal  # Asegúrate de que Decimal esté importado
+
         if self.grand_total_client_price_completed is not None:
-            # Reutiliza la propiedad anterior para el cálculo
-            return self.grand_total_client_price_completed - self.calculated_discount_amount
+            # Convertimos ambos valores a Decimal antes de la operación para garantizar la compatibilidad.
+            total_price = Decimal(self.grand_total_client_price_completed)
+            discount_amount = Decimal(self.calculated_discount_amount)
+            return total_price - discount_amount
         return Decimal('0.00')
 
     def get_type_prefix(self):
