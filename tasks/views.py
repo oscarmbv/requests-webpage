@@ -758,6 +758,8 @@ def request_detail(request, pk):
     # Estados activos (no finalizados) donde se puede pedir/proveer update
     active_statuses = [st[0] for st in STATUS_CHOICES if st[0] not in ['completed', 'cancelled']]
 
+    can_provide_update = False
+
     if user_request.status in active_statuses:
         # ¿Puede el usuario actual pedir update? (Team/Admin/Leader Y flag está apagada)
         user_can_trigger_flag = (
