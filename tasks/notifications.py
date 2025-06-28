@@ -9,6 +9,7 @@ from django_q.tasks import async_task
 from .models import UserRecordsRequest, CustomUser, NotificationToggle
 from .utils import format_datetime_to_str
 from .choices import TYPE_CHOICES
+import os
 import pytz
 import json
 from django.utils import timezone
@@ -497,7 +498,11 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
             'request_obj': request_obj,
             # request_url se añade dentro de send_request_notification_email
         }
-        email_recipient_list = ['schang@sayrhino.com', 'info@gryphuslabs.com']
+        email_recipient_list = ['info@gryphuslabs.com']
+        primary_recipient = os.getenv('APPROVAL_RECIPIENT')
+
+        if primary_recipient:
+            email_recipient_list.append(primary_recipient)
 
         logger.info(
             f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
