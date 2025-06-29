@@ -1272,7 +1272,7 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     resolver_name = resolved_by_user.get_full_name() or resolved_by_user.email
 
@@ -1387,7 +1387,7 @@ def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=No
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     sender_name = operator_user.get_full_name() or operator_user.email
 
@@ -1522,7 +1522,7 @@ def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, h
             f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     rejecter_name = rejected_by_user.get_full_name() or rejected_by_user.email
 
@@ -1653,7 +1653,7 @@ def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     canceller_name = cancelled_by_user.get_full_name() or cancelled_by_user.email
 
@@ -1803,7 +1803,7 @@ def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_canc
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     uncanceller_name = uncancelled_by_user.get_full_name() or uncancelled_by_user.email
 
@@ -1960,7 +1960,7 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
         logger.warning(f"TELEGRAM_BOT_TOKEN o TELEGRAM_DEFAULT_CHAT_ID no configurados para '{current_event_key}' de {request_obj.unique_code}.")
 
     # --- LÓGICA DE SLACK ---
-    request_url = get_absolute_url_for_request(request_obj, http_request_host, http_request_scheme)
+    request_url = get_absolute_url_for_request(request_obj)
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     operator_name = request_obj.operator.get_full_name() or request_obj.operator.email if request_obj.operator else "N/A"
     qa_name = qa_completer_user.get_full_name() or qa_completer_user.email
