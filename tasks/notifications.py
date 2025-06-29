@@ -358,8 +358,9 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
 
     # --- Lógica de Telegram (se envía independientemente del toggle de email por ahora) ---
     if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_DEFAULT_CHAT_ID:
+        # --- 1. Preparación de variables y escapado ---
         req_code_escaped = escape_markdown_v2(request_obj.unique_code)
-        url_for_telegram_link = request_url  # Usar URL cruda para el enlace
+        url_for_telegram_link = request_url
 
         if is_salesforce_originated:
             telegram_message_text = (
@@ -367,10 +368,23 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
                 f"[View Request Details]({url_for_telegram_link})"
             )
         else:
-            type_display_escaped = escape_markdown_v2(type_display)
-            requested_by_escaped = escape_markdown_v2(request_obj.requested_by.email)
-            timestamp_caracas_str_escaped = escape_markdown_v2(timestamp_in_caracas.strftime("%Y-%m-%d %H:%M %Z"))
+            # --- 2. Construcción del mensaje para otros orígenes ---
+            message_lines = []
 
+            # Escapamos las variables específicas de esta sección.
+            type_display_escaped = escape_markdown_v2(
+                request_obj.get_type_of_process_display())  # Usamos el display name
+            requested_by_escaped = escape_markdown_v2(request_obj.requested_by.email)
+            priority_escaped = escape_markdown_v2(request_obj.get_priority_display())
+            team_escaped = escape_markdown_v2(request_obj.get_team_display() or "N/A")
+
+            # Líneas principales del mensaje
+            message_lines.append(f"✅ *{req_code_escaped}*: New *{type_display_escaped}* request")
+            message_lines.append(f"Sent by: {requested_by_escaped}")
+            message_lines.append(f"Team: {team_escaped}")
+            message_lines.append(f"Priority: {priority_escaped}")
+
+            # --- 3. Lógica para detalles adicionales ---
             sub_type_display = None
             if request_obj.type_of_process == 'property_records':
                 sub_type_display = request_obj.get_property_records_type_display()
@@ -379,46 +393,33 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
             elif request_obj.type_of_process == 'deactivation_toggle':
                 sub_type_display = request_obj.get_deactivation_toggle_type_display()
 
-            additional_details_telegram = []
-
             if sub_type_display:
-                additional_details_telegram.append(f"Sub-Type: {escape_markdown_v2(sub_type_display)}")
+                message_lines.append(f"Sub-Type: {escape_markdown_v2(sub_type_display)}")
 
             if request_obj.type_of_process == 'generating_xml':
                 xml_state_display = request_obj.get_xml_state_display()
                 if xml_state_display:
-                    additional_details_telegram.append(f"State: {escape_markdown_v2(xml_state_display)}")
-            elif request_obj.partner_name:
-                additional_details_telegram.append(f"Partner: {escape_markdown_v2(request_obj.partner_name)}")
+                    message_lines.append(f"State: {escape_markdown_v2(xml_state_display)}")
+
+            if request_obj.partner_name:
+                message_lines.append(f"Partner: {escape_markdown_v2(request_obj.partner_name)}")
 
             if request_obj.scheduled_date:
                 scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, request_obj.requested_by)
-                additional_details_telegram.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
+                message_lines.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
 
             if request_obj.status == 'pending_approval':
                 approval_msg = "The request needs approval from leadership before operate."
-                additional_details_telegram.append(f"Status: {escape_markdown_v2(approval_msg)}")
+                message_lines.append(f"Status: {escape_markdown_v2(approval_msg)}")
 
-            type_display_escaped = escape_markdown_v2(type_display)
-            req_code_escaped = escape_markdown_v2(request_obj.unique_code)
-            requested_by_escaped = escape_markdown_v2(request_obj.requested_by.email)
-            priority_escaped = escape_markdown_v2(request_obj.get_priority_display())
-            team_escaped = escape_markdown_v2(request_obj.get_team_display() or "N/A")
+            # --- 4. Ensamblaje final del mensaje ---
+            message_lines.append(f"")
+            message_lines.append(f"[View Request Details]({url_for_telegram_link})")
 
-            main_lines = [
-                f"✅ *{req_code_escaped}*: New *{type_display_escaped}* request",
-                f"Sent by: {requested_by_escaped}",
-                f"Team: {team_escaped}",
-                f"Priority: {priority_escaped}"
-            ]
+            telegram_message_text = "\n".join(message_lines)
 
-            all_lines = main_lines + additional_details_telegram
-            link_line = f"\n[View Request Details]({url_for_telegram_link})"
-            all_lines.append(link_line)
-
-            telegram_message_text = "\n".join(all_lines)
-
-        logger.info(f"Preparando mensaje de Telegram para '{current_event_key}' de {request_obj.unique_code} a chat_id: {settings.TELEGRAM_DEFAULT_CHAT_ID}")
+        logger.info(
+            f"Preparando mensaje de Telegram para '{current_event_key}' de {request_obj.unique_code} a chat_id: {settings.TELEGRAM_DEFAULT_CHAT_ID}")
         send_telegram_message(
             settings.TELEGRAM_BOT_TOKEN,
             settings.TELEGRAM_DEFAULT_CHAT_ID,

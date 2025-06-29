@@ -2088,7 +2088,6 @@ def client_cost_summary_view(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
-    # Lógica de fechas
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -2112,38 +2111,32 @@ def client_cost_summary_view(request):
     start_datetime_utc = timezone.make_aware(datetime.combine(start_date, time.min), pytz.utc)
     end_datetime_utc = timezone.make_aware(datetime.combine(end_date, time.max), pytz.utc)
 
-    # Query base de solicitudes completadas
     completed_requests_in_period = UserRecordsRequest.objects.filter(
         status='completed',
         completed_at__gte=start_datetime_utc,
         completed_at__lte=end_datetime_utc
     )
 
-    # Estrategia de Anotación en Dos Pasos para el Precio Final
-    discount_amount_expression = ExpressionWrapper(
-        F('grand_total_client_price_completed') * (
-                    Cast(F('discount_percentage'), DecimalField(max_digits=5, decimal_places=2)) / Decimal('100.0')),
-        output_field=DecimalField(max_digits=8, decimal_places=2)
-    )
-    requests_with_discount_amount = completed_requests_in_period.annotate(
-        calculated_discount=discount_amount_expression
-    )
-    final_price_expression = ExpressionWrapper(
-        F('grand_total_client_price_completed') - F('calculated_discount'),
-        output_field=DecimalField(max_digits=8, decimal_places=2)
-    )
-    requests_with_final_price = requests_with_discount_amount.annotate(
-        final_price=final_price_expression
+    requests_with_final_price = completed_requests_in_period.annotate(
+        calculated_discount=ExpressionWrapper(
+            F('final_price_client_completed') * (
+                        Cast(F('discount_percentage'), DecimalField(max_digits=5, decimal_places=2)) / Decimal(
+                    '100.0')),
+            output_field=DecimalField(max_digits=10, decimal_places=2)
+        )
+    ).annotate(
+        final_price=ExpressionWrapper(
+            F('final_price_client_completed') - F('calculated_discount'),
+            output_field=DecimalField(max_digits=10, decimal_places=2)
+        )
     )
 
-    # Expresión para calcular la duración (TAT)
     duration_expression = ExpressionWrapper(F('completed_at') - F('effective_start_time_for_tat'),
                                             output_field=fields.DurationField())
 
-    # Cálculo de los agregados generales (Overall Summary)
-    overall_summary = completed_requests_in_period.aggregate(
+    overall_summary = requests_with_final_price.aggregate(
         total_requests=Count('pk'),
-        grand_total_cost=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
+        grand_total_cost=Coalesce(Sum('final_price'), Value(Decimal('0.00'))),
         overall_average_tat=Avg(duration_expression)
     )
     total_requests_count = overall_summary.get('total_requests', 0)
@@ -2151,13 +2144,13 @@ def client_cost_summary_view(request):
     overall_average_tat = overall_summary.get('overall_average_tat')
     average_cost_per_request = grand_total_cost / total_requests_count if total_requests_count > 0 else Decimal('0.00')
 
-    # Anotaciones por Equipo
-    team_summary_from_db = completed_requests_in_period.values('team').annotate(
-        subtotal=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
+    team_summary_from_db = requests_with_final_price.values('team').annotate(
+        subtotal=Coalesce(Sum('final_price'), Value(Decimal('0.00'))),
         request_count=Count('pk'),
-        avg_cost=Avg('final_price_client_completed'),
+        avg_cost=Avg('final_price'),
         avg_tat=Avg(duration_expression)
     ).order_by('-subtotal')
+
     team_summary_list = []
     team_choices_dict = dict(TEAM_CHOICES)
     for team_data in team_summary_from_db:
@@ -2166,13 +2159,13 @@ def client_cost_summary_view(request):
             {'name': team_display_name, 'subtotal': team_data['subtotal'], 'request_count': team_data['request_count'],
              'avg_cost': team_data['avg_cost'], 'avg_tat': team_data['avg_tat']})
 
-    # Anotaciones por Tipo de Proceso
-    process_summary_from_db = completed_requests_in_period.values('type_of_process').annotate(
-        subtotal=Coalesce(Sum('final_price_client_completed'), Value(Decimal('0.00'))),
+    process_summary_from_db = requests_with_final_price.values('type_of_process').annotate(
+        subtotal=Coalesce(Sum('final_price'), Value(Decimal('0.00'))),
         request_count=Count('pk'),
-        avg_cost=Avg('final_price_client_completed'),
+        avg_cost=Avg('final_price'),
         avg_tat=Avg(duration_expression)
     ).order_by('-subtotal')
+
     process_summary_list = []
     process_choices_dict = dict(TYPE_CHOICES)
     for process_data in process_summary_from_db:
@@ -2181,22 +2174,11 @@ def client_cost_summary_view(request):
         process_summary_list.append({'name': process_display_name, 'subtotal': process_data['subtotal'],
                                      'request_count': process_data['request_count'],
                                      'avg_cost': process_data['avg_cost'], 'avg_tat': process_data['avg_tat']})
-    #Piecharts
-    team_chart_labels = []
-    team_chart_data = []
-    for item in team_summary_list:
-        if item.get('subtotal', 0) > 0:
-            team_chart_labels.append(item.get('name'))
-            team_chart_data.append(float(item.get('subtotal')))
+    team_chart_labels = [item.get('name') for item in team_summary_list if item.get('subtotal', 0) > 0]
+    team_chart_data = [float(item.get('subtotal')) for item in team_summary_list if item.get('subtotal', 0) > 0]
+    process_chart_labels = [item.get('name') for item in process_summary_list if item.get('subtotal', 0) > 0]
+    process_chart_data = [float(item.get('subtotal')) for item in process_summary_list if item.get('subtotal', 0) > 0]
 
-    process_chart_labels = []
-    process_chart_data = []
-    for item in process_summary_list:
-        if item.get('subtotal', 0) > 0:
-            process_chart_labels.append(item.get('name'))
-            process_chart_data.append(float(item.get('subtotal')))
-
-    # Lógica para Gráficos de Dispersión
     target_processes_for_scatter = ['address_validation', 'user_records', 'property_records', 'unit_transfer',
                                     'deactivation_toggle']
     target_teams_for_scatter = [TEAM_REVENUE, TEAM_SUPPORT]
@@ -2209,10 +2191,10 @@ def client_cost_summary_view(request):
             team_specific_requests = process_specific_requests.filter(team=team_key).order_by('completed_at')
             data_points = []
             for req in team_specific_requests:
-                if req.completed_at and req.final_price_client_completed is not None:
+                if req.completed_at and req.final_price is not None:
                     data_points.append({
                         'x': req.completed_at.isoformat(),
-                        'y': float(req.final_price_client_completed),
+                        'y': float(req.final_price),
                         'pk': req.pk
                     })
             if data_points:
