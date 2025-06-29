@@ -439,7 +439,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
         scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
         details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
 
-    if request_obj.status == UserRecordsRequest.Status.PENDING_APPROVAL:
+    if request_obj.status == UserRecordsRequest.status.PENDING_APPROVAL:
         details_list.append(f"> 🟡 *Status:* The request needs approval from leadership before operate.")
 
     message_details = "\n".join(details_list)
