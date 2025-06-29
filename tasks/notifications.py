@@ -1,6 +1,6 @@
 # tasks/notifications.py
 import logging
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.urls import reverse
@@ -112,7 +112,7 @@ def send_request_notification_email(subject, template_name_base, context, recipi
 
         headers['Message-ID'] = msg_id
 
-        email = EmailMessage(
+        email = EmailMultiAlternatives(
             subject,
             plain_message,
             settings.DEFAULT_FROM_EMAIL,
@@ -134,89 +134,101 @@ def send_request_notification_email(subject, template_name_base, context, recipi
         logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
-
-def send_slack_notification(request_instance, message_text, user_to_mention=None, users_to_mention=None):
+def send_slack_notification(request_instance, message_text, user_to_mention=None, users_to_mention=None, reactions=None):
     """
-    Envía una notificación a Slack usando la API chat.postMessage.
-    Esta versión usa un Bot Token para poder obtener el 'ts' y gestionar hilos.
+    FUNCIÓN MODIFICADA: Envía una notificación a Slack, gestionando hilos, menciones y ahora reacciones.
+    `reactions` debe ser una lista de nombres de emojis, ej: ['white_check_mark', 'eyes']
     """
     bot_token = settings.SLACK_BOT_TOKEN
     channel_id = settings.SLACK_DEFAULT_CHANNEL_ID
 
     if not bot_token or not channel_id:
-        logger.warning(
-            "SLACK_BOT_TOKEN o SLACK_DEFAULT_CHANNEL_ID no están configurados. Saltando notificación de Slack.")
+        logger.warning("SLACK_BOT_TOKEN o SLACK_DEFAULT_CHANNEL_ID no están configurados.")
         return
 
-    # 1. Construir el texto con menciones (tu lógica existente)
     all_users_to_mention = []
     if user_to_mention:
         all_users_to_mention.append(user_to_mention)
     if users_to_mention:
         all_users_to_mention.extend(users_to_mention)
-
     mention_texts = []
     processed_user_ids = set()
     for user in all_users_to_mention:
         if user and user.slack_member_id and user.id not in processed_user_ids:
             mention_texts.append(f"<@{user.slack_member_id}>")
             processed_user_ids.add(user.id)
-
     mention_string = " ".join(mention_texts)
     full_message = f"{mention_string} {message_text}".strip()
 
-    # 2. Construir el payload para la API chat.postMessage
     payload = {
         "channel": channel_id,
-        "text": full_message,  # Texto de fallback para notificaciones
-        "blocks": [{
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": full_message}
-        }]
+        "text": full_message,
+        "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": full_message}}]
     }
-
-    # 3. Añadir el thread_ts si la solicitud ya tiene uno
     if request_instance.slack_thread_ts:
         payload['thread_ts'] = request_instance.slack_thread_ts
         logger.info(f"Enviando a hilo de Slack existente: {request_instance.slack_thread_ts}")
     else:
         logger.info("Enviando como nuevo mensaje de Slack (iniciando hilo).")
 
-    # 4. Construir headers y enviar la petición
-    headers = {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': f'Bearer {bot_token}'
-    }
-
+    headers = {'Content-Type': 'application/json; charset=utf-8', 'Authorization': f'Bearer {bot_token}'}
     api_url = 'https://slack.com/api/chat.postMessage'
 
     try:
         response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=10)
-        response.raise_for_status()  # Lanza un error para respuestas 4xx/5xx
-
+        response.raise_for_status()
         response_data = response.json()
 
         if response_data.get('ok'):
-            logger.info(f"Notificación de Slack enviada exitosamente para la solicitud #{request_instance.id}")
-            # Si era un mensaje nuevo y aún no teníamos un ts, lo guardamos
-            if not request_instance.slack_thread_ts:
-                thread_ts = response_data.get('ts')
-                if thread_ts:
-                    request_instance.slack_thread_ts = thread_ts
-                    request_instance.save(update_fields=['slack_thread_ts'])
-                    logger.info(
-                        f"Nuevo hilo de Slack guardado con ts: {thread_ts} para la solicitud #{request_instance.id}")
+            message_ts = response_data.get('ts')
+            logger.info(f"Notificación de Slack enviada exitosamente para la solicitud #{request_instance.id} (ts: {message_ts})")
+
+            if not request_instance.slack_thread_ts and message_ts:
+                request_instance.slack_thread_ts = message_ts
+                request_instance.save(update_fields=['slack_thread_ts'])
+                logger.info(f"Nuevo hilo de Slack guardado con ts: {message_ts}")
+
+            if reactions and message_ts:
+                for reaction in reactions:
+                    add_slack_reaction(channel_id, message_ts, reaction, bot_token)
+
         else:
-            # La API devolvió un JSON, pero con un error dentro
             slack_error = response_data.get('error', 'unknown_error')
-            logger.error(
-                f"Error en la respuesta de la API de Slack: {slack_error} para la solicitud #{request_instance.id}")
+            logger.error(f"Error en la respuesta de la API de Slack: {slack_error}")
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error de red al enviar notificación a Slack para la solicitud #{request_instance.id}: {e}")
+        logger.error(f"Error de red al enviar notificación a Slack: {e}")
     except json.JSONDecodeError:
-        logger.error(
-            f"Error al decodificar la respuesta JSON de Slack para la solicitud #{request_instance.id}. Respuesta recibida: {response.text}")
+        logger.error(f"Error al decodificar la respuesta JSON de Slack. Respuesta: {response.text}")
+
+def add_slack_reaction(channel_id, timestamp, reaction_name, bot_token):
+    """
+    NUEVA FUNCIÓN AUXILIAR: Añade una reacción a un mensaje específico de Slack.
+    """
+    api_url = 'https://slack.com/api/reactions.add'
+    headers = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': f'Bearer {bot_token}'
+    }
+    payload = {
+        "channel": channel_id,
+        "name": reaction_name,  # El nombre del emoji sin los dos puntos, ej: 'white_check_mark'
+        "timestamp": timestamp
+    }
+
+    try:
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=10)
+        response.raise_for_status()
+        response_data = response.json()
+        if response_data.get('ok'):
+            logger.info(f"Reacción '{reaction_name}' añadida exitosamente al mensaje {timestamp}.")
+        else:
+            slack_error = response_data.get('error', 'unknown_error')
+            logger.error(f"Error al añadir la reacción '{reaction_name}': {slack_error}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error de red al añadir la reacción '{reaction_name}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Error al decodificar la respuesta JSON al añadir la reacción '{reaction_name}'.")
 
 def escape_markdown_v2(text):
     """
@@ -448,12 +460,16 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
 
     details_list.append(f"> *Priority:* {request_obj.get_priority_display()}")
 
+    initial_reactions = []
+
     if request_obj.scheduled_date:
         scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
         details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
+        initial_reactions = ['calendar']
 
     if request_obj.status == 'pending_approval':
         details_list.append(f"> 🟡 *Status:* The request needs approval from leadership before operate.")
+        initial_reactions = ['hand']
 
     message_details = "\n".join(details_list)
     slack_message_text = f"{message_title}\n{message_details}"
@@ -461,7 +477,8 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        user_to_mention=None
+        user_to_mention=None,
+        reactions=initial_reactions
     )
 
     logger.info(f"[{current_event_key}] Notificaciones de Slack para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -669,7 +686,8 @@ def notify_request_approved(request_pk, approver_user_pk, http_request_host=None
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        user_to_mention=None
+        user_to_mention=None,
+        reactions=['handshake']
     )
 
     logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -749,7 +767,8 @@ def notify_scheduled_request_activated(request_pk):  # No necesita http_request_
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        user_to_mention=None
+        user_to_mention=None,
+        reactions=['arrow_forward']
     )
 
     logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -892,7 +911,8 @@ def notify_update_requested(request_pk, update_requester_user_pk, http_request_h
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['question']
     )
 
     logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -1039,7 +1059,8 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['ballot_box_with_check']
     )
 
     logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -1162,7 +1183,8 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        user_to_mention=request_obj.requested_by
+        user_to_mention=request_obj.requested_by,
+        reactions=['octagonal_sign']
     )
 
     logger.info(f"[{current_event_key}] Notificaciones para la solicitud {request_obj.unique_code} procesadas con éxito.")
@@ -1310,7 +1332,8 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['unlock']
     )
 
     logger.info(
@@ -1410,7 +1433,8 @@ def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=No
         request_instance=request_obj,
         message_text=slack_message_text,
         user_to_mention=None,
-        users_to_mention=None
+        users_to_mention=None,
+        reactions=['mag']
     )
 
     logger.info(
@@ -1555,7 +1579,8 @@ def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, h
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['x']
     )
 
     logger.info(
@@ -1690,7 +1715,8 @@ def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['wastebasket']
     )
 
     logger.info(
@@ -1842,7 +1868,8 @@ def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_canc
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['recycle']
     )
 
     logger.info(
@@ -2016,7 +2043,8 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
     send_slack_notification(
         request_instance=request_obj,
         message_text=slack_message_text,
-        users_to_mention=users_to_notify
+        users_to_mention=users_to_notify,
+        reactions=['white_check_mark']
     )
 
     logger.info(
