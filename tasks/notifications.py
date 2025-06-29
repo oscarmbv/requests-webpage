@@ -4,9 +4,9 @@ from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.urls import reverse
-import requests  # Para Telegram
+import requests
 from django_q.tasks import async_task
-from .models import UserRecordsRequest, CustomUser, NotificationToggle
+from .models import UserRecordsRequest, CustomUser, NotificationToggle, BlockedMessage
 from .utils import format_datetime_to_str
 from .choices import TYPE_CHOICES
 import os
@@ -14,7 +14,6 @@ import pytz
 import json
 from django.utils import timezone
 from email.utils import make_msgid
-from .models import BlockedMessage
 from .choices import (
     EVENT_KEY_NEW_REQUEST_CREATED,
     EVENT_KEY_REQUEST_PENDING_APPROVAL,
@@ -135,76 +134,89 @@ def send_request_notification_email(subject, template_name_base, context, recipi
         logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
+
 def send_slack_notification(request_instance, message_text, user_to_mention=None, users_to_mention=None):
     """
-    Envía una notificación a Slack, gestionando hilos y menciones de usuario.
-    CORREGIDO: Manejo de errores y guardado de thread_ts más robusto.
+    Envía una notificación a Slack usando la API chat.postMessage.
+    Esta versión usa un Bot Token para poder obtener el 'ts' y gestionar hilos.
     """
-    webhook_url = settings.SLACK_WEBHOOK_URL
-    if not webhook_url:
-        logger.warning("SLACK_WEBHOOK_URL no está configurada. Saltando notificación de Slack.")
+    bot_token = settings.SLACK_BOT_TOKEN
+    channel_id = settings.SLACK_DEFAULT_CHANNEL_ID
+
+    if not bot_token or not channel_id:
+        logger.warning(
+            "SLACK_BOT_TOKEN o SLACK_DEFAULT_CHANNEL_ID no están configurados. Saltando notificación de Slack.")
         return
 
-    # 1. Recopilar usuarios y construir menciones (tu lógica actual es correcta)
+    # 1. Construir el texto con menciones (tu lógica existente)
     all_users_to_mention = []
     if user_to_mention:
         all_users_to_mention.append(user_to_mention)
     if users_to_mention:
         all_users_to_mention.extend(users_to_mention)
+
     mention_texts = []
     processed_user_ids = set()
     for user in all_users_to_mention:
         if user and user.slack_member_id and user.id not in processed_user_ids:
             mention_texts.append(f"<@{user.slack_member_id}>")
             processed_user_ids.add(user.id)
+
     mention_string = " ".join(mention_texts)
     full_message = f"{mention_string} {message_text}".strip()
 
-    # 2. Construir el payload
+    # 2. Construir el payload para la API chat.postMessage
     payload = {
-        "text": full_message,
+        "channel": channel_id,
+        "text": full_message,  # Texto de fallback para notificaciones
         "blocks": [{
             "type": "section",
-            "text": { "type": "mrkdwn", "text": full_message }
+            "text": {"type": "mrkdwn", "text": full_message}
         }]
     }
 
-    # 3. Añadir el thread_ts si existe
+    # 3. Añadir el thread_ts si la solicitud ya tiene uno
     if request_instance.slack_thread_ts:
         payload['thread_ts'] = request_instance.slack_thread_ts
         logger.info(f"Enviando a hilo de Slack existente: {request_instance.slack_thread_ts}")
     else:
         logger.info("Enviando como nuevo mensaje de Slack (iniciando hilo).")
 
-    # 4. Enviar a Slack y manejar la respuesta
+    # 4. Construir headers y enviar la petición
+    headers = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': f'Bearer {bot_token}'
+    }
+
+    api_url = 'https://slack.com/api/chat.postMessage'
+
     try:
-        response = requests.post(
-            webhook_url,
-            data=json.dumps(payload),
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
-        response.raise_for_status()
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=10)
+        response.raise_for_status()  # Lanza un error para respuestas 4xx/5xx
 
-        if not request_instance.slack_thread_ts:
-            try:
-                response_data = response.json()
-                if response_data.get('ok'):
-                    thread_ts = response_data.get('ts')
-                    if thread_ts:
-                        request_instance.slack_thread_ts = thread_ts
-                        request_instance.save(update_fields=['slack_thread_ts'])
-                        logger.info(f"Nuevo hilo de Slack guardado con ts: {thread_ts} para la solicitud #{request_instance.id}")
-                else:
-                    slack_error = response_data.get('error', 'unknown_error')
-                    logger.error(f"Error en la respuesta de Slack (ok=false): {slack_error} para la solicitud #{request_instance.id}")
-            except json.JSONDecodeError:
-                logger.error(f"Error al decodificar la respuesta JSON de Slack para la solicitud #{request_instance.id}. Respuesta recibida: {response.text}")
+        response_data = response.json()
 
-        logger.info(f"Notificación de Slack enviada exitosamente para la solicitud #{request_instance.id}")
+        if response_data.get('ok'):
+            logger.info(f"Notificación de Slack enviada exitosamente para la solicitud #{request_instance.id}")
+            # Si era un mensaje nuevo y aún no teníamos un ts, lo guardamos
+            if not request_instance.slack_thread_ts:
+                thread_ts = response_data.get('ts')
+                if thread_ts:
+                    request_instance.slack_thread_ts = thread_ts
+                    request_instance.save(update_fields=['slack_thread_ts'])
+                    logger.info(
+                        f"Nuevo hilo de Slack guardado con ts: {thread_ts} para la solicitud #{request_instance.id}")
+        else:
+            # La API devolvió un JSON, pero con un error dentro
+            slack_error = response_data.get('error', 'unknown_error')
+            logger.error(
+                f"Error en la respuesta de la API de Slack: {slack_error} para la solicitud #{request_instance.id}")
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error de red al enviar notificación a Slack para la solicitud #{request_instance.id}: {e}")
+    except json.JSONDecodeError:
+        logger.error(
+            f"Error al decodificar la respuesta JSON de Slack para la solicitud #{request_instance.id}. Respuesta recibida: {response.text}")
 
 def escape_markdown_v2(text):
     """
