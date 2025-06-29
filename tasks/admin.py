@@ -80,7 +80,7 @@ class AddressValidationFileInline(admin.TabularInline):
 class UserRecordsRequestAdmin(admin.ModelAdmin):
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
-        'operator_link', 'qa_agent_link', 'timestamp', 'completed_at',
+        'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts',
     )
     list_filter = ('status', 'type_of_process', 'team', 'priority', 'timestamp', 'operator', 'qa_agent', 'requested_by')
     search_fields = ('unique_code', 'partner_name', 'requested_by__email', 'operator__email', 'qa_agent__email', 'special_instructions', 'team', 'priority')
@@ -126,6 +126,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'success_output_link',
         'failed_output_link',
         'rhino_accounts_created',
+        'slack_thread_ts',
     )
     date_hierarchy = 'timestamp'
     ordering = ('-timestamp',)
