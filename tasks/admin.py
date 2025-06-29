@@ -80,7 +80,7 @@ class AddressValidationFileInline(admin.TabularInline):
 class UserRecordsRequestAdmin(admin.ModelAdmin):
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
-        'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts',
+        'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',
     )
     list_filter = ('status', 'type_of_process', 'team', 'priority', 'timestamp', 'operator', 'qa_agent', 'requested_by')
     search_fields = ('unique_code', 'partner_name', 'requested_by__email', 'operator__email', 'qa_agent__email', 'special_instructions', 'team', 'priority')
@@ -127,6 +127,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'failed_output_link',
         'rhino_accounts_created',
         'slack_thread_ts',
+        'email_thread_id',
     )
     date_hierarchy = 'timestamp'
     ordering = ('-timestamp',)
@@ -202,6 +203,10 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         (_('Workflow Timestamps'), {'classes': ('collapse',),
                                     'fields': ('qa_pending_at', 'qa_in_progress_at', 'completed_at', 'cancelled_at',
                                                'cancel_reason')}),  # noqa: E501
+        (_('Integration Details'), {
+            'classes': ('collapse',),
+            'fields': ('email_thread_id', 'slack_thread_ts')
+        })
     )
     inlines = [AddressValidationFileInline, BlockedMessageInline, ResolvedMessageInline, RejectedMessageInline]
 
