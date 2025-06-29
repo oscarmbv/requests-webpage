@@ -370,7 +370,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
                 scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, request_obj.requested_by)
                 additional_details_telegram.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
 
-            if request_obj.status == UserRecordsRequest.PENDING_APPROVAL:
+            if request_obj.status == 'pending_approval':
                 approval_msg = "The request needs approval from leadership before operate."
                 additional_details_telegram.append(f"Status: {escape_markdown_v2(approval_msg)}")
 
@@ -439,7 +439,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
         scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
         details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
 
-    if request_obj.status == UserRecordsRequest.PENDING_APPROVAL:
+    if request_obj.status == 'pending_approval':
         details_list.append(f"> 🟡 *Status:* The request needs approval from leadership before operate.")
 
     message_details = "\n".join(details_list)
