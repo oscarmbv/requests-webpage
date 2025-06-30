@@ -1230,6 +1230,11 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
         temp_request_for_url_build.META['wsgi.url_scheme'] = http_request_scheme
     request_url = get_absolute_url_for_request(request_obj, temp_request_for_url_build)
 
+    user_who_blocked = None
+    last_block_message = request_obj.blocked_messages.first()
+    if last_block_message and last_block_message.blocked_by:
+        user_who_blocked = last_block_message.blocked_by
+
     # ---- Lógica de Email (solo si está habilitado) ----
     # ----> 2. VERIFICA EL TOGGLE ANTES DE ENVIAR EL EMAIL <----
     if is_email_notification_enabled(current_event_key):
@@ -1248,25 +1253,15 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
         recipients_email_set = set()
         recipients_email_set.add('info@gryphuslabs.com')
 
-        if request_obj.requested_by and request_obj.requested_by.email and request_obj.requested_by != resolved_by_user:
-            recipients_email_set.add(request_obj.requested_by.email)
-            # Actualizar el email para el saludo en la plantilla si el creador es el principal notificado
-            if not email_context['recipient_user_email']:  # Solo si no se ha establecido antes
-                email_context['recipient_user_email'] = request_obj.requested_by.email
-
-        last_block_message = BlockedMessage.objects.filter(request=request_obj).order_by('-blocked_at').first()
-        if last_block_message and last_block_message.blocked_by and last_block_message.blocked_by.email:
-            recipients_email_set.add(last_block_message.blocked_by.email)
-            logger.info(
-                f"Notificación '{current_event_key}' para {request_obj.unique_code}: Se añadirá a quien bloqueó {last_block_message.blocked_by.email}")
+        if user_who_blocked and user_who_blocked.email:
+            recipients_email_set.add(user_who_blocked.email)
+            logger.info(f"Notificación '{current_event_key}': Se añadirá a quien bloqueó {user_who_blocked.email}")
 
         if request_obj.operator and request_obj.operator.email:
             recipients_email_set.add(request_obj.operator.email)
-            logger.info(
-                f"Notificación '{current_event_key}' para {request_obj.unique_code}: Se añadirá al operador {request_obj.operator.email}")
 
-        if not email_context['recipient_user_email']:  # Fallback para el saludo
-            email_context['recipient_user_email'] = "User"
+        if request_obj.requested_by and request_obj.requested_by.email and request_obj.requested_by != resolved_by_user:
+            recipients_email_set.add(request_obj.requested_by.email)
 
         email_recipient_list = list(recipients_email_set)
 
@@ -1328,11 +1323,9 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
     if request_obj.operator and request_obj.operator != resolved_by_user:
         users_to_notify.append(request_obj.operator)
 
-        # Notificar a la persona que bloqueó la solicitud, si existe y no es quien la resolvió.
-    if request_obj.blocked_by and request_obj.blocked_by != resolved_by_user:
-        users_to_notify.append(request_obj.blocked_by)
+    if user_who_blocked and user_who_blocked != resolved_by_user:
+        users_to_notify.append(user_who_blocked)
 
-        # Notificar al creador original de la solicitud, si existe y no es quien la resolvió.
     if request_obj.requested_by and request_obj.requested_by != resolved_by_user:
         users_to_notify.append(request_obj.requested_by)
 
