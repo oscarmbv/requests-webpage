@@ -81,39 +81,43 @@ def get_absolute_url_for_request(request_obj, http_request=None):
 
     return final_url
 
-def send_request_notification_email(subject, template_name_base, context, recipient_list, request_obj):
+def send_request_notification_email(action_text, template_name_base, context, recipient_list, request_obj):
     """
-    Envía un correo electrónico de notificación formateado (HTML y texto),
-    manejando automáticamente la creación y continuación de hilos de conversación.
+    FUNCIÓN CORREGIDA Y ROBUSTA
+    Construye un asunto de correo electrónico consistente para asegurar el correcto
+    agrupamiento en hilos y envía la notificación.
     """
     if not recipient_list:
-        logger.warning(f"No recipients provided for email subject: {subject}")
+        logger.warning(f"No recipients for email with action '{action_text}' for request {request_obj.unique_code}.")
         return False
 
-    # Aseguramos que el contexto tenga las variables necesarias
+    base_subject = f"Request {request_obj.unique_code} ({request_obj.get_type_of_process_display()})"
+
+    final_subject = f"{action_text}: {base_subject}"
+
+    if request_obj.email_thread_id:
+        final_subject = f"Re: {final_subject}"
+
+    context['subject'] = final_subject
     context['request_obj'] = request_obj
-    context['request_url'] = get_absolute_url_for_request(request_obj)  # Asumimos que no pasamos http_request aquí
+    context['request_url'] = get_absolute_url_for_request(request_obj)
 
     try:
         html_message = render_to_string(f'tasks/emails/{template_name_base}.html', context)
         plain_message = render_to_string(f'tasks/emails/{template_name_base}.txt', context)
 
         headers = {}
-        # Verificamos si ya existe un hilo para esta solicitud
         if request_obj.email_thread_id:
-            subject = f"Re: {subject}"
             headers['In-Reply-To'] = request_obj.email_thread_id
             headers['References'] = request_obj.email_thread_id
-            logger.info(f"Enviando email como respuesta en el hilo: {request_obj.email_thread_id}")
-            msg_id = make_msgid()  # Creamos un ID para este nuevo mensaje
+            msg_id = make_msgid()
         else:
-            logger.info(f"Iniciando nuevo hilo de email para la solicitud: {request_obj.unique_code}")
-            msg_id = make_msgid(domain=settings.SITE_DOMAIN.split('//')[-1])  # Usamos nuestro dominio para el ID
+            msg_id = make_msgid(domain=settings.SITE_DOMAIN.split('//')[-1])
 
         headers['Message-ID'] = msg_id
 
         email = EmailMultiAlternatives(
-            subject,
+            final_subject,
             plain_message,
             settings.DEFAULT_FROM_EMAIL,
             recipient_list,
@@ -122,16 +126,15 @@ def send_request_notification_email(subject, template_name_base, context, recipi
         email.attach_alternative(html_message, "text/html")
         email.send(fail_silently=False)
 
-        # Si iniciamos un nuevo hilo, guardamos el Message-ID en la base de datos
         if not request_obj.email_thread_id:
             request_obj.email_thread_id = msg_id
             request_obj.save(update_fields=['email_thread_id'])
             logger.info(f"Nuevo email_thread_id '{msg_id}' guardado para la solicitud {request_obj.unique_code}.")
 
-        logger.info(f"Email sent successfully to {recipient_list} for subject: {subject}")
+        logger.info(f"Email sent successfully to {recipient_list} for subject: {final_subject}")
         return True
     except Exception as e:
-        logger.error(f"Error sending email (Subject: {subject}, To: {recipient_list}): {e}", exc_info=True)
+        logger.error(f"Error sending email (Subject: {final_subject}, To: {recipient_list}): {e}", exc_info=True)
         return False
 
 def send_slack_notification(request_instance, message_text, user_to_mention=None, users_to_mention=None, reactions=None):
@@ -352,12 +355,11 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
         logger.info(
             f"Preparando email para '{current_event_key}' de {request_obj.unique_code} a: {email_recipient_list}")
         send_request_notification_email(
-            subject,
+            "New",
             email_template_base,
             email_context,
             email_recipient_list,
             request_obj=request_obj,
-            # http_request_for_url no se pasa aquí si ya se usó para construir request_url
         )
     else:
         logger.info(
@@ -545,7 +547,7 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
         logger.info(
             f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
         send_request_notification_email(
-            subject,
+            "Approval Needed",
             'pending_approval_notification',  # Plantilla específica para este evento
             email_context,
             email_recipient_list,
@@ -652,7 +654,7 @@ def notify_request_approved(request_pk, approver_user_pk, http_request_host=None
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "Approved",
                 'request_approved_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -737,7 +739,7 @@ def notify_scheduled_request_activated(request_pk):  # No necesita http_request_
         logger.info(
             f"Preparando email para '{current_event_key}' de {request_obj.unique_code} a: {email_recipient_list}")
         send_request_notification_email(
-            subject,
+            "Activated",
             'scheduled_to_pending_notification',  # Plantilla específica para este evento
             email_context,
             email_recipient_list,
@@ -858,7 +860,7 @@ def notify_update_requested(request_pk, update_requester_user_pk, http_request_h
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "Update Requested",
                 'update_requested_notification',  # Plantilla específica para este evento
                 email_context,
                 email_recipient_list,
@@ -1000,7 +1002,7 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "Update Provided",
                 'update_provided_notification',  # Plantilla específica para este evento
                 email_context,
                 email_recipient_list,
@@ -1140,7 +1142,7 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "BLOCKED",
                 'request_blocked_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -1275,7 +1277,7 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "Resolved",
                 'request_resolved_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -1394,7 +1396,7 @@ def notify_request_sent_to_qa(request_pk, operator_user_pk, http_request_host=No
         logger.info(
             f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
         send_request_notification_email(
-            subject,
+            "QA Pending",
             'sent_to_qa_notification',  # Plantilla específica
             email_context,
             email_recipient_list,
@@ -1527,7 +1529,7 @@ def notify_request_rejected(request_pk, rejected_by_user_pk, rejection_reason, h
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "REJECTED",
                 'request_rejected_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -1662,7 +1664,7 @@ def notify_request_cancelled(request_pk, cancelled_by_user_pk, http_request_host
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "CANCELLED",
                 'request_cancelled_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -1808,7 +1810,7 @@ def notify_request_uncancelled(request_pk, uncancelled_by_user_pk, original_canc
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "UN-CANCELLED",
                 'request_uncancelled_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
@@ -1949,7 +1951,7 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
             logger.info(
                 f"Preparando email de '{current_event_key}' para {request_obj.unique_code} a: {email_recipient_list}")
             send_request_notification_email(
-                subject,
+                "COMPLETED",
                 'request_completed_notification',  # Plantilla específica
                 email_context,
                 email_recipient_list,
