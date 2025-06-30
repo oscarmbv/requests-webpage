@@ -83,7 +83,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
         'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',
-        'final_price_client_completed', 'discount_percentage', 'discount_percentage',
+        'grand_total_client_price_completed', 'discount_percentage', 'discount_percentage',
     )
     list_filter = ('status', 'type_of_process', 'team', 'priority', 'timestamp', 'operator', 'qa_agent', 'requested_by')
     search_fields = ('unique_code', 'partner_name', 'requested_by__email', 'operator__email', 'qa_agent__email', 'special_instructions', 'team', 'priority')
@@ -131,7 +131,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'rhino_accounts_created',
         'slack_thread_ts',
         'email_thread_id',
-        'final_price_client_completed',
+        'grand_total_client_price_completed',
         'calculated_final_price',
     )
     date_hierarchy = 'timestamp'
@@ -214,7 +214,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         }),
         ('Pricing & Financials (Calculated by System)', {
             'fields': (
-                'final_price_client_completed',
+                'grand_total_client_price_completed',
                 'discount_percentage',
                 'calculated_final_price'
             )
@@ -230,17 +230,14 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         Esto NO se guarda en la base de datos, es solo para visualización.
         """
         # Usamos Decimal('0') para mantener el tipo de dato consistente
-        base_price = obj.final_price_client_completed or Decimal('0')
+        base_price = obj.grand_total_client_price_completed or Decimal('0')
         discount_perc = obj.discount_percentage or Decimal('0')
-
         if base_price == Decimal('0'):
             return Decimal('0.00')
-
         discount_amount = base_price * (discount_perc / Decimal('100.0'))
         final_price = base_price - discount_amount
         return final_price.quantize(Decimal('0.01'))
 
-    # Le damos un nombre legible a la columna de nuestro campo calculado
     calculated_final_price.short_description = 'Costo Final Calculado (Diagnóstico)'
 
     def get_fieldsets(self, request, obj=None):

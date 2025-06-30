@@ -2119,14 +2119,14 @@ def client_cost_summary_view(request):
 
     requests_with_final_price = completed_requests_in_period.annotate(
         calculated_discount=ExpressionWrapper(
-            F('final_price_client_completed') * (
+            F('grand_total_client_price_completed') * (
                         Cast(F('discount_percentage'), DecimalField(max_digits=5, decimal_places=2)) / Decimal(
                     '100.0')),
             output_field=DecimalField(max_digits=10, decimal_places=2)
         )
     ).annotate(
         final_price=ExpressionWrapper(
-            F('final_price_client_completed') - F('calculated_discount'),
+            F('grand_total_client_price_completed') - F('calculated_discount'),
             output_field=DecimalField(max_digits=10, decimal_places=2)
         )
     )
