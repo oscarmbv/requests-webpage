@@ -188,10 +188,17 @@ def send_slack_notification(request_instance, message_text, user_to_mention=None
                 request_instance.save(update_fields=['slack_thread_ts'])
                 logger.info(f"Nuevo hilo de Slack guardado con ts: {message_ts}")
 
-            if reactions and message_ts:
-                for reaction in reactions:
-                    add_slack_reaction(channel_id, message_ts, reaction, bot_token)
+            timestamp_for_reaction = None
+            if request_instance.slack_thread_ts:
+                timestamp_for_reaction = request_instance.slack_thread_ts
+            else:
+                timestamp_for_reaction = message_ts
 
+            # 2. Añadir las reacciones al timestamp correcto.
+            if reactions and timestamp_for_reaction:
+                logger.info(f"Añadiendo reacciones al mensaje con ts: {timestamp_for_reaction}")
+                for reaction in reactions:
+                    add_slack_reaction(channel_id, timestamp_for_reaction, reaction, bot_token)
         else:
             slack_error = response_data.get('error', 'unknown_error')
             logger.error(f"Error en la respuesta de la API de Slack: {slack_error}")
