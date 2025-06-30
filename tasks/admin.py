@@ -27,12 +27,20 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email', 'username', 'first_name', 'last_name')
     ordering = ('email',)
 
-    list_display = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'timezone', 'slack_member_id')
+    list_display = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'display_groups', 'timezone', 'slack_member_id')
 
     fieldsets = UserAdmin.fieldsets + (
         (_('Timezone Info'), {'fields': ('timezone',)}),
         (_('Integrations'), {'fields': ('slack_member_id',)})
     )
+
+    @admin.display(description='Groups')  # Un decorador más moderno para el nombre de la columna
+    def display_groups(self, obj):
+        """
+        Crea una cadena de texto con los nombres de todos los grupos
+        a los que pertenece el usuario.
+        """
+        return ", ".join([group.name for group in obj.groups.all()])
 
 # --- Inlines para Historial en UserRecordsRequest Admin ---
 class BlockedMessageInline(admin.TabularInline):
