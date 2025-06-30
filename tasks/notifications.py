@@ -83,9 +83,9 @@ def get_absolute_url_for_request(request_obj, http_request=None):
 
 def send_request_notification_email(action_text, template_name_base, context, recipient_list, request_obj):
     """
-    FUNCIÓN DEFINITIVA Y ROBUSTA v2
+    FUNCIÓN DEFINITIVA Y CORREGIDA v3
     Asegura el agrupamiento de hilos construyendo correctamente la cadena de
-    cabeceras 'References' e 'In-Reply-To'.
+    cabeceras 'References' e 'In-Reply-To' según el estándar RFC 2822.
     """
     if not recipient_list:
         logger.warning(f"No recipients for email action '{action_text}' for request {request_obj.unique_code}.")
@@ -104,14 +104,15 @@ def send_request_notification_email(action_text, template_name_base, context, re
 
     current_message_id = make_msgid(domain=domain)
     headers['Message-ID'] = current_message_id
-    previous_references = request_obj.email_thread_id
 
-    if previous_references:
+    previous_references_chain = request_obj.email_thread_id
+
+    if previous_references_chain:
         final_subject = f"Re: {final_subject}"
-        last_message_id = previous_references.split(' ')[-1]
+        last_message_id = previous_references_chain.split(' ')[-1]
         headers['In-Reply-To'] = last_message_id
-        headers['References'] = f"{previous_references} {last_message_id}"
-        new_references_to_save = f"{previous_references} {current_message_id}"
+        headers['References'] = previous_references_chain
+        new_references_to_save = f"{previous_references_chain} {current_message_id}"
     else:
         new_references_to_save = current_message_id
 
@@ -133,9 +134,10 @@ def send_request_notification_email(action_text, template_name_base, context, re
         email.attach_alternative(html_message, "text/html")
         email.send(fail_silently=False)
 
-        request_obj.email_thread_id = new_references_to_save
-        request_obj.save(update_fields=['email_thread_id'])
-        logger.info(f"Cadena de referencias actualizada a '{new_references_to_save}' guardada.")
+        if new_references_to_save:
+            request_obj.email_thread_id = new_references_to_save
+            request_obj.save(update_fields=['email_thread_id'])
+            logger.info(f"Cadena de referencias actualizada a '{new_references_to_save}' guardada.")
 
         logger.info(f"Email sent successfully to {recipient_list} for subject: {final_subject}")
         return True
