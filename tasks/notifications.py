@@ -473,11 +473,11 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
     if request_obj.scheduled_date:
         scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
         details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
-        initial_reactions = ['calendar']
+        initial_reactions.append('calendar')
 
     if request_obj.status == 'pending_approval':
         details_list.append(f"> 🟡 *Status:* The request needs approval from leadership before operate.")
-        initial_reactions = ['hand']
+        initial_reactions.append('black_nib')
 
     message_details = "\n".join(details_list)
     slack_message_text = f"{message_title}\n{message_details}"

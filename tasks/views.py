@@ -370,32 +370,21 @@ def deactivation_toggle_request(request):
                     current_host = request.get_host()
                     current_scheme = request.scheme
 
-                    if deact_toggle_request.status == 'pending_approval':
-                        async_task(
-                            'tasks.notifications.notify_pending_approval_request',
-                            deact_toggle_request.pk,
-                            http_request_host=current_host,
-                            http_request_scheme=current_scheme,
-                            task_name=f"NotifyPendingApproval-{deact_toggle_request.unique_code}",
-                            hook='tasks.hooks.print_task_result'
-                        )
-                        logger.info(
-                            f"Tarea de notificación 'Pending Approval' para {deact_toggle_request.unique_code} encolada.")
-                    else:  # Para 'pending' o 'scheduled'
-                        async_task(
-                            'tasks.notifications.notify_new_request_created',
-                            deact_toggle_request.pk,
-                            http_request_host=current_host,
-                            http_request_scheme=current_scheme,
-                            task_name=f"NotifyNewRequest-{deact_toggle_request.unique_code}",
-                            hook='tasks.hooks.print_task_result'
-                        )
-                        logger.info(
-                            f"Tarea de notificación 'New Request' para {deact_toggle_request.unique_code} encolada.")
+                    async_task(
+                        'tasks.notifications.notify_new_request_created',
+                        deact_toggle_request.pk,
+                        http_request_host=current_host,
+                        http_request_scheme=current_scheme,
+                        task_name=f"NotifyNewRequest-{deact_toggle_request.unique_code}",
+                        hook='tasks.hooks.print_task_result'
+                    )
+                    logger.info(
+                        f"Tarea de notificación unificada para {deact_toggle_request.unique_code} encolada.")
 
                 except Exception as e_async:
                     logger.error(
-                        f"Error al encolar la tarea de notificación para {deact_toggle_request.unique_code}: {e_async}", exc_info=True)
+                        f"Error al encolar la tarea de notificación para {deact_toggle_request.unique_code}: {e_async}",
+                        exc_info=True)
                 # ----> FIN: LLAMADA A LA NOTIFICACIÓN ASÍNCRONA <----
 
                 # Mensaje de éxito
