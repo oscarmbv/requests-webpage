@@ -1316,7 +1316,10 @@ def notify_request_resolved(request_pk, resolved_by_user_pk, resolution_message,
     slack_request_link = f"<{request_url}|{request_obj.unique_code}>"
     resolver_name = resolved_by_user.get_full_name() or resolved_by_user.email
 
-    slack_message_text = f"✅ Request *{slack_request_link}* has been *resolved* by {resolver_name} and is no longer blocked."
+    slack_message_text = (
+        f"✅ Request *{slack_request_link}* has been *resolved* by {resolver_name} and is no longer blocked.\n"
+        f"> *Resolution Message:* {resolution_message}"
+    )
 
     users_to_notify = []
 
