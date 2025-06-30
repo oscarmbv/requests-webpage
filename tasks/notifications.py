@@ -83,20 +83,27 @@ def get_absolute_url_for_request(request_obj, http_request=None):
 
 def send_request_notification_email(action_text, template_name_base, context, recipient_list, request_obj):
     """
-    FUNCIÓN CORREGIDA Y ROBUSTA
-    Construye un asunto de correo electrónico consistente para asegurar el correcto
-    agrupamiento en hilos y envía la notificación.
+    FUNCIÓN CORREGIDA Y DEFINITIVA
+    Construye un asunto de correo electrónico consistente y maneja correctamente
+    los Message-ID para asegurar el agrupamiento en hilos.
     """
     if not recipient_list:
-        logger.warning(f"No recipients for email with action '{action_text}' for request {request_obj.unique_code}.")
+        logger.warning(f"No recipients for email action '{action_text}' for request {request_obj.unique_code}.")
         return False
 
+    # --- 1. Lógica de Asunto Unificado ---
     base_subject = f"Request {request_obj.unique_code} ({request_obj.get_type_of_process_display()})"
-
     final_subject = f"{action_text}: {base_subject}"
 
+    # --- 2. Lógica de Cabeceras de Hilo ---
+    headers = {}
     if request_obj.email_thread_id:
         final_subject = f"Re: {final_subject}"
+        headers['In-Reply-To'] = request_obj.email_thread_id
+        headers['References'] = request_obj.email_thread_id
+        logger.info(f"Enviando email como respuesta en el hilo: {request_obj.email_thread_id}")
+    else:
+        logger.info(f"Iniciando nuevo hilo de email para la solicitud: {request_obj.unique_code}")
 
     context['subject'] = final_subject
     context['request_obj'] = request_obj
@@ -106,30 +113,27 @@ def send_request_notification_email(action_text, template_name_base, context, re
         html_message = render_to_string(f'tasks/emails/{template_name_base}.html', context)
         plain_message = render_to_string(f'tasks/emails/{template_name_base}.txt', context)
 
-        headers = {}
-        if request_obj.email_thread_id:
-            headers['In-Reply-To'] = request_obj.email_thread_id
-            headers['References'] = request_obj.email_thread_id
-            msg_id = make_msgid()
-        else:
-            msg_id = make_msgid(domain=settings.SITE_DOMAIN.split('//')[-1])
-
-        headers['Message-ID'] = msg_id
-
         email = EmailMultiAlternatives(
-            final_subject,
-            plain_message,
-            settings.DEFAULT_FROM_EMAIL,
-            recipient_list,
+            subject=final_subject,
+            body=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=recipient_list,
             headers=headers
         )
         email.attach_alternative(html_message, "text/html")
+
         email.send(fail_silently=False)
 
         if not request_obj.email_thread_id:
-            request_obj.email_thread_id = msg_id
-            request_obj.save(update_fields=['email_thread_id'])
-            logger.info(f"Nuevo email_thread_id '{msg_id}' guardado para la solicitud {request_obj.unique_code}.")
+            actual_message_id = email.message()['Message-ID']
+            if actual_message_id:
+                request_obj.email_thread_id = actual_message_id
+                request_obj.save(update_fields=['email_thread_id'])
+                logger.info(
+                    f"Nuevo email_thread_id REAL '{actual_message_id}' guardado para la solicitud {request_obj.unique_code}.")
+            else:
+                logger.error(
+                    f"No se pudo obtener el Message-ID real después de enviar el correo para {request_obj.unique_code}.")
 
         logger.info(f"Email sent successfully to {recipient_list} for subject: {final_subject}")
         return True
