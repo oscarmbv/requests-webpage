@@ -10,6 +10,8 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django_q.tasks import async_task
 from django.contrib import messages
+from .models import UserRecordsRequest
+from decimal import Decimal
 
 from .models import (
     BlockedMessage, CustomUser, OperationPrice, RejectedMessage, ResolvedMessage,
@@ -81,6 +83,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
         'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',
+        'final_price_client_completed', 'discount_percentage', 'discount_percentage',
     )
     list_filter = ('status', 'type_of_process', 'team', 'priority', 'timestamp', 'operator', 'qa_agent', 'requested_by')
     search_fields = ('unique_code', 'partner_name', 'requested_by__email', 'operator__email', 'qa_agent__email', 'special_instructions', 'team', 'priority')
@@ -128,6 +131,8 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'rhino_accounts_created',
         'slack_thread_ts',
         'email_thread_id',
+        'final_price_client_completed',
+        'calculated_final_price',
     )
     date_hierarchy = 'timestamp'
     ordering = ('-timestamp',)
@@ -206,11 +211,37 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         (_('Integration Details'), {
             'classes': ('collapse',),
             'fields': ('email_thread_id', 'slack_thread_ts')
+        }),
+        ('Pricing & Financials (Calculated by System)', {
+            'fields': (
+                'final_price_client_completed',
+                'discount_percentage',
+                'calculated_final_price'
+            )
         })
     )
     inlines = [AddressValidationFileInline, BlockedMessageInline, ResolvedMessageInline, RejectedMessageInline]
 
     actions = ['trigger_salesforce_sync_action', 'trigger_scheduled_jobs_action']
+
+    def calculated_final_price(self, obj):
+        """
+        Calcula el precio final en el momento para mostrarlo en el admin.
+        Esto NO se guarda en la base de datos, es solo para visualización.
+        """
+        # Usamos Decimal('0') para mantener el tipo de dato consistente
+        base_price = obj.final_price_client_completed or Decimal('0')
+        discount_perc = obj.discount_percentage or Decimal('0')
+
+        if base_price == Decimal('0'):
+            return Decimal('0.00')
+
+        discount_amount = base_price * (discount_perc / Decimal('100.0'))
+        final_price = base_price - discount_amount
+        return final_price.quantize(Decimal('0.01'))
+
+    # Le damos un nombre legible a la columna de nuestro campo calculado
+    calculated_final_price.short_description = 'Costo Final Calculado (Diagnóstico)'
 
     def get_fieldsets(self, request, obj=None):
         # Empezar con los fieldsets base
