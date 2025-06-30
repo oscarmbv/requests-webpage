@@ -9,7 +9,6 @@ The {{ request_obj.get_type_of_process_display }} request for {% if request_obj.
 - Request Code: {{ request_obj.unique_code }}
 {% if request_obj.operator %}- Operated by: {{ request_obj.operator.email }}{% endif %}
 {% if qa_completer_user %}- QA and Completed by: {{ qa_completer_user.email }}{% endif %}
-{% if request_obj.completed_at %}- Completed At: {% timezone "America/Caracas" %}{{ request_obj.completed_at|date:"F j, Y, P" }} (Caracas Time){% endtimezone %}{% endif %}
 {% if request_obj.calculated_turn_around_time %}- Turn Around Time: {{ request_obj.calculated_turn_around_time|format_timedelta }}{% endif %}
 
 {% if request_obj.operating_notes %}
