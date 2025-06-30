@@ -83,9 +83,9 @@ def get_absolute_url_for_request(request_obj, http_request=None):
 
 def send_request_notification_email(action_text, template_name_base, context, recipient_list, request_obj):
     """
-    FUNCIÓN DEFINITIVA Y CORREGIDA
-    Asegura el agrupamiento de hilos de correo generando y guardando un
-    Message-ID autoritativo y correctamente formateado.
+    FUNCIÓN DEFINITIVA Y ROBUSTA v2
+    Asegura el agrupamiento de hilos construyendo correctamente la cadena de
+    cabeceras 'References' e 'In-Reply-To'.
     """
     if not recipient_list:
         logger.warning(f"No recipients for email action '{action_text}' for request {request_obj.unique_code}.")
@@ -100,18 +100,20 @@ def send_request_notification_email(action_text, template_name_base, context, re
         domain = settings.SITE_DOMAIN.split('//')[-1]
     except (AttributeError, IndexError):
         domain = 'localhost.localdomain'
-        logger.warning("SITE_DOMAIN no está configurado correctamente, usando fallback para el Message-ID.")
+        logger.warning("SITE_DOMAIN no configurado, usando fallback para Message-ID.")
 
-    if request_obj.email_thread_id:
+    current_message_id = make_msgid(domain=domain)
+    headers['Message-ID'] = current_message_id
+    previous_references = request_obj.email_thread_id
+
+    if previous_references:
         final_subject = f"Re: {final_subject}"
-        headers['In-Reply-To'] = request_obj.email_thread_id
-        headers['References'] = request_obj.email_thread_id
-        headers['Message-ID'] = make_msgid(domain=domain)
-        logger.info(f"Enviando respuesta en hilo {request_obj.email_thread_id} con nuevo ID {headers['Message-ID']}")
+        last_message_id = previous_references.split(' ')[-1]
+        headers['In-Reply-To'] = last_message_id
+        headers['References'] = f"{previous_references} {last_message_id}"
+        new_references_to_save = f"{previous_references} {current_message_id}"
     else:
-        new_thread_id_to_save = make_msgid(domain=domain)
-        headers['Message-ID'] = new_thread_id_to_save
-        logger.info(f"Iniciando nuevo hilo con Message-ID: {new_thread_id_to_save}")
+        new_references_to_save = current_message_id
 
     context['subject'] = final_subject
     context['request_obj'] = request_obj
@@ -131,10 +133,9 @@ def send_request_notification_email(action_text, template_name_base, context, re
         email.attach_alternative(html_message, "text/html")
         email.send(fail_silently=False)
 
-        if not request_obj.email_thread_id:
-            request_obj.email_thread_id = new_thread_id_to_save
-            request_obj.save(update_fields=['email_thread_id'])
-            logger.info(f"Nuevo email_thread_id (con dominio correcto) '{new_thread_id_to_save}' guardado.")
+        request_obj.email_thread_id = new_references_to_save
+        request_obj.save(update_fields=['email_thread_id'])
+        logger.info(f"Cadena de referencias actualizada a '{new_references_to_save}' guardada.")
 
         logger.info(f"Email sent successfully to {recipient_list} for subject: {final_subject}")
         return True

@@ -314,7 +314,7 @@ class UserRecordsRequest(models.Model):
         help_text="The final client price after any discounts have been applied. This field is calculated automatically."
     )
 
-    email_thread_id = models.CharField(max_length=255, blank=True, null=True, help_text="The Message-ID of the first email, used to group notifications into a conversation thread.")
+    email_thread_id = models.TextField(null=True, blank=True, help_text="Stores the chain of Message-IDs for email threading.")
 
     slack_thread_ts = models.CharField(
         max_length=50,
