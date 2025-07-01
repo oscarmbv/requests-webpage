@@ -42,7 +42,6 @@
             </p>
 
             <ul class="details-list">
-                {% if request_obj.operator %}<li><strong>Operated by:</strong> {{ request_obj.operator.email }}</li>{% endif %}
                 {% if qa_completer_user %}<li><strong>QA and Completed by:</strong> {{ qa_completer_user.email }}</li>{% endif %}
                 {% if request_obj.calculated_turn_around_time %}
                     <li><strong>Turn Around Time:</strong> {{ request_obj.calculated_turn_around_time|format_timedelta }}</li>
