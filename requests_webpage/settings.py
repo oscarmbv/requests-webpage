@@ -211,6 +211,11 @@ else:
     AWS_SECRET_ACCESS_KEY = env('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = env('CLOUDFLARE_R2_BUCKET_NAME')
 
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+        'ContentDisposition': 'attachment',  # <-- ¡Esta es la línea clave!
+    }
+
     # Esta es la URL del endpoint de R2. La construiremos a partir de tu Account ID.
     # Ejemplo: https://<TU_ACCOUNT_ID>.r2.cloudflarestorage.com
     AWS_S3_ENDPOINT_URL = env('CLOUDFLARE_R2_ENDPOINT_URL')
