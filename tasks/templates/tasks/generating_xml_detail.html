@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load duration_filters %}
+{% load custom_filters %}
 
 {% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
 
@@ -200,28 +201,58 @@
                  <div class="card shadow-sm mb-4">
                      <div class="card-header"> {% trans "Operation Details" %} </div>
                      <div class="card-body">
-                         <dl>
-                            {% if user_request.operator_rvic_file_slot1 %}
-                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 1:" %}</dt>
-                                <dd class="col-sm-7"><a href="{{ user_request.operator_rvic_file_slot1.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_rvic_file_slot1.name|cut:"operator_gxml_files/" }}</a></dd>
-                            </div> {% endif %}
-                            {% if user_request.operator_rvic_file_slot2 %}
-                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 2 (UT ZIP):" %}</dt>
-                                <dd class="col-sm-7"><a href="{{ user_request.operator_rvic_file_slot2.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_rvic_file_slot2.name|cut:"operator_gxml_files/" }}</a></dd>
-                            </div> {% endif %}
-                            {% if user_request.operator_ssic_file_slot1 %}
-                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 1:" %}</dt>
-                                <dd class="col-sm-7"><a href="{{ user_request.operator_ssic_file_slot1.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_ssic_file_slot1.name|cut:"operator_gxml_files/" }}</a></dd>
-                            </div> {% endif %}
-                            {% if user_request.operator_ssic_file_slot2 %}
-                            <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 2 (UT ZIP):" %}</dt>
-                                <dd class="col-sm-7"><a href="{{ user_request.operator_ssic_file_slot2.url }}" target="_blank" rel="noopener noreferrer">{{ user_request.operator_ssic_file_slot2.name|cut:"operator_gxml_files/" }}</a></dd>
-                            </div> {% endif %}
-                            {% if user_request.operating_notes %}
-                            <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
-                                <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
-                            </div> {% endif %}
-                         </dl>
+                        <dl>
+                           {% if user_request.operator_rvic_file_slot1 %}
+                           <div class="row mb-1">
+                               <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 1:" %}</dt>
+                               <dd class="col-sm-7">
+                                   <a href="{{ user_request.operator_rvic_file_slot1.url }}" download>
+                                       {{ user_request.operator_rvic_file_slot1.name|basename }}
+                                   </a>
+                               </dd>
+                           </div>
+                           {% endif %}
+
+                           {% if user_request.operator_rvic_file_slot2 %}
+                           <div class="row mb-1">
+                               <dt class="col-sm-5 text-sm-end">{% trans "Operator RVIC File 2 (UT ZIP):" %}</dt>
+                               <dd class="col-sm-7">
+                                   <a href="{{ user_request.operator_rvic_file_slot2.url }}" download>
+                                       {{ user_request.operator_rvic_file_slot2.name|basename }}
+                                   </a>
+                               </dd>
+                           </div>
+                           {% endif %}
+
+                           {% if user_request.operator_ssic_file_slot1 %}
+                           <div class="row mb-1">
+                               <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 1:" %}</dt>
+                               <dd class="col-sm-7">
+                                   <a href="{{ user_request.operator_ssic_file_slot1.url }}" download>
+                                       {{ user_request.operator_ssic_file_slot1.name|basename }}
+                                   </a>
+                               </dd>
+                           </div>
+                           {% endif %}
+
+                           {% if user_request.operator_ssic_file_slot2 %}
+                           <div class="row mb-1">
+                               <dt class="col-sm-5 text-sm-end">{% trans "Operator SSIC File 2 (UT ZIP):" %}</dt>
+                               <dd class="col-sm-7">
+                                   <a href="{{ user_request.operator_ssic_file_slot2.url }}" download>
+                                       {{ user_request.operator_ssic_file_slot2.name|basename }}
+                                   </a>
+                               </dd>
+                           </div>
+                           {% endif %}
+
+                           {% if user_request.operating_notes %}
+                           <div class="row mb-1 mt-2">
+                               <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
+                               <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
+                           </div>
+                           {% endif %}
+                        </dl>
                      </div>
                  </div>
             {% endif %}
