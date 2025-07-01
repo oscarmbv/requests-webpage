@@ -110,7 +110,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'unit_transfer_new_policyholders', 'unit_transfer_user_email_addresses',
         'unit_transfer_prospect_portfolio_size', 'unit_transfer_prospect_landlord_type', 'unit_transfer_proof_of_sale',
         # Generating XML
-        'xml_state', 'xml_carrier_rvic', 'xml_carrier_ssic', 'xml_rvic_zip_file', 'xml_ssic_zip_file',
+        'xml_state', 'xml_rvic_zip_file', 'xml_ssic_zip_file',
         # Address Validation
         'address_validation_policyholders', 'address_validation_opportunity_id',
         'address_validation_user_email_addresses',
