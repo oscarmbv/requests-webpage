@@ -156,9 +156,21 @@ class UserRecordsRequestForm(forms.Form):
         help_text="Select a future date (tomorrow onwards)."
     )
 
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        if not self.user or not self.user.is_staff:
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
 
     def clean(self):
         cleaned_data = super().clean()
@@ -349,6 +361,13 @@ class OperationPriceForm(forms.ModelForm):
 class DeactivationToggleRequestForm(forms.ModelForm):
     """Formulario para crear solicitudes de Deactivation/Toggle."""
     # Usa las choices importadas directamente
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
     deactivation_toggle_type = forms.ChoiceField(choices=DEACTIVATION_TOGGLE_CHOICES, label='Type of Request', required=True, widget=forms.Select(attrs={'class': 'form-select'}))
     partner_name = forms.CharField(max_length=255, label='Partner', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
     properties = forms.CharField(label='Properties Affected', required=True, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}), help_text='Enter existing property IDs or names, separated by comma or newline.')
@@ -390,6 +409,15 @@ class DeactivationToggleRequestForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        if self.user and self.user.is_staff:
+            current_fields = self.fields
+            new_order = {'submit_on_behalf_of': current_fields.pop('submit_on_behalf_of')}
+            new_order.update(current_fields)
+            self.fields = new_order
+        else:
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
 
         tipo = self.data.get('deactivation_toggle_type') or self.initial.get('deactivation_toggle_type')
 
@@ -479,6 +507,14 @@ class DeactivationToggleRequestForm(forms.ModelForm):
 class UnitTransferRequestForm(forms.ModelForm):
     """Formulario para crear solicitudes de Unit Transfer."""
     # Usa las choices importadas directamente
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
     unit_transfer_type = forms.ChoiceField(choices=UNIT_TRANSFER_TYPE_CHOICES, label='Type of Request', required=True, widget=forms.Select(attrs={'class': 'form-select'}))
     partner_name = forms.CharField(max_length=255, label='Partner Name (Origin)', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
     unit_transfer_new_partner_prospect_name = forms.CharField(max_length=255, label='New Partner or Prospect Name (Destination)', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
@@ -523,6 +559,16 @@ class UnitTransferRequestForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        if self.user and self.user.is_staff:
+            current_fields = self.fields
+            # Creamos un nuevo diccionario de campos con el nuestro al principio.
+            new_order = {'submit_on_behalf_of': current_fields.pop('submit_on_behalf_of')}
+            new_order.update(current_fields)
+            self.fields = new_order
+        else:
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
 
     def clean(self):
         cleaned_data = super().clean()
@@ -616,6 +662,13 @@ class GeneratingXmlRequestForm(forms.ModelForm):
         return cleaned_data
 
 class AddressValidationRequestForm(forms.ModelForm):
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
     partner_name = forms.CharField(label='Partner', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
     address_validation_policyholders = forms.CharField(label='Policyholder(s)', required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}), help_text='Separate multiple policyholders by comma or newline.')
     address_validation_opportunity_id = forms.CharField(label='Opportunity Id', required=False, max_length=255, widget=forms.TextInput(attrs={'class': 'form-control'})) # required=False por defecto
@@ -655,6 +708,15 @@ class AddressValidationRequestForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        if self.user and self.user.is_staff:
+            current_fields = self.fields
+            new_order = {'submit_on_behalf_of': current_fields.pop('submit_on_behalf_of')}
+            new_order.update(current_fields)
+            self.fields = new_order
+        else:
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
 
     def clean_address_validation_user_email_addresses(self):
         # ... (lógica de limpieza de emails sin cambios) ...
@@ -714,6 +776,13 @@ class StripeDisputesRequestForm(forms.ModelForm):
     #    choices=PRIORITY_CHOICES, label="Priority",
     #    widget=forms.RadioSelect, initial=PRIORITY_NORMAL, required=True
     #)
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
     stripe_premium_disputes = forms.IntegerField(
         label="Rhino Super Premium Disputes",
         required=True,
@@ -752,6 +821,16 @@ class StripeDisputesRequestForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
+        if self.user and self.user.is_staff:
+            current_fields = self.fields
+            new_order = {'submit_on_behalf_of': current_fields.pop('submit_on_behalf_of')}
+            new_order.update(current_fields)
+            self.fields = new_order
+        else:
+            # Si NO es un admin, eliminamos el campo del formulario
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
+
     def clean(self):
         cleaned_data = super().clean()
         premium_disputes = cleaned_data.get('stripe_premium_disputes')
@@ -771,6 +850,14 @@ class StripeDisputesRequestForm(forms.ModelForm):
 
 class PropertyRecordsRequestForm(forms.ModelForm):
     """Formulario para crear solicitudes de Property Records."""
+
+    submit_on_behalf_of = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_staff=False, is_active=True).order_by('email'),
+        required=False,
+        label="Submit request on behalf of (Admin Only)",
+        help_text="Select a client to create this request on their behalf. Leave blank to create it for yourself.",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
 
     priority = forms.ChoiceField(
         choices=PRIORITY_CHOICES,
@@ -902,6 +989,16 @@ class PropertyRecordsRequestForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        if self.user and self.user.is_staff:
+            current_fields = self.fields
+            # Creamos un nuevo diccionario de campos con el nuestro al principio
+            new_order = {'submit_on_behalf_of': current_fields.pop('submit_on_behalf_of')}
+            new_order.update(current_fields)
+            self.fields = new_order
+        else:
+            if 'submit_on_behalf_of' in self.fields:
+                del self.fields['submit_on_behalf_of']
 
         conditionally_required_fields = [
             'property_records_new_names', 'property_records_new_pmc',

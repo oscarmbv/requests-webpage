@@ -46,6 +46,15 @@
             <div class="col-md-6">
                 <h2 class="h4 mb-3 border-bottom pb-2">Request Details</h2>
 
+                {# Submit on Behalf #}
+                {% if user_records_form.submit_on_behalf_of %}
+                  <div class="mb-3">
+                    <label for="{{ user_records_form.submit_on_behalf_of.id_for_label }}" class="form-label fw-bold">{{ user_records_form.submit_on_behalf_of.label }}</label>
+                    {{ user_records_form.submit_on_behalf_of }}
+                    <div class="form-text">{{ user_records_form.submit_on_behalf_of.help_text }}</div>
+                  </div>
+                {% endif %}
+
                 {# --- Renderizado Prioridad --- #}
                 <div class="mb-3">
                     <div class="d-flex align-items-center">

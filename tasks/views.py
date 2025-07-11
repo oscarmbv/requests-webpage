@@ -162,10 +162,8 @@ def choose_request_type(request):
 def user_records_request(request):
     UserGroupFormSet = formset_factory(UserGroupForm, extra=1, min_num=1, can_delete=False)
     user = request.user
-    is_in_revenue = user_in_group(user, TEAM_REVENUE)
-    is_in_support = user_in_group(user, TEAM_SUPPORT)
 
-    if is_in_revenue and is_in_support:
+    if user_in_group(user, TEAM_REVENUE) and user_in_group(user, TEAM_SUPPORT):
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
         return redirect('tasks:rhino_dashboard')
 
@@ -211,8 +209,16 @@ def user_records_request(request):
             try:
                 # Crear instancia sin commit
                 creation_timestamp = timezone.now()
+
+                on_behalf_of_user = user_records_form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = user
+
+                if user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
                 req_instance = UserRecordsRequest(
-                    requested_by=user,
+                    requested_by=effective_requester,
                     partner_name=user_records_form.cleaned_data['partner_name'],
                     priority=user_records_form.cleaned_data['priority'],
                     special_instructions=user_records_form.cleaned_data['special_instructions'],
@@ -234,6 +240,9 @@ def user_records_request(request):
                     req_instance.status = 'pending'
                     req_instance.scheduled_date = None
                     req_instance.effective_start_time_for_tat = creation_timestamp
+
+                is_in_revenue = user_in_group(effective_requester, TEAM_REVENUE)
+                is_in_support = user_in_group(effective_requester, TEAM_SUPPORT)
 
                 # --- ASIGNAR EQUIPO ---
                 if is_in_revenue:
@@ -300,11 +309,8 @@ def user_records_request(request):
 @user_passes_test(user_belongs_to_revenue_or_support) # Permiso
 def deactivation_toggle_request(request):
     user = request.user
-    is_in_revenue = user_in_group(user, TEAM_REVENUE)
-    is_in_support = user_in_group(user, TEAM_SUPPORT)
-    is_leader = user_in_group(user, TEAM_LEADERSHIPS)
 
-    if is_in_revenue and is_in_support:
+    if user_in_group(user, TEAM_REVENUE) and user_in_group(user, TEAM_SUPPORT):
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
         return redirect('tasks:rhino_dashboard')
 
@@ -314,10 +320,22 @@ def deactivation_toggle_request(request):
         if form.is_valid():
             try:
                 creation_timestamp = timezone.now()
+
+                on_behalf_of_user = form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = user
+
+                if user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
                 deact_toggle_request = form.save(commit=False)
-                deact_toggle_request.requested_by = user
+                deact_toggle_request.requested_by = effective_requester
                 deact_toggle_request.type_of_process = 'deactivation_toggle'
                 deact_toggle_request.timestamp = creation_timestamp
+
+                is_in_revenue = user_in_group(effective_requester, TEAM_REVENUE)
+                is_in_support = user_in_group(effective_requester, TEAM_SUPPORT)
+                is_leader = user_in_group(effective_requester, TEAM_LEADERSHIPS)
 
                 # Lógica de estado inicial (Pending for Approval o Pending) y Programación
                 schedule_request_flag = form.cleaned_data.get('schedule_request')
@@ -442,10 +460,8 @@ def deactivation_toggle_request(request):
 @user_passes_test(user_belongs_to_revenue_or_support) # Permiso
 def unit_transfer_request(request):
     user = request.user
-    is_in_revenue = user_in_group(user, TEAM_REVENUE)
-    is_in_support = user_in_group(user, TEAM_SUPPORT)
 
-    if is_in_revenue and is_in_support:
+    if user_in_group(user, TEAM_REVENUE) and user_in_group(user, TEAM_SUPPORT):
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
         return redirect('tasks:rhino_dashboard')
 
@@ -455,8 +471,16 @@ def unit_transfer_request(request):
         if form.is_valid():
             try:
                 creation_timestamp = timezone.now()
+
+                on_behalf_of_user = form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = user
+
+                if user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
                 unit_transfer_request = form.save(commit=False)
-                unit_transfer_request.requested_by = user
+                unit_transfer_request.requested_by = effective_requester
                 unit_transfer_request.type_of_process = 'unit_transfer'
                 unit_transfer_request.timestamp = creation_timestamp
 
@@ -473,6 +497,9 @@ def unit_transfer_request(request):
                     unit_transfer_request.effective_start_time_for_tat = creation_timestamp
 
                 # --- ASIGNAR EQUIPO ---
+                is_in_revenue = user_in_group(effective_requester, TEAM_REVENUE)
+                is_in_support = user_in_group(effective_requester, TEAM_SUPPORT)
+
                 if is_in_revenue:
                     unit_transfer_request.team = TEAM_REVENUE
                 elif is_in_support:
@@ -1648,10 +1675,8 @@ def manage_prices(request):
 @user_passes_test(user_belongs_to_revenue_or_support)
 def address_validation_request(request):
     user = request.user
-    is_in_revenue = user_in_group(user, 'Revenue')
-    is_in_support = user_in_group(user, 'Support')
 
-    if is_in_revenue and is_in_support:
+    if user_in_group(user, TEAM_REVENUE) and user_in_group(user, TEAM_SUPPORT):
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
         return redirect('tasks:rhino_dashboard')
 
@@ -1670,8 +1695,16 @@ def address_validation_request(request):
             av_request = None
             try:
                 creation_timestamp = timezone.now()
+
+                on_behalf_of_user = form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = user
+
+                if user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
                 av_request = form.save(commit=False)
-                av_request.requested_by = user
+                av_request.requested_by = effective_requester
                 av_request.type_of_process = 'address_validation'
                 av_request.timestamp = creation_timestamp
                 # Importante: No intentar asignar user_file aquí
@@ -1691,7 +1724,9 @@ def address_validation_request(request):
                     av_request.effective_start_time_for_tat = creation_timestamp
                     logger.info(f"AddressValidationRequest by {user.email} created with status 'pending'. TAT start: {creation_timestamp}")
 
-                    # Asignación de equipo (similar a otros forms, ajustar si AV tiene reglas diferentes)
+                # Asignación de equipo (similar a otros forms, ajustar si AV tiene reglas diferentes)
+                is_in_revenue = user_in_group(effective_requester, TEAM_REVENUE)
+                is_in_support = user_in_group(effective_requester, TEAM_SUPPORT)
                 if is_in_revenue:
                     av_request.team = TEAM_REVENUE
                 elif is_in_support:
@@ -1764,12 +1799,20 @@ def address_validation_request(request):
 def stripe_disputes_request(request):
     """Vista para crear una solicitud de Stripe Disputes."""
     if request.method == 'POST':
-        form = StripeDisputesRequestForm(request.POST, request.FILES)
+        form = StripeDisputesRequestForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             try:
                 creation_timestamp = timezone.now()
                 dispute_request = form.save(commit=False)
-                dispute_request.requested_by = request.user
+
+                on_behalf_of_user = form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = request.user
+
+                if request.user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{request.user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
+                dispute_request.requested_by = effective_requester
                 dispute_request.type_of_process = 'stripe_disputes'
                 dispute_request.timestamp = creation_timestamp
                 dispute_request.status = 'pending'
@@ -1809,17 +1852,15 @@ def stripe_disputes_request(request):
             logger.warning(f"StripeDisputesRequestForm is NOT valid. Errors: {form.errors.as_json()}")
             messages.error(request, _('Please correct the errors below.'))
     else: # GET request
-        form = StripeDisputesRequestForm()
+        form = StripeDisputesRequestForm(user=request.user)
     return render(request, 'tasks/stripe_disputes_request.html', {'form': form})
 
 @login_required
 @user_passes_test(user_belongs_to_revenue_or_support) # Permiso
 def property_records_request(request):
     user = request.user
-    is_in_revenue = user_in_group(user, TEAM_REVENUE)
-    is_in_support = user_in_group(user, TEAM_SUPPORT)
 
-    if is_in_revenue and is_in_support:
+    if user_in_group(user, TEAM_REVENUE) and user_in_group(user, TEAM_SUPPORT):
         messages.error(request, _("You have to be in only one of the groups Revenue or Support to create a request."))
         return redirect('tasks:rhino_dashboard')
 
@@ -1829,8 +1870,16 @@ def property_records_request(request):
         if form.is_valid():
             try:
                 creation_timestamp = timezone.now()
+
+                on_behalf_of_user = form.cleaned_data.get('submit_on_behalf_of')
+                effective_requester = user
+
+                if user.is_staff and on_behalf_of_user:
+                    effective_requester = on_behalf_of_user
+                    logger.info(f"Admin '{user.email}' está creando un request en nombre de '{on_behalf_of_user.email}'.")
+
                 prop_request = form.save(commit=False)
-                prop_request.requested_by = user
+                prop_request.requested_by = effective_requester
                 prop_request.type_of_process = 'property_records'
                 prop_request.timestamp = creation_timestamp
 
@@ -1849,6 +1898,9 @@ def property_records_request(request):
                     logger.info(f"PropertyRecordsRequest by {user.email} created with status 'pending'. TAT start: {creation_timestamp}")
 
                 # --- ASIGNAR EQUIPO ---
+                is_in_revenue = user_in_group(effective_requester, TEAM_REVENUE)
+                is_in_support = user_in_group(effective_requester, TEAM_SUPPORT)
+
                 if is_in_revenue:
                     prop_request.team = TEAM_REVENUE
                 elif is_in_support:

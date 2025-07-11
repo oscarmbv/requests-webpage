@@ -88,6 +88,7 @@ class AddressValidationFileInline(admin.TabularInline):
 # --- Configuración Admin para UserRecordsRequest ---
 @admin.register(UserRecordsRequest)
 class UserRecordsRequestAdmin(admin.ModelAdmin):
+    list_select_related = ('requested_by', 'operator', 'qa_agent', 'team')
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
         'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',
