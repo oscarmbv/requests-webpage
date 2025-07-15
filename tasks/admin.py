@@ -89,6 +89,20 @@ class AddressValidationFileInline(admin.TabularInline):
 @admin.register(UserRecordsRequest)
 class UserRecordsRequestAdmin(admin.ModelAdmin):
     list_select_related = ('requested_by', 'operator', 'qa_agent', 'team')
+
+    def get_queryset(self, request):
+        """
+        Optimiza la carga de datos para el listado en el admin.
+        """
+        # Empezamos con el queryset por defecto
+        queryset = super().get_queryset(request)
+        queryset = queryset.prefetch_related(
+            'requested_by__groups',
+            'operator__groups',
+            'qa_agent__groups'
+        )
+        return queryset
+
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
         'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',

@@ -422,7 +422,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
                 message_lines.append(f"Partner: {escape_markdown_v2(request_obj.partner_name)}")
 
             if request_obj.scheduled_date:
-                scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, request_obj.requested_by)
+                scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date)
                 message_lines.append(f"Scheduled for: {escape_markdown_v2(scheduled_date_str)}")
 
             if request_obj.status == 'pending_approval':
@@ -481,7 +481,7 @@ def notify_new_request_created(request_pk, http_request_host=None, http_request_
     initial_reactions = []
 
     if request_obj.scheduled_date:
-        scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date, creator_user)
+        scheduled_date_str = format_datetime_to_str(request_obj.scheduled_date)
         details_list.append(f"> *Scheduled for:* {scheduled_date_str}")
         initial_reactions.append('calendar')
 
@@ -1140,6 +1140,11 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
         else:
             logger.warning(
                 f"'{current_event_key}' para {request_obj.unique_code}: No se pudo encontrar el email del creador original.")
+
+        if blocked_by_user and blocked_by_user.email:
+            recipients_email_set.add(blocked_by_user.email)
+            logger.info(
+                f"Notificación '{current_event_key}': Se añadirá a quien bloqueó la solicitud {blocked_by_user.email}")
 
         email_recipient_list = list(recipients_email_set)
 
