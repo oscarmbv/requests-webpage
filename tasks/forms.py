@@ -124,7 +124,7 @@ class UserGroupForm(forms.Form):
     def clean_user_email_addresses(self):
         # (Esta función de limpieza se mantiene igual)
         emails_input = self.cleaned_data.get('user_email_addresses', '')
-        emails = [email.strip() for line in emails_input.splitlines() for email in line.split(',') if email.strip()]
+        emails = [email.strip().lower() for line in emails_input.splitlines() for email in line.split(',') if email.strip()]
         invalid_emails = []
         for email in emails:
             try: forms.EmailField().clean(email) # Valida formato individual
@@ -618,6 +618,26 @@ class UnitTransferRequestForm(forms.ModelForm):
                     self.add_error('scheduled_date', _("Scheduled date must be tomorrow (your local time) or later."))
 
         return cleaned_data
+
+    def clean_unit_transfer_user_email_addresses(self):
+        emails_input = self.cleaned_data.get('unit_transfer_user_email_addresses', '')
+        if not emails_input:
+            return ''
+        emails = [
+            email.strip().lower() for line in emails_input.splitlines()
+            for email in line.split(',') if email.strip()
+        ]
+        invalid_emails = []
+        for email in emails:
+            try:
+                forms.EmailField().clean(email)
+            except ValidationError:
+                invalid_emails.append(email)
+        if invalid_emails:
+            raise ValidationError(
+                _("Invalid email addresses found: %(emails)s") % {'emails': ', '.join(invalid_emails)}
+            )
+        return "\n".join(emails)
 
 class GeneratingXmlRequestForm(forms.ModelForm):
     """Formulario para crear solicitudes de Generating XML."""
