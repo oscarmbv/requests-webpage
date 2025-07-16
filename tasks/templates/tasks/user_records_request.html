@@ -204,16 +204,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const scheduledDateGroup = document.getElementById("scheduled_date_group");
     const scheduledDateField = document.getElementById("{{ user_records_form.scheduled_date.id_for_label }}");
 
-    const initialGroupsOnLoad = userGroupFormsetContainer.querySelectorAll('.user-group');
-    if (initialGroupsOnLoad.length > 1) {
-        for (let i = 1; i < initialGroupsOnLoad.length; i++) {
-            initialGroupsOnLoad[i].remove(); // Elimina todos los grupos excepto el primero
+    const errorAlert = document.querySelector('.alert.alert-danger');
+        if (!errorAlert) {
+            const allGroups = userGroupFormsetContainer.querySelectorAll('.user-group');
+            if (allGroups.length > 1) {
+                for (let i = 1; i < allGroups.length; i++) {
+                    allGroups[i].remove();
+                }
+            }
+            if (totalFormsInput) {
+                totalFormsInput.value = 1;
+            }
         }
-        totalFormsInput.value = 1; // Ajusta el contador del formset
-    } else if (initialGroupsOnLoad.length === 1 && parseInt(totalFormsInput.value) !== 1) {
-        // Se asegura que si hay un grupo, el contador lo refleje correctamente.
-         totalFormsInput.value = 1;
-    }
 
     const initialGroup = userGroupFormsetContainer.querySelector('.user-group');
 
