@@ -162,7 +162,13 @@
                             {% if form.instance.pk %}{{ form.id }}{% endif %}
                              <div class="mb-3"> <label for="{{ form.type_of_request.id_for_label }}" class="form-label fw-bold">{{ form.type_of_request.label }} <span class="text-danger">*</span></label> {{ form.type_of_request }} {% if form.type_of_request.errors %}<div class="text-danger small mt-1">{{ form.type_of_request.errors|striptags }}</div>{% endif %} </div>
                              <div class="mb-3"> <label for="{{ form.user_email_addresses.id_for_label }}" class="form-label fw-bold">{{ form.user_email_addresses.label }} <span class="text-danger">*</span></label> {{ form.user_email_addresses }} {% if form.user_email_addresses.help_text %}<small class="form-text text-muted">{{ form.user_email_addresses.help_text }}</small>{% endif %} {% if form.user_email_addresses.errors %}<div class="text-danger small mt-1">{{ form.user_email_addresses.errors|striptags }}</div>{% endif %} </div>
-                             <div class="mb-3 form-group" id="access-level-group-{{ forloop.counter0 }}"> <label for="{{ form.access_level.id_for_label }}" class="form-label fw-bold">{{ form.access_level.label }} <span class="text-danger">*</span></label> {{ form.access_level }} {% if form.access_level.errors %}<div class="text-danger small mt-1">{{ form.access_level.errors|striptags }}</div>{% endif %} </div>
+                            <div class="mb-3 form-check" id="deactivate_user_group_{{ forloop.counter0 }}" style="display: none;">
+                                {{ form.deactivate_user }}
+                                <label class="form-check-label" for="{{ form.deactivate_user.id_for_label }}">
+                                    {{ form.deactivate_user.label }}
+                                </label>
+                            </div>
+                            <div class="mb-3 form-group" id="access-level-group-{{ forloop.counter0 }}"> <label for="{{ form.access_level.id_for_label }}" class="form-label fw-bold">{{ form.access_level.label }} <span class="text-danger">*</span></label> {{ form.access_level }} {% if form.access_level.errors %}<div class="text-danger small mt-1">{{ form.access_level.errors|striptags }}</div>{% endif %} </div>
                              <div class="mb-3"> <label for="{{ form.properties.id_for_label }}" class="form-label fw-bold">{{ form.properties.label }} <span class="text-danger">*</span></label> {{ form.properties }} {% if form.properties.help_text %}<small class="form-text text-muted">{{ form.properties.help_text }}</small>{% endif %} {% if form.properties.errors %}<div class="text-danger small mt-1">{{ form.properties.errors|striptags }}</div>{% endif %} </div>
                         </div>{# Fin user-group #}
                     {% endfor %}
@@ -185,255 +191,261 @@
 </div>{# Fin container #}
 {% endblock %}
 
-
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const addGroupButton = document.getElementById('add-group-button');
-        const userGroupFormsetContainer = document.getElementById('user-group-formset');
-        const totalFormsInput = document.getElementById('id_groups-TOTAL_FORMS');
-        const fileInput = document.getElementById("{{ user_records_form.user_file.id_for_label }}"); // ID del campo user_file
-        const linkInput = document.getElementById("{{ user_records_form.user_link.id_for_label }}"); // ID del campo user_link
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Selectores de elementos del DOM ---
+    const addGroupButton = document.getElementById('add-group-button');
+    const userGroupFormsetContainer = document.getElementById('user-group-formset');
+    const totalFormsInput = document.getElementById('id_groups-TOTAL_FORMS');
+    const fileInput = document.getElementById("{{ user_records_form.user_file.id_for_label }}");
+    const linkInput = document.getElementById("{{ user_records_form.user_link.id_for_label }}");
+    const scheduleRequestCheckbox = document.getElementById("{{ user_records_form.schedule_request.id_for_label }}");
+    const scheduledDateGroup = document.getElementById("scheduled_date_group");
+    const scheduledDateField = document.getElementById("{{ user_records_form.scheduled_date.id_for_label }}");
 
-        // --- NUEVOS ELEMENTOS PARA PROGRAMACIÓN ---
-        const scheduleRequestCheckbox = document.getElementById("{{ user_records_form.schedule_request.id_for_label }}");
-        const scheduledDateGroup = document.getElementById("scheduled_date_group"); // Contenedor del campo de fecha
-        const scheduledDateField = document.getElementById("{{ user_records_form.scheduled_date.id_for_label }}");
-        // -----------------------------------------
-
-        // --- VERIFICACIÓN INICIAL (sin cambios) ---
-        const initialGroups = userGroupFormsetContainer.querySelectorAll('.user-group');
-        if (initialGroups.length > 1) {
-            for (let i = 1; i < initialGroups.length; i++) {
-                initialGroups[i].remove();
-            }
-            totalFormsInput.value = 1;
-        } else if (initialGroups.length === 1 && parseInt(totalFormsInput.value) !== 1) {
-             totalFormsInput.value = 1;
+    const initialGroupsOnLoad = userGroupFormsetContainer.querySelectorAll('.user-group');
+    if (initialGroupsOnLoad.length > 1) {
+        for (let i = 1; i < initialGroupsOnLoad.length; i++) {
+            initialGroupsOnLoad[i].remove(); // Elimina todos los grupos excepto el primero
         }
-        const initialGroup = userGroupFormsetContainer.querySelector('.user-group');
+        totalFormsInput.value = 1; // Ajusta el contador del formset
+    } else if (initialGroupsOnLoad.length === 1 && parseInt(totalFormsInput.value) !== 1) {
+        // Se asegura que si hay un grupo, el contador lo refleje correctamente.
+         totalFormsInput.value = 1;
+    }
 
-        // --- FUNCIONES (clearInputs, updateAccessLevelState, updateFormIndices, handleTypeChange, handleRemove, toggleGroupFieldsDisabledState) ---
-        // (Estas funciones permanecen igual que en la versión anterior)
-        function clearInputs(group) {
-            group.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(element => {
-                if (element.type === 'checkbox' || element.type === 'radio') {
-                     element.checked = false;
-                 } else if (element.tagName === 'SELECT') {
-                     element.selectedIndex = 0;
-                 } else {
-                     element.value = '';
+    const initialGroup = userGroupFormsetContainer.querySelector('.user-group');
+
+    // --- NUEVA FUNCIÓN ---
+    // Centraliza la lógica para actualizar los campos de un grupo según el "Type of Request".
+    function updateGroupFieldsBasedOnType(group) {
+        // Obtenemos los elementos relevantes dentro del grupo específico
+        const typeOfRequestSelect = group.querySelector('select[name$="-type_of_request"]');
+        const accessLevelGroup = group.querySelector('.form-group[id^="access-level-group-"]');
+        const accessLevelSelect = group.querySelector('select[name$="-access_level"]');
+        const accessLevelLabel = accessLevelGroup ? accessLevelGroup.querySelector('label') : null;
+        const accessLevelAsterisk = accessLevelLabel ? accessLevelLabel.querySelector('span.text-danger') : null;
+
+        // --- NUEVO: Elementos para el checkbox 'deactivate_user' ---
+        const deactivateUserGroup = group.querySelector('[id^="deactivate_user_group_"]');
+        const deactivateUserCheckbox = group.querySelector('input[name$="-deactivate_user"]');
+
+        if (!typeOfRequestSelect || !accessLevelGroup || !deactivateUserGroup) {
+            return; // Salir si no se encuentran los elementos clave
+        }
+
+        const isRemoveType = typeOfRequestSelect.value === 'remove';
+
+        // --- Lógica para Access Level ---
+        if (isRemoveType) {
+            accessLevelSelect.disabled = true;
+            accessLevelSelect.required = false;
+            accessLevelSelect.value = ''; // Limpiar selección
+            accessLevelSelect.classList.add('disabled-field');
+            if (accessLevelAsterisk) accessLevelAsterisk.style.display = 'none';
+        } else {
+            accessLevelSelect.disabled = false;
+            accessLevelSelect.required = true;
+            accessLevelSelect.classList.remove('disabled-field');
+            if (accessLevelAsterisk) accessLevelAsterisk.style.display = '';
+        }
+
+        // --- NUEVO: Lógica para Deactivate User Checkbox ---
+        if (isRemoveType) {
+            deactivateUserGroup.style.display = 'block'; // Mostrar el contenedor del checkbox
+        } else {
+            deactivateUserGroup.style.display = 'none'; // Ocultar
+            deactivateUserCheckbox.checked = false; // Desmarcar por si el usuario cambió de opinión
+        }
+    }
+
+
+    function clearInputs(group) {
+        group.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(element => {
+            if (element.type === 'checkbox' || element.type === 'radio') {
+                 element.checked = false;
+             } else if (element.tagName === 'SELECT') {
+                 element.selectedIndex = 0;
+             } else {
+                 element.value = '';
+             }
+            element.disabled = false;
+            element.required = element.hasAttribute('data-required-default');
+            element.classList.remove('disabled-access');
+             const label = element.closest('.form-group')?.querySelector('label');
+             if (label) {
+                 const asterisk = label.querySelector('span.text-danger');
+                 if (asterisk) {
+                     asterisk.style.display = '';
                  }
-                element.disabled = false;
-                element.required = element.hasAttribute('data-required-default');
-                element.classList.remove('disabled-access');
-                 const label = element.closest('.form-group')?.querySelector('label');
-                 if (label) {
-                     const asterisk = label.querySelector('span.text-danger');
-                     if (asterisk) {
-                         asterisk.style.display = '';
-                     }
+             }
+        });
+
+        // --- MODIFICADO ---
+        // Al final de limpiar, nos aseguramos que el estado de los campos sea el correcto.
+        updateGroupFieldsBasedOnType(group);
+
+        const removeButton = group.querySelector('.remove-group-button');
+         if (removeButton) {
+             removeButton.closest('div').remove();
+         }
+    }
+
+    function updateFormIndices() {
+        const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
+        totalFormsInput.value = groups.length;
+
+        groups.forEach((group, index) => {
+            group.querySelector('h3').textContent = `Group ${index + 1}`;
+            const regex = /groups-\d+-/g;
+            const newPrefix = `groups-${index}-`;
+
+            group.querySelectorAll('input, select, textarea, label').forEach(el => {
+                ['name', 'id', 'for'].forEach(attr => {
+                    if (el.hasAttribute(attr)) {
+                        el.setAttribute(attr, el.getAttribute(attr).replace(regex, newPrefix));
+                    }
+                });
+                 if(index === 0 && !el.hasAttribute('data-required-default')) {
+                    if(el.required) {
+                       el.setAttribute('data-required-default', 'true');
+                    }
                  }
             });
+
+            // Lógica para el botón de eliminar (sin cambios)
+            let removeButtonContainer = group.querySelector('.position-absolute.top-0.end-0');
+            if (index > 0) {
+                 if (!removeButtonContainer) {
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'position-absolute top-0 end-0 p-2';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-danger btn-sm remove-group-button';
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>';
+                    btn.setAttribute('aria-label', 'Remove Group');
+                    btn.addEventListener('click', handleRemove);
+                     btnContainer.appendChild(btn);
+                     group.appendChild(btnContainer);
+                 }
+             } else if (removeButtonContainer) {
+                 removeButtonContainer.remove();
+             }
+
             const typeDropdown = group.querySelector('select[name$="-type_of_request"]');
-             if (typeDropdown) {
-                  updateAccessLevelState(group, typeDropdown.value);
-             }
-             const removeButton = group.querySelector('.remove-group-button');
-             if (removeButton) {
-                 removeButton.closest('div').remove();
-             }
-        }
-
-        function updateAccessLevelState(group, typeValue) {
-            const accessLevelSelect = group.querySelector('select[name$="-access_level"]');
-            const accessLevelGroup = accessLevelSelect ? accessLevelSelect.closest('.form-group') : null;
-            const accessLevelLabel = accessLevelGroup ? accessLevelGroup.querySelector('label') : null;
-            const asterisk = accessLevelLabel ? accessLevelLabel.querySelector('span.text-danger') : null;
-
-            if (accessLevelSelect && accessLevelGroup) {
-                 if (typeValue === 'remove') {
-                    accessLevelSelect.disabled = true;
-                    accessLevelSelect.required = false;
-                    accessLevelSelect.value = '';
-                    accessLevelGroup.style.display = '';
-                    accessLevelSelect.classList.add('disabled-field');
-                    if (asterisk) asterisk.style.display = 'none';
-                 } else {
-                    accessLevelSelect.disabled = false;
-                    accessLevelSelect.required = true;
-                    accessLevelGroup.style.display = '';
-                    accessLevelSelect.classList.remove('disabled-field');
-                    if (asterisk) asterisk.style.display = '';
-                 }
-             }
-        }
-
-        function updateFormIndices() {
-            const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
-            totalFormsInput.value = groups.length;
-
-            groups.forEach((group, index) => {
-                group.querySelector('h3').textContent = `Group ${index + 1}`;
-                const regex = /groups-\d+-/g;
-                const newPrefix = `groups-${index}-`;
-
-                group.querySelectorAll('input, select, textarea, label').forEach(el => {
-                    ['name', 'id', 'for'].forEach(attr => {
-                        if (el.hasAttribute(attr)) {
-                            el.setAttribute(attr, el.getAttribute(attr).replace(regex, newPrefix));
-                        }
-                    });
-                     if(index === 0 && !el.hasAttribute('data-required-default')) {
-                        if(el.required) {
-                           el.setAttribute('data-required-default', 'true');
-                        }
-                     }
-                });
-
-                let removeButtonContainer = group.querySelector('.position-absolute.top-0.end-0');
-                if (index > 0) {
-                     if (!removeButtonContainer) {
-                        const btnContainer = document.createElement('div');
-                        btnContainer.className = 'position-absolute top-0 end-0 p-2';
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.className = 'btn btn-danger btn-sm remove-group-button';
-                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>';
-                        btn.setAttribute('aria-label', 'Remove Group');
-                        btn.addEventListener('click', handleRemove);
-                         btnContainer.appendChild(btn);
-                         group.appendChild(btnContainer);
-                     }
-                 } else if (removeButtonContainer) {
-                     removeButtonContainer.remove();
-                 }
-
-                const typeDropdown = group.querySelector('select[name$="-type_of_request"]');
-                if (typeDropdown) {
-                    updateAccessLevelState(group, typeDropdown.value);
-                     typeDropdown.removeEventListener('change', handleTypeChange);
-                     typeDropdown.addEventListener('change', handleTypeChange);
-                }
-            });
-            // Usar fileInput y linkInput (variables ya definidas globalmente en este script)
-            toggleGroupFieldsDisabledState(!!(fileInput.value || linkInput.value));
-        }
-
-        function handleTypeChange() {
-             const group = this.closest('.user-group');
-             updateAccessLevelState(group, this.value);
-        }
-
-        function handleRemove(event) {
-            const group = event.target.closest('.user-group');
-            if (userGroupFormsetContainer.querySelectorAll('.user-group').length > 1) {
-                group.remove();
-                updateFormIndices();
-            } else {
-                alert('At least one group is required.');
+            if (typeDropdown) {
+                 typeDropdown.removeEventListener('change', handleTypeChange);
+                 typeDropdown.addEventListener('change', handleTypeChange);
+                 // --- MODIFICADO ---
+                 // Aseguramos el estado correcto para CADA grupo durante la re-indexación
+                 updateGroupFieldsBasedOnType(group);
             }
+        });
+
+        toggleGroupFieldsDisabledState(!!(fileInput.value || linkInput.value));
+    }
+
+    // --- MODIFICADO ---
+    // handleTypeChange ahora es mucho más simple.
+    function handleTypeChange() {
+         const group = this.closest('.user-group');
+         updateGroupFieldsBasedOnType(group);
+    }
+
+    function handleRemove(event) {
+        const group = event.target.closest('.user-group');
+        if (userGroupFormsetContainer.querySelectorAll('.user-group').length > 1) {
+            group.remove();
+            updateFormIndices();
+        } else {
+            alert('At least one group is required.');
         }
+    }
 
-        function toggleGroupFieldsDisabledState(disabled) {
-            const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
-            groups.forEach(group => {
-                const inputs = group.querySelectorAll('input:not([type="hidden"]), textarea, select');
-                inputs.forEach(input => {
-                    input.disabled = disabled;
-                    if (disabled) {
-                        input.classList.add('disabled-access');
-                         if (input.type === 'checkbox' || input.type === 'radio') input.checked = false;
-                         else if (input.tagName !== 'SELECT') input.value = '';
-                         else input.selectedIndex = 0;
-                         input.required = false;
-                    } else {
-                        input.classList.remove('disabled-access');
-                         input.required = input.hasAttribute('data-required-default');
-                         if (input.name.endsWith('-type_of_request')) {
-                             updateAccessLevelState(group, input.value);
-                         } else if (input.name.endsWith('-access_level')) {
-                            const typeReq = group.querySelector('select[name$="-type_of_request"]').value;
-                            if(typeReq !== 'remove') {
-                                 input.disabled = false;
-                                 input.required = true;
-                                 input.closest('.form-group').style.display = '';
-                            }
-                         }
-                    }
-                    const label = group.querySelector(`label[for="${input.id}"]`);
-                    if (label) {
-                        const asterisk = label.querySelector('span.text-danger');
-                        if (asterisk) {
-                            asterisk.style.display = disabled ? 'none' : '';
-                        }
-                         if (input.name.endsWith('-access_level') && !disabled) {
-                            const typeReq = group.querySelector('select[name$="-type_of_request"]').value;
-                            if (asterisk) asterisk.style.display = (typeReq !== 'remove') ? '' : 'none';
-                         }
-                    }
-                });
-            });
-            addGroupButton.disabled = disabled;
-             if(disabled) { addGroupButton.classList.add('disabled-access'); }
-             else { addGroupButton.classList.remove('disabled-access'); }
-        }
-        // --- FIN FUNCIONES ANTERIORES ---
-
-
-        // --- NUEVA FUNCIÓN PARA MANEJAR LA VISIBILIDAD DE scheduled_date_group ---
-        function toggleScheduledDateVisibility() {
-            if (scheduleRequestCheckbox && scheduledDateGroup && scheduledDateField) {
-                if (scheduleRequestCheckbox.checked) {
-                    scheduledDateGroup.style.display = 'block'; // Mostrar el grupo
-                    scheduledDateField.required = true;       // Hacer el campo de fecha obligatorio
+    function toggleGroupFieldsDisabledState(disabled) {
+        const groups = userGroupFormsetContainer.querySelectorAll('.user-group');
+        groups.forEach(group => {
+            const inputs = group.querySelectorAll('input:not([type="hidden"]), textarea, select');
+            inputs.forEach(input => {
+                input.disabled = disabled;
+                if (disabled) {
+                    // ... (resto de la lógica de deshabilitación sin cambios)
+                    input.classList.add('disabled-access');
+                    if (input.type === 'checkbox' || input.type === 'radio') input.checked = false;
+                    else if (input.tagName !== 'SELECT') input.value = '';
+                    else input.selectedIndex = 0;
+                    input.required = false;
                 } else {
-                    scheduledDateGroup.style.display = 'none';  // Ocultar el grupo
-                    scheduledDateField.required = false;      // No es obligatorio si está oculto
-                    scheduledDateField.value = '';            // Opcional: limpiar el valor al ocultar
+                    input.classList.remove('disabled-access');
+                    input.required = input.hasAttribute('data-required-default');
                 }
-            }
-        }
-        // ---------------------------------------------------------------------
+                const label = group.querySelector(`label[for="${input.id}"]`);
+                if (label) {
+                    const asterisk = label.querySelector('span.text-danger');
+                    if (asterisk) {
+                        asterisk.style.display = disabled ? 'none' : '';
+                    }
+                }
+            });
 
-
-        // --- EVENT LISTENERS ---
-        // Listener para fileInput y linkInput (sin cambios)
-        [fileInput, linkInput].forEach(el => {
-            if (el) {
-                 const eventType = (el.type === 'file') ? 'change' : 'input';
-                 el.addEventListener(eventType, () => {
-                    const fileProvided = fileInput && fileInput.files && fileInput.files.length > 0;
-                    const linkProvided = linkInput && linkInput.value.trim() !== '';
-                    toggleGroupFieldsDisabledState(!!(fileProvided || linkProvided));
-                });
+            // --- MODIFICADO ---
+            // Si no estamos deshabilitando todo, nos aseguramos que la lógica por tipo se aplique.
+            if (!disabled) {
+                updateGroupFieldsBasedOnType(group);
             }
         });
+        addGroupButton.disabled = disabled;
+         if(disabled) { addGroupButton.classList.add('disabled-access'); }
+         else { addGroupButton.classList.remove('disabled-access'); }
+    }
 
-        // Listener para addGroupButton (sin cambios)
-        addGroupButton.addEventListener('click', () => {
-            if (!initialGroup) { console.error("Initial group template not found!"); return; }
-             const newGroup = initialGroup.cloneNode(true);
-             clearInputs(newGroup);
-             userGroupFormsetContainer.appendChild(newGroup);
-             updateFormIndices();
-        });
-
-        // --- NUEVO LISTENER para el checkbox de programación ---
-        if (scheduleRequestCheckbox) {
-            scheduleRequestCheckbox.addEventListener('change', toggleScheduledDateVisibility);
+    // Función para la programación de la tarea (sin cambios)
+    function toggleScheduledDateVisibility() {
+        if (scheduleRequestCheckbox && scheduledDateGroup && scheduledDateField) {
+            if (scheduleRequestCheckbox.checked) {
+                scheduledDateGroup.style.display = 'block';
+                scheduledDateField.required = true;
+            } else {
+                scheduledDateGroup.style.display = 'none';
+                scheduledDateField.required = false;
+                scheduledDateField.value = '';
+            }
         }
-        // ---------------------------------------------------
+    }
 
-
-        // --- LLAMADAS INICIALES ---
-        updateFormIndices(); // Llamada inicial importante para el formset
-        toggleScheduledDateVisibility(); // Llamada inicial para el campo de fecha programada
-        // -------------------------
-
+    // --- EVENT LISTENERS ---
+    [fileInput, linkInput].forEach(el => {
+        if (el) {
+             const eventType = (el.type === 'file') ? 'change' : 'input';
+             el.addEventListener(eventType, () => {
+                const fileProvided = fileInput && fileInput.files && fileInput.files.length > 0;
+                const linkProvided = linkInput && linkInput.value.trim() !== '';
+                toggleGroupFieldsDisabledState(!!(fileProvided || linkProvided));
+            });
+        }
     });
+
+    addGroupButton.addEventListener('click', () => {
+        if (!initialGroup) { console.error("Initial group template not found!"); return; }
+         const newGroup = initialGroup.cloneNode(true);
+         clearInputs(newGroup);
+         userGroupFormsetContainer.appendChild(newGroup);
+         updateFormIndices();
+    });
+
+    if (scheduleRequestCheckbox) {
+        scheduleRequestCheckbox.addEventListener('change', toggleScheduledDateVisibility);
+    }
+
+    // --- LLAMADAS INICIALES ---
+    // Esta llamada inicial ahora configurará todo correctamente desde el principio.
+    updateFormIndices();
+    toggleScheduledDateVisibility();
+
+});
 </script>
-{# Estilo para campos deshabilitados y widgets (sin cambios) #}
+
 <style>
     .disabled-access { background-color: #e9ecef !important; opacity: 0.7; cursor: not-allowed; }
     .form-group select, .form-group textarea, .form-group input[type="text"],

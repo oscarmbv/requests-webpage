@@ -157,10 +157,23 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         )
         return queryset
 
+    @admin.display(description='Deactivate User?', boolean=True)
+    def display_deactivation_flag(self, obj):
+        """
+        Muestra un ícono de check si algún grupo en el request
+        tiene la bandera de desactivación activada.
+        """
+        if obj.user_groups_data:
+            # Revisa cada grupo dentro del JSON
+            for group in obj.user_groups_data:
+                if group.get('deactivate_user'):
+                    return True  # Si encuentra al menos uno, devuelve True y para.
+        return False
+
     list_display = (
         'unique_code', 'type_of_process', 'requested_by_link', 'partner_name', 'priority','team', 'status',
         'operator_link', 'qa_agent_link', 'timestamp', 'completed_at', 'slack_thread_ts', 'email_thread_id',
-        'grand_total_client_price_completed', 'discount_percentage', 'discount_percentage',
+        'grand_total_client_price_completed', 'discount_percentage', 'discount_percentage', 'display_deactivation_flag',
     )
     list_filter = ('status', 'type_of_process', 'team', 'priority', 'timestamp', 'operator', 'qa_agent', 'requested_by')
     search_fields = ('unique_code', 'partner_name', 'requested_by__email', 'operator__email', 'qa_agent__email', 'special_instructions', 'team', 'priority')

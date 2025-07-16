@@ -77,6 +77,12 @@ class UserGroupForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-select'}),
         required=True # Asumiendo que siempre se requiere
     )
+    deactivate_user = forms.BooleanField(
+        label="Deactivate user(s) from portal?",
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
     user_email_addresses = forms.CharField(
         label='User Email Address(es)',
         widget=forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3, 'placeholder': 'email1@example.com, email2@example.com\nemail3@example.com'}), # Añadido form-control-sm

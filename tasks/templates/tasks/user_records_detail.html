@@ -334,7 +334,63 @@
 
     {# --- Sección: User Groups Data (Tabla) --- #}
     {% if user_request.type_of_process == 'user_records' and user_request.user_groups_data %}
-        <div class="card shadow-sm mb-4"> <div class="card-header"> User Groups Details (From Manual Input) </div> <div class="card-body"> <div class="table-responsive"> <table class="table table-sm table-bordered small"> <thead> <tr> <th>#</th> <th>Type of Request</th> <th>Access Level</th> <th>User Email Address(es)</th> <th>Properties</th> </tr> </thead> <tbody> {% for group_data in processed_user_groups %} <tr> <td>{{ forloop.counter }}</td> <td>{{ group_data.type_of_request|default:"N/A"|title }}</td> <td>{{ group_data.access_level_display|default:"N/A" }}</td> <td> {% if group_data.user_email_addresses|length > 0 %} {{ group_data.user_email_addresses|join:", " }} {% else %} {{ group_data.user_email_addresses|default:"N/A" }} {% endif %} </td> <td> {% if group_data.properties|length > 0 %} {{ group_data.properties|join:", " }} {% else %} {{ group_data.properties|default:"N/A" }} {% endif %} </td> </tr> {% empty %} <tr> <td colspan="5" class="text-center text-muted fst-italic">No group data found or format is incorrect.</td> </tr> {% endfor %} </tbody> </table> </div> </div> </div>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header"> User Groups Details (From Manual Input) </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered small">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type of Request</th>
+                                {# --- CAMBIO 1: Se añade la nueva columna --- #}
+                                <th class="text-center">Deactivate User?</th>
+                                <th>Access Level</th>
+                                <th>User Email Address(es)</th>
+                                <th>Properties</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group_data in processed_user_groups %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ group_data.type_of_request|default:"N/A"|title }}</td>
+
+                                {# --- CAMBIO 2: Se añade la celda con la lógica --- #}
+                                <td class="text-center">
+                                    {% if group_data.deactivate_user %}
+                                        <span class="text-danger fw-bold"><i class="bi bi-check-circle-fill"></i> Yes</span>
+                                    {% else %}
+                                        <span>No</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>{{ group_data.access_level_display|default:"N/A" }}</td>
+                                <td>
+                                    {% if group_data.user_email_addresses|length > 0 %}
+                                        {{ group_data.user_email_addresses|join:", " }}
+                                    {% else %}
+                                        {{ group_data.user_email_addresses|default:"N/A" }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if group_data.properties|length > 0 %}
+                                        {{ group_data.properties|join:", " }}
+                                    {% else %}
+                                        {{ group_data.properties|default:"N/A" }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted fst-italic">No group data found or format is incorrect.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     {% endif %}
 
     {# --- Sección: Historial de Acciones --- #}

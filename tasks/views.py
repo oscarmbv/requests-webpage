@@ -193,6 +193,7 @@ def user_records_request(request):
                                  'type_of_request': form.cleaned_data.get('type_of_request'),
                                  'user_email_addresses': cleaned_emails,
                                  'access_level': form.cleaned_data.get('access_level'),
+                                 'deactivate_user': form.cleaned_data.get('deactivate_user', False),
                                  'properties': cleaned_properties,
                              })
             else:
@@ -224,7 +225,8 @@ def user_records_request(request):
                     special_instructions=user_records_form.cleaned_data['special_instructions'],
                     user_file=user_file,
                     user_link=user_link,
-                    user_groups_data=group_data if group_data else None, # Guardar si hay datos
+                    user_groups_data=group_data if group_data else None,
+                    deactivate_user=user_records_form.cleaned_data.get('deactivate_user', False),
                     type_of_process='user_records',
                     timestamp=creation_timestamp
                 )

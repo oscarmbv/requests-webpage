@@ -89,6 +89,10 @@ class UserRecordsRequest(models.Model):
     properties = models.TextField(blank=True, null=True, verbose_name="Properties Affected")
     user_groups_data = models.JSONField(null=True, blank=True) # Datos para User Records
     special_instructions = models.TextField(blank=True)
+    deactivate_user = models.BooleanField(
+        default=False,
+        help_text="Set to true if the user(s) in the request should be deactivated from the portal."
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
