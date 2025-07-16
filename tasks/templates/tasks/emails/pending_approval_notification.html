@@ -21,7 +21,7 @@
         <div class="header">{{ subject }}</div>
         <div class="content">
             <p>Hello,</p>
-            <p>A new <strong>{{ request_obj.get_deactivation_toggle_type_display }}</strong> request ({{ request_obj.unique_code }}) requires your approval.</p>
+            <p>A new <strong>{{ request_type_display }}</strong> request ({{ request_obj.unique_code }}) requires your approval.</p>
             <p>Submitted by: <strong>{{ request_obj.requested_by.email }}</strong></p>
 
             <ul class="details-list">

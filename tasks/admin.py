@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django_q.tasks import async_task
-from django.contrib import messages
+from django.contrib import admin, messages
 from .models import UserRecordsRequest
 from decimal import Decimal
 
@@ -85,10 +85,64 @@ class AddressValidationFileInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None): return False
     def has_change_permission(self, request, obj=None): return False
 
+@admin.action(description='Set status to: Pending for Approval & Notify')
+def set_pending_for_approval(modeladmin, request, queryset):
+    """
+    Acción de admin para cambiar el estado de los requests seleccionados
+    a 'pending_approval' y encolar la notificación correspondiente.
+    """
+    # Contadores para el mensaje de éxito
+    updated_count = 0
+    skipped_count = 0
+
+    # Obtenemos los datos del host para las notificaciones
+    current_host = request.get_host()
+    current_scheme = request.scheme
+
+    # Iteramos sobre los requests que el admin seleccionó en la lista
+    for req in queryset:
+        # Solo actuamos sobre requests de los tipos correctos y que estén en estado 'pending'
+        if req.type_of_process in ['property_records', 'unit_transfer'] and req.status == 'pending':
+
+            # 1. Cambiamos el estado
+            req.status = 'pending_approval'
+            req.effective_start_time_for_tat = None
+            req.save(update_fields=['status'])
+
+            # 2. Encolamos la tarea de notificación de aprobación
+            async_task(
+                'tasks.notifications.notify_pending_approval_request',
+                req.pk,
+                http_request_host=current_host,
+                http_request_scheme=current_scheme,
+                task_name=f"NotifyPendingApproval-Admin-{req.unique_code}"
+            )
+            updated_count += 1
+        else:
+            # Si un request no es elegible, lo ignoramos y contamos
+            skipped_count += 1
+
+    # Mostramos un mensaje de éxito al admin
+    if updated_count > 0:
+        modeladmin.message_user(
+            request,
+            _('%(count)d request(s) were successfully updated to "Pending for Approval" and notifications have been queued.') % {
+                'count': updated_count},
+            messages.SUCCESS
+        )
+    # Mostramos un mensaje informativo si algunos no se pudieron actualizar
+    if skipped_count > 0:
+        modeladmin.message_user(
+            request,
+            _('%(count)d request(s) were skipped because their status was not "Pending" or they were not of the correct type.') % {
+                'count': skipped_count},
+            messages.WARNING
+        )
+
 # --- Configuración Admin para UserRecordsRequest ---
 @admin.register(UserRecordsRequest)
 class UserRecordsRequestAdmin(admin.ModelAdmin):
-    list_select_related = ('requested_by', 'operator', 'qa_agent', 'team')
+    list_select_related = ('requested_by', 'operator', 'qa_agent')
 
     def get_queryset(self, request):
         """
@@ -245,7 +299,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
     )
     inlines = [AddressValidationFileInline, BlockedMessageInline, ResolvedMessageInline, RejectedMessageInline]
 
-    actions = ['trigger_salesforce_sync_action', 'trigger_scheduled_jobs_action']
+    actions = [set_pending_for_approval, 'trigger_salesforce_sync_action', 'trigger_scheduled_jobs_action']
 
     def calculated_final_price(self, obj):
         """

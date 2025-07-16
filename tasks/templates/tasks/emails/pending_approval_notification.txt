@@ -3,7 +3,7 @@ Subject: {{ subject }}
 
 Hello,
 
-A new {{ request_obj.get_deactivation_toggle_type_display }} request ({{ request_obj.unique_code }}) requires your approval.
+A new {{ request_type_display }} request ({{ request_obj.unique_code }}) requires your approval.
 Submitted by: {{ request_obj.requested_by.email }}
 
 Details:

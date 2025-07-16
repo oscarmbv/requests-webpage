@@ -517,7 +517,7 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
         logger.error(f"{current_event_key}: UserRecordsRequest con pk {request_pk} no encontrada.")
         return
 
-    if request_obj.type_of_process != 'deactivation_toggle' or request_obj.status != 'pending_approval':
+    if request_obj.status != 'pending_approval':
         logger.warning(
             f"{current_event_key} llamada para solicitud {request_obj.unique_code} que no es Deactivation/Toggle o no está Pending Approval. Status: {request_obj.status}, Type: {request_obj.type_of_process}")
         return
@@ -538,13 +538,13 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
     # ---- Lógica de Email (solo si está habilitado) ----
     # ----> 2. VERIFICA EL TOGGLE ANTES DE ENVIAR EL EMAIL <----
     if is_email_notification_enabled(current_event_key):
-        deactivation_type_display = request_obj.get_deactivation_toggle_type_display()
-        subject = f"Approval Needed: {request_obj.unique_code} - {deactivation_type_display}"
+        type_display = request_obj.get_type_of_process_display()
+        subject = f"Approval Needed: {request_obj.unique_code} - {type_display}"
 
         email_context = {
             'subject': subject,
             'request_obj': request_obj,
-            # request_url se añade dentro de send_request_notification_email
+            'request_type_display': type_display,
         }
         email_recipient_list = ['info@gryphuslabs.com']
         primary_recipient = os.getenv('APPROVAL_RECIPIENT')
@@ -570,11 +570,11 @@ def notify_pending_approval_request(request_pk, http_request_host=None, http_req
         req_code_escaped = escape_markdown_v2(request_obj.unique_code)
 
         requested_by_text = request_obj.requested_by.email
-        deactivation_type_text = request_obj.get_deactivation_toggle_type_display()  # Texto crudo
+        type_display_text = request_obj.get_type_of_process_display()
         requested_at_text = timestamp_in_caracas.strftime("%Y-%m-%d %H:%M %Z")  # Texto crudo
 
         # Escapar las partes del mensaje que necesitan ser literales
-        line1_part1 = escape_markdown_v2(f"New {deactivation_type_text} request sent by: {requested_by_text}, at {requested_at_text} and needs approval.")
+        line1_part1 = escape_markdown_v2(f"New {type_display_text} request sent by: {requested_by_text}, at {requested_at_text} and needs approval.")
         line1_part2 = escape_markdown_v2("Notification email has been sent asking for approval.")
 
         partner_line_telegram = ""
