@@ -1592,9 +1592,6 @@ def reject_request(request, pk):
 @user_passes_test(is_leadership)
 def approve_deactivation_toggle(request, pk):
     user_request = get_object_or_404(UserRecordsRequest, pk=pk)
-    if user_request.type_of_process != 'deactivation_toggle':
-        messages.error(request, _("This action is only valid for Deactivation/Toggle requests."))
-        return redirect('tasks:request_detail', pk=pk)
     if user_request.status != 'pending_approval':
         messages.error(request, _("This request is not pending approval."))
         return redirect('tasks:request_detail', pk=pk)

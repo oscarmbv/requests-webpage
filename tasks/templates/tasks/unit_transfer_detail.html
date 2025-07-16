@@ -406,7 +406,7 @@
                     </button>
                 {% endif %}
             {% endif %}
-            {% if user_request.type_of_process == 'deactivation_toggle' and user_request.status == 'pending_approval' and is_leadership_user %} <button type="submit" formaction="{% url 'tasks:approve_deactivation_toggle' user_request.id %}" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-lg me-1"></i>{% trans "Approve" %}</button> {% endif %}
+            {% if user_request.type_of_process == 'unit_transfer' and user_request.status == 'pending_approval' and is_leadership_user %} <button type="submit" formaction="{% url 'tasks:approve_deactivation_toggle' user_request.id %}" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-lg me-1"></i>{% trans "Approve" %}</button> {% endif %}
             {% if user_request.status == 'blocked' %} <a href="#resolveFormModal_ut" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-unlock-fill me-1"></i>{% trans "Resolve" %}</a> {% endif %}
             {% if can_reject_request %} <a href="#rejectFormModal_ut" data-bs-toggle="modal" class="btn btn-danger btn-sm me-1 mb-1"><i class="bi bi-x-octagon-fill me-1"></i>{% trans "Reject" %}</a> {% endif %}
             {% if can_request_update_action %}
