@@ -10,10 +10,21 @@
         .header { font-size: 22px; color: #198754; /* Verde para resuelto */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
         .content p, .content li { margin-bottom: 10px; font-size: 16px; }
         .content strong { color: #444444; }
-        .resolution-message { background-color: #e6ffed; border-left: 4px solid #198754; color: #155724; padding: 15px; margin-top: 15px; margin-bottom: 15px; white-space: pre-wrap; }
         .link a { color: #007bff; text-decoration: none; font-weight: bold; }
         .link a:hover { text-decoration: underline; }
         .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+
+        .message-box {
+            background-color: #d1e7dd;
+            border-left: 4px solid #198754;
+            color: #0a3622;
+            padding: 12px 15px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -24,9 +35,7 @@
             <p>The blocked request <strong>{{ request_obj.unique_code }}</strong> ({{ request_obj.get_type_of_process_display }}) has been resolved by <strong>{{ resolved_by_user.email }}</strong>.</p>
 
             <p><strong>Resolution Message:</strong></p>
-            <div class="resolution-message">
-                {{ resolution_message_text|linebreaksbr }}
-            </div>
+            <div class="message-box">{{ resolution_message_text|linebreaksbr }}</div>
 
             <p>The request is now back in status: <strong>{{ request_obj.get_status_display }}</strong> and processing can continue.</p>
 

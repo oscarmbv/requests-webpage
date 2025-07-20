@@ -4,17 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ subject }}</title>
-    <style>
+   <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header { font-size: 22px; color: #dc3545; /* Color rojo/alerta para bloqueo */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
+        .header { font-size: 22px; color: #dc3545; margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
         .content p, .content li { margin-bottom: 10px; font-size: 16px; }
         .content strong { color: #444444; }
         .details-list { list-style-type: none; padding-left: 0; margin-top:15px; }
-        .blocked-message { background-color: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; padding: 15px; margin-top: 15px; margin-bottom: 15px; white-space: pre-wrap; }
-        .action-link a { display: inline-block; background-color: #28a745; /* Verde para resolver */ color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 15px; }
+        .action-link a { display: inline-block; background-color: #28a745; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 15px; }
         .action-link a:hover { background-color: #218838; }
         .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+
+        .message-box {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+            padding: 12px 15px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -41,9 +52,7 @@
             </p>
 
             <p><strong>Reason for Blocking (provided by {{ blocked_by_user.email }}):</strong></p>
-            <div class="blocked-message">
-                {{ block_reason_text|linebreaksbr }}
-            </div>
+            <div class="message-box">{{ block_reason_text|linebreaksbr }}</div>
 
             {% if request_url and request_url != "#" %}
             <p>To resolve this, please click the link below to go to the request details page. Once there, click the "Resolve" button to provide the necessary information or corrections.</p>

@@ -10,10 +10,21 @@
         .header { font-size: 22px; color: #dc3545; /* Rojo para rechazo */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
         .content p, .content li { margin-bottom: 10px; font-size: 16px; }
         .content strong { color: #444444; }
-        .rejection-reason { background-color: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; padding: 15px; margin-top: 15px; margin-bottom: 15px; white-space: pre-wrap; }
         .link a { color: #007bff; text-decoration: none; font-weight: bold; }
         .link a:hover { text-decoration: underline; }
         .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
+
+        .message-box {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+            padding: 12px 15px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -26,9 +37,7 @@
             <p>Please correct the issues and send the request to QA again as soon as possible. Provide an explanation about the correction in the "Operating Notes" section, especially if the rejection was made by the client.</p>
 
             <p><strong>Reason for Rejection:</strong></p>
-            <div class="rejection-reason">
-                {{ rejection_reason_text|linebreaksbr }}
-            </div>
+            <div class="message-box">{{ rejection_reason_text|linebreaksbr }}</div>
 
             {% if request_url and request_url != "#" %}
             <p class="link">You can view the request details here: <a href="{{ request_url }}">{{ request_url }}</a></p>
