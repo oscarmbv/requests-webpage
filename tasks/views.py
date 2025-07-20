@@ -2265,7 +2265,7 @@ def client_cost_summary_view(request):
                 current_process_datasets.append(
                     {'label': dict(TEAM_CHOICES).get(team_key, team_key), 'data': data_points,
                      'borderColor': border_color, 'backgroundColor': bg_color, 'tension': 0.3, 'fill': False,
-                     'pointRadius': 3, 'pointBackgroundColor': border_color})
+                     'pointRadius': 3, 'pointBackgroundColor': border_color, 'showLine': False})
         if current_process_datasets:
             scatter_charts_data[process_key] = {
                 'chart_title': f'Cost Trend for {type_choices_dict_scatter.get(process_key, process_key)}',
