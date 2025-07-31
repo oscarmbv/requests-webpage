@@ -98,6 +98,8 @@ CSRF_TRUSTED_ORIGINS = [f"https://{FLY_APP_NAME}.fly.dev"]
 if CUSTOM_DOMAIN:
     CSRF_TRUSTED_ORIGINS.append(f"https://{CUSTOM_DOMAIN}")
 
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 # Application definition
@@ -111,6 +113,7 @@ INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
     'storages',
+    'tinymce',
     'tasks',
     'django_q',
 ]
@@ -192,6 +195,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+TINYMCE_API_KEY = env('TINYMCE_API_KEY', default='no-api-key')
+TINYMCE_JS_URL = f"https://cdn.tiny.cloud/1/{TINYMCE_API_KEY}/tinymce/7/tinymce.min.js"
+
+TINYMCE_DEFAULT_CONFIG = {
+    "height": "320px",
+    "menubar": False,
+    "plugins": "link,image,lists,autolink,table",
+    "toolbar": "undo redo | bold italic | bullist numlist | link image table",
+    "theme": "silver",
+}
+
 if DEBUG:
     # --- CONFIGURACIÓN PARA DESARROLLO LOCAL ---
     # Usa el sistema de archivos de Django por defecto para guardar archivos subidos.
@@ -242,6 +256,7 @@ else:
             "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
             "OPTIONS": {
                 "location": STATIC_LOCATION,
+                "querystring_auth": False,
             },
         },
     }

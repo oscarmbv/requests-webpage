@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load duration_filters %}
+{% load custom_filters %}
 
 {% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
 
@@ -71,7 +72,7 @@
                 <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
                 {% with last_block=blocked_history.first %}
                     {% if last_block %}
-                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|clean_for_plaintext|truncatewords:20 }}</small>
                         ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
                     {% endif %}
                 {% endwith %}
@@ -328,7 +329,7 @@
                             {% endif %}
                             {# FIN NUEVOS CAMPOS ESPECÍFICOS DE ADDRESS VALIDATION #}
 
-                            {% if user_request.operating_notes %} <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd> </div> {% endif %}
+                            {% if user_request.operating_notes %} <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7">{{ user_request.operating_notes|safe }}</dd> </div> {% endif %}
                          </dl>
                      </div>
                  </div>
@@ -434,7 +435,7 @@
 
     {# --- Historial de Acciones --- #}
     <div class="row g-4 mt-2">
-        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|safe }} </li> {% endfor %} </ul> </div> {% endif %}
         {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
         {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
     </div>
@@ -501,7 +502,29 @@
 </div>{# Cierre del <div class="container mt-4"> #}
 
 {# Modales (Block, Resolve, Reject) - Estructura interna sin cambios para esta tarea específica #}
-<div class="modal fade" id="blockFormModal_av" tabindex="-1" aria-labelledby="blockFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_av">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_av" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_av" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="blockFormModal_av" tabindex="-1" aria-labelledby="blockFormModalLabel_av" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'tasks:block_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="blockFormModalLabel_av">{% trans "Block Request" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Please provide the reason for blocking this request." %}</p>
+                    {{ block_form.as_p }}
+                    {{ block_form.media }}
+                </div>
+                <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="resolveFormModal_av" tabindex="-1" aria-labelledby="resolveFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_av">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_av" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_av" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_av" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_av"> </div> <div class="mb-3"> <label for="id_resolved_link_av" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_av" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
 <div class="modal fade" id="rejectFormModal_av" tabindex="-1" aria-labelledby="rejectFormModalLabel_av" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_av">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_av" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_av" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
 
@@ -588,9 +611,10 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="id_operating_notes_op_av" class="form-label small">{% trans "Operator Notes" %} <span class="text-danger">*</span></label>
-                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_av" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                        {{ operate_form.operating_notes.label_tag }}
+                        {{ operate_form.operating_notes }}
                     </div>
+                    <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
@@ -684,9 +708,10 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="id_operating_notes_comp_av" class="form-label small">{% trans "Operator/QA Notes" %} <span class="text-danger">*</span></label>
-                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_av" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                        {{ operate_form.operating_notes.label_tag }}
+                        {{ operate_form.operating_notes }}
                     </div>
+                    <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
@@ -728,114 +753,180 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const modalsToValidateAV = ['operateFormModal_av', 'completeFormModal_av'];
-    modalsToValidateAV.forEach(modalId => {
-        const modalElement = document.getElementById(modalId);
-        if (!modalElement) return;
-        const form = modalElement.querySelector('form');
-        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
-        if (!form || !submitButton) return;
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalsToValidateAV = ['operateFormModal_av', 'completeFormModal_av'];
+        modalsToValidateAV.forEach(modalId => {
+            const modalElement = document.getElementById(modalId);
+            if (!modalElement) return;
+            const form = modalElement.querySelector('form');
+            const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+            if (!form || !submitButton) return;
 
-        // Campos requeridos para AV en los modales de operación/completado
-        const requiredFieldsConfig = [
-            { idPrefix: modalId.includes('operate') ? 'id_av_number_of_units_op_av' : 'id_av_number_of_units_comp_av', type: 'number', message: "{% trans 'Number of Units is required (0 is valid).' %}" },
-            { idPrefix: modalId.includes('operate') ? 'id_av_number_of_invalid_units_op_av' : 'id_av_number_of_invalid_units_comp_av', type: 'number', message: "{% trans 'Number of Invalid Units is required (0 is valid).' %}" },
-            { idPrefix: modalId.includes('operate') ? 'id_link_to_assets_op_av' : 'id_link_to_assets_comp_av', type: 'url', message: "{% trans 'Link to Assets is required.' %}" },
-            { idPrefix: modalId.includes('operate') ? 'id_operating_notes_op_av' : 'id_operating_notes_comp_av', type: 'textarea', message: "{% trans 'Operator Notes are required.' %}" }
-        ];
-        const allNumericInputsInModal = form.querySelectorAll('input[type="number"]'); // Todos los inputs numéricos en este modal
+            // Campos requeridos para AV en los modales de operación/completado
+            const requiredFieldsConfig = [
+                { idPrefix: modalId.includes('operate') ? 'id_av_number_of_units_op_av' : 'id_av_number_of_units_comp_av', type: 'number', message: "{% trans 'Number of Units is required (0 is valid).' %}" },
+                { idPrefix: modalId.includes('operate') ? 'id_av_number_of_invalid_units_op_av' : 'id_av_number_of_invalid_units_comp_av', type: 'number', message: "{% trans 'Number of Invalid Units is required (0 is valid).' %}" },
+                { idPrefix: modalId.includes('operate') ? 'id_link_to_assets_op_av' : 'id_link_to_assets_comp_av', type: 'url', message: "{% trans 'Link to Assets is required.' %}" },
+                { idPrefix: modalId.includes('operate') ? 'id_operating_notes_op_av' : 'id_operating_notes_comp_av', type: 'textarea', message: "{% trans 'Operator Notes are required.' %}" }
+            ];
+            const allNumericInputsInModal = form.querySelectorAll('input[type="number"]'); // Todos los inputs numéricos en este modal
 
-        function validateSingleField(inputElement, errorMessage, isRequired) {
-            if (!inputElement) return true; // Si el campo no existe en el DOM, no validar
+            function validateSingleField(inputElement, errorMessage, isRequired) {
+                if (!inputElement) return true; // Si el campo no existe en el DOM, no validar
 
-            // Asumimos que los divs de error siguen el patrón: error- + (ID del input sin el prefijo 'id_')
-            // Ej: para input id="id_av_number_of_units_op_av", el error div es "error-av_number_of_units_op_av"
-            const errorDivId = 'error-' + inputElement.id.substring(3);
-            const errorDiv = form.querySelector('#' + errorDivId);
+                // Asumimos que los divs de error siguen el patrón: error- + (ID del input sin el prefijo 'id_')
+                // Ej: para input id="id_av_number_of_units_op_av", el error div es "error-av_number_of_units_op_av"
+                const errorDivId = 'error-' + inputElement.id.substring(3);
+                const errorDiv = form.querySelector('#' + errorDivId);
 
-            inputElement.classList.remove('is-invalid');
-            if (errorDiv) errorDiv.style.display = 'none';
+                inputElement.classList.remove('is-invalid');
+                if (errorDiv) errorDiv.style.display = 'none';
 
-            const value = inputElement.value.trim();
+                const value = inputElement.value.trim();
 
-            if (isRequired && value === '') {
-                inputElement.classList.add('is-invalid');
-                if (errorDiv) {
-                    errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
-                    errorDiv.style.display = 'block';
-                }
-                return false;
-            }
-
-            if (inputElement.type === 'number' && value !== '') {
-                const numValue = parseInt(value, 10);
-                if (isNaN(numValue) || numValue < 0) {
+                if (isRequired && value === '') {
                     inputElement.classList.add('is-invalid');
                     if (errorDiv) {
-                        errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                        errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
                         errorDiv.style.display = 'block';
                     }
                     return false;
                 }
-            }
-            // Podrías añadir validación de URL aquí si es necesario (type="url" ya provee algo)
-            return true;
-        }
 
-        function clearAllModalValidationErrors() {
-            // Limpiar errores de campos requeridos
-            requiredFieldsConfig.forEach(fieldInfo => {
-                const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
-                if (inputElement) inputElement.classList.remove('is-invalid');
-                const errorDiv = form.querySelector('#error-' + fieldInfo.idPrefix.substring(3));
-                 if (errorDiv) errorDiv.style.display = 'none';
-            });
-            // Limpiar errores de todos los campos numéricos (incluyendo los opcionales)
-            allNumericInputsInModal.forEach(input => {
-                input.classList.remove('is-invalid');
-                const errorDiv = form.querySelector('#error-' + input.id.substring(3));
-                 if (errorDiv) errorDiv.style.display = 'none';
-            });
-        }
-
-        modalElement.addEventListener('show.bs.modal', clearAllModalValidationErrors);
-        if (modalElement.classList.contains('show')) { // Para modales ya abiertos al cargar (menos común)
-            clearAllModalValidationErrors();
-        }
-
-        form.addEventListener('submit', function(event) {
-            let isFormValid = true;
-            // Validar campos requeridos específicos de AV
-            requiredFieldsConfig.forEach(fieldInfo => {
-                const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
-                if (!validateSingleField(inputElement, fieldInfo.message, true)) {
-                    isFormValid = false;
-                }
-            });
-
-            // Validar que otros campos numéricos (no obligatorios, pero estándar del OperateForm) sean válidos si tienen valor
-            allNumericInputsInModal.forEach(input => {
-                // Evitar revalidar los que ya están en requiredFieldsConfig si tienen validación específica
-                let isAlreadyInRequiredConfig = requiredFieldsConfig.some(rf => rf.idPrefix === input.id);
-                if (!isAlreadyInRequiredConfig) { // Solo validar si no es uno de los campos AV ya validados como requeridos
-                    if (!validateSingleField(input, "{% trans 'Please enter a valid non-negative number.' %}", false)) { // No obligatorios
-                        isFormValid = false;
+                if (inputElement.type === 'number' && value !== '') {
+                    const numValue = parseInt(value, 10);
+                    if (isNaN(numValue) || numValue < 0) {
+                        inputElement.classList.add('is-invalid');
+                        if (errorDiv) {
+                            errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                            errorDiv.style.display = 'block';
+                        }
+                        return false;
                     }
                 }
-            });
-
-            if (!isFormValid) {
-                event.preventDefault();
-                event.stopPropagation();
-            } else {
-                 if(submitButton){
-                    submitButton.disabled = true;
-                    submitButton.textContent = '{% trans "Processing..." %}';
-                 }
+                // Podrías añadir validación de URL aquí si es necesario (type="url" ya provee algo)
+                return true;
             }
+
+            function clearAllModalValidationErrors() {
+                // Limpiar errores de campos requeridos
+                requiredFieldsConfig.forEach(fieldInfo => {
+                    const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
+                    if (inputElement) inputElement.classList.remove('is-invalid');
+                    const errorDiv = form.querySelector('#error-' + fieldInfo.idPrefix.substring(3));
+                     if (errorDiv) errorDiv.style.display = 'none';
+                });
+                // Limpiar errores de todos los campos numéricos (incluyendo los opcionales)
+                allNumericInputsInModal.forEach(input => {
+                    input.classList.remove('is-invalid');
+                    const errorDiv = form.querySelector('#error-' + input.id.substring(3));
+                     if (errorDiv) errorDiv.style.display = 'none';
+                });
+            }
+
+            modalElement.addEventListener('show.bs.modal', clearAllModalValidationErrors);
+            if (modalElement.classList.contains('show')) { // Para modales ya abiertos al cargar (menos común)
+                clearAllModalValidationErrors();
+            }
+
+            form.addEventListener('submit', function(event) {
+                let isFormValid = true;
+                // Validar campos requeridos específicos de AV
+                requiredFieldsConfig.forEach(fieldInfo => {
+                    const inputElement = form.querySelector('#' + fieldInfo.idPrefix);
+                    if (!validateSingleField(inputElement, fieldInfo.message, true)) {
+                        isFormValid = false;
+                    }
+                });
+
+                // Validar que otros campos numéricos (no obligatorios, pero estándar del OperateForm) sean válidos si tienen valor
+                allNumericInputsInModal.forEach(input => {
+                    // Evitar revalidar los que ya están en requiredFieldsConfig si tienen validación específica
+                    let isAlreadyInRequiredConfig = requiredFieldsConfig.some(rf => rf.idPrefix === input.id);
+                    if (!isAlreadyInRequiredConfig) { // Solo validar si no es uno de los campos AV ya validados como requeridos
+                        if (!validateSingleField(input, "{% trans 'Please enter a valid non-negative number.' %}", false)) { // No obligatorios
+                            isFormValid = false;
+                        }
+                    }
+                });
+
+                if (!isFormValid) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                } else {
+                     if(submitButton){
+                        submitButton.disabled = true;
+                        submitButton.textContent = '{% trans "Processing..." %}';
+                     }
+                }
+            });
         });
     });
-});
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // --- PASO CLAVE: Arreglar el ID duplicado ---
+        // Le asignamos un ID nuevo y único al textarea del modal 'Complete'
+        // para evitar conflictos con el del modal 'Operate'.
+        const completeModal = document.getElementById('completeFormModal_av');
+        const newEditorId = 'complete-notes-editor';
+        let completeTextarea = null;
+
+        if (completeModal) {
+            completeTextarea = completeModal.querySelector('.tinymce-target');
+            if (completeTextarea) {
+                completeTextarea.id = newEditorId;
+            }
+        }
+
+        // 1. Lógica para activar el editor en 'Complete' si tiene HTML
+        if (completeTextarea) {
+            const content = completeTextarea.value;
+            if (content.includes('<') && content.includes('>')) {
+                const button = completeModal.querySelector('.js-toggle-tinymce');
+                if (button) {
+                    // Usamos el NUEVO ID único para inicializar
+                    initializeTinyMce(newEditorId);
+                    button.textContent = 'Plain Text';
+                }
+            }
+        }
+
+        // 2. Lógica universal para TODOS los botones de toggle
+        const toggleButtons = document.querySelectorAll('.js-toggle-tinymce');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const wrapperDiv = event.target.previousElementSibling;
+                const textarea = wrapperDiv.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                // La lógica ahora funcionará porque el ID del textarea 'Complete' ya es único.
+                const editorId = textarea.id;
+
+                if (tinymce.get(editorId)) {
+                    tinymce.get(editorId).remove();
+                    button.textContent = 'Rich Text';
+                } else {
+                    initializeTinyMce(editorId);
+                    button.textContent = 'Plain Text';
+                }
+            });
+        });
+
+        // 3. Lógica para limpiar los modales al cerrarse (sigue igual)
+        const allModals = document.querySelectorAll('.modal');
+        allModals.forEach(modal => {
+            modal.addEventListener('hidden.bs.modal', (event) => {
+                const textarea = modal.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                const editor = tinymce.get(textarea.id);
+                if (editor) {
+                    editor.remove();
+                    const button = modal.querySelector('.js-toggle-tinymce');
+                    if (button) button.textContent = 'Rich Text';
+                }
+            });
+        });
+    });
 </script>
 {% endblock extra_js %}

@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load duration_filters %}
+{% load custom_filters %}
 
 {% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
 
@@ -67,7 +68,7 @@
                 <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
                 {% with last_block=blocked_history.first %}
                     {% if last_block %}
-                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|clean_for_plaintext|truncatewords:20 }}
                         ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
                     {% endif %}
                 {% endwith %}
@@ -255,7 +256,7 @@
             </div>
 
             {% if user_request.num_updated_users is not None or user_request.num_updated_properties is not None or user_request.bulk_updates is not None or user_request.manual_updated_properties is not None or user_request.manual_updated_units is not None or user_request.update_by_csv_rows is not None or user_request.processing_reports_rows is not None or user_request.operator_spreadsheet_link or user_request.operating_notes %}
-                 <div class="card shadow-sm mb-4"> <div class="card-header"> {% trans "Operation Details" %} </div> <div class="card-body"> <dl> {% if user_request.num_updated_users is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Users Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_users }}</dd> </div> {% endif %} {% if user_request.num_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Properties Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_properties }}</dd> </div> {% endif %} {% if user_request.bulk_updates is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Bulk Updates:" %}</dt> <dd class="col-sm-7">{{ user_request.bulk_updates }}</dd> </div> {% endif %} {% if user_request.manual_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Properties:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_properties }}</dd> </div> {% endif %} {% if user_request.manual_updated_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Updated Units:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_units }}</dd> </div> {% endif %} {% if user_request.update_by_csv_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "CSV Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.update_by_csv_rows }}</dd> </div> {% endif %} {% if user_request.processing_reports_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Processing Reports Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.processing_reports_rows }}</dd> </div> {% endif %} {% if user_request.operator_spreadsheet_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Spreadsheet:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.operator_spreadsheet_link }}" target="_blank">{{ user_request.operator_spreadsheet_link }}</a></dd> </div> {% endif %} {% if user_request.operating_notes %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd> </div> {% endif %} </dl> </div> </div>
+                 <div class="card shadow-sm mb-4"> <div class="card-header"> {% trans "Operation Details" %} </div> <div class="card-body"> <dl> {% if user_request.num_updated_users is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Users Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_users }}</dd> </div> {% endif %} {% if user_request.num_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Properties Updated:" %}</dt> <dd class="col-sm-7">{{ user_request.num_updated_properties }}</dd> </div> {% endif %} {% if user_request.bulk_updates is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Bulk Updates:" %}</dt> <dd class="col-sm-7">{{ user_request.bulk_updates }}</dd> </div> {% endif %} {% if user_request.manual_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Properties:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_properties }}</dd> </div> {% endif %} {% if user_request.manual_updated_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Manual Updated Units:" %}</dt> <dd class="col-sm-7">{{ user_request.manual_updated_units }}</dd> </div> {% endif %} {% if user_request.update_by_csv_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "CSV Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.update_by_csv_rows }}</dd> </div> {% endif %} {% if user_request.processing_reports_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Processing Reports Rows:" %}</dt> <dd class="col-sm-7">{{ user_request.processing_reports_rows }}</dd> </div> {% endif %} {% if user_request.operator_spreadsheet_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Spreadsheet:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.operator_spreadsheet_link }}" target="_blank">{{ user_request.operator_spreadsheet_link }}</a></dd> </div> {% endif %} {% if user_request.operating_notes %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|safe }}</dd> </div> {% endif %} </dl> </div> </div>
             {% endif %}
         </div>
 
@@ -359,7 +360,7 @@
 
     {# --- Sección: Historial de Acciones --- #}
      <div class="row g-4">
-        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|safe }} </li> {% endfor %} </ul> </div> {% endif %}
         {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
         {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
     </div>
@@ -428,11 +429,33 @@
 
 {# --- Modales (igual que en user_records_detail.html, con IDs actualizados con sufijo _ut) --- #}
 {# (blockFormModal, resolveFormModal, rejectFormModal, operateFormModal, completeFormModal) #}
-<div class="modal fade" id="blockFormModal_ut" tabindex="-1" aria-labelledby="blockFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_ut">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_ut" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_ut" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="blockFormModal_ut" tabindex="-1" aria-labelledby="blockFormModalLabel_ut" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'tasks:block_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="blockFormModalLabel_ut">{% trans "Block Request" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Please provide the reason for blocking this request." %}</p>
+                    {{ block_form.as_p }}
+                    {{ block_form.media }}
+                </div>
+                <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="resolveFormModal_ut" tabindex="-1" aria-labelledby="resolveFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_ut">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_ut" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_ut" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_ut" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_ut"> </div> <div class="mb-3"> <label for="id_resolved_link_ut" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_ut" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
 <div class="modal fade" id="rejectFormModal_ut" tabindex="-1" aria-labelledby="rejectFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_ut">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_ut" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_ut" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
-<div class="modal fade" id="operateFormModal_ut" tabindex="-1" aria-labelledby="operateFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog modal-lg"> <div class="modal-content"> <form id="operate-form-ut" method="post" action="{% url 'tasks:send_to_qa_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="operateFormModalLabel_ut">{% trans "Enter Operation Details (Send to QA)" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="row"> <div class="col-md-4 mb-3"> <label for="id_num_updated_users_op_ut" class="form-label small"> {% trans "Users Updated/Added/Removed" %} </label> <input type="number" name="num_updated_users" value="{% firstof prefill_user_count user_request.num_updated_users '' %}" min="0" class="form-control form-control-sm" id="id_num_updated_users_op_ut"> <div class="invalid-feedback" id="error-num_updated_users_op_ut" style="display: none;">{% trans "This field is required for User Records (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_num_updated_properties_op_ut" class="form-label small"> {% trans "Properties Updated" %} <span class="text-danger">*</span> </label> <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_op_ut"> <div class="invalid-feedback" id="error-num_updated_properties_op_ut" style="display: none;">{% trans "This field is required (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_bulk_updates_op_ut" class="form-label small">{% trans "Bulk Updates (Count)" %}</label> <input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_manual_updated_properties_op_ut" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label> <input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_manual_updated_units_op_ut" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label> <input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_update_by_csv_rows_op_ut" class="form-label small">{% trans "CSV Rows Processed" %}</label> <input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_processing_reports_rows_op_ut" class="form-label small">{% trans "Report Rows Processed" %}</label> <input type="number" name="processing_reports_rows" value="{{ user_request.processing_reports_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_processing_reports_rows_op_ut"> </div> </div> <div class="mb-3"> <label for="id_operator_spreadsheet_link_op_ut" class="form-label small">{% trans "Operator Spreadsheet Link (Optional)" %}</label> <input type="url" name="operator_spreadsheet_link" value="{{ user_request.operator_spreadsheet_link|default:'' }}" class="form-control form-control-sm" id="id_operator_spreadsheet_link_op_ut" placeholder="https://docs.google.com/spreadsheets/..."> </div> <div class="mb-3"> <label for="id_operating_notes_op_ut" class="form-label small">{% trans "Operator Notes" %}</label> <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_ut" rows="3">{{ user_request.operating_notes|default:"" }}</textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-info">{% trans "Send to QA" %}</button> </div> </form> </div> </div> </div>
-<div class="modal fade" id="completeFormModal_ut" tabindex="-1" aria-labelledby="completeFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog modal-lg"> <div class="modal-content"> <form id="complete-form-ut" method="post" action="{% url 'tasks:complete_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="completeFormModalLabel_ut">{% trans "Confirm Operation Details (Complete Request)" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="row"> <div class="col-md-4 mb-3"> <label for="id_num_updated_users_comp_ut" class="form-label small"> {% trans "Users Updated/Added/Removed" %} </label> <input type="number" name="num_updated_users" value="{% firstof prefill_user_count user_request.num_updated_users '' %}" min="0" class="form-control form-control-sm" id="id_num_updated_users_comp_ut"> <div class="invalid-feedback" id="error-num_updated_users_comp_ut" style="display: none;">{% trans "This field is required for User Records (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_num_updated_properties_comp_ut" class="form-label small"> {% trans "Properties Updated" %} <span class="text-danger">*</span> </label> <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_comp_ut"> <div class="invalid-feedback" id="error-num_updated_properties_comp_ut" style="display: none;">{% trans "This field is required (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"><label for="id_bulk_updates_comp_ut" class="form-label small">{% trans "Bulk Updates (Count)" %}</label><input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_manual_updated_properties_comp_ut" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label><input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_manual_updated_units_comp_ut" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label><input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_update_by_csv_rows_comp_ut" class="form-label small">{% trans "CSV Rows Processed" %}</label><input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_processing_reports_rows_comp_ut" class="form-label small">{% trans "Report Rows Processed" %}</label><input type="number" name="processing_reports_rows" value="{{ user_request.processing_reports_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_processing_reports_rows_comp_ut"></div> </div> <div class="mb-3"> <label for="id_operator_spreadsheet_link_comp_ut" class="form-label small">{% trans "Operator Spreadsheet Link (Optional)" %}</label> <input type="url" name="operator_spreadsheet_link" value="{{ user_request.operator_spreadsheet_link|default:'' }}" class="form-control form-control-sm" id="id_operator_spreadsheet_link_comp_ut" placeholder="https://docs.google.com/spreadsheets/..."> </div> <div class="mb-3"> <label for="id_operating_notes_comp_ut" class="form-label small">{% trans "Operator/QA Notes" %}</label> <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_ut" rows="3">{{ user_request.operating_notes|default:"" }}</textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="operateFormModal_ut" tabindex="-1" aria-labelledby="operateFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog modal-lg"> <div class="modal-content"> <form id="operate-form-ut" method="post" action="{% url 'tasks:send_to_qa_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="operateFormModalLabel_ut">{% trans "Enter Operation Details (Send to QA)" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="row"> <div class="col-md-4 mb-3"> <label for="id_num_updated_users_op_ut" class="form-label small"> {% trans "Users Updated/Added/Removed" %} </label> <input type="number" name="num_updated_users" value="{% firstof prefill_user_count user_request.num_updated_users '' %}" min="0" class="form-control form-control-sm" id="id_num_updated_users_op_ut"> <div class="invalid-feedback" id="error-num_updated_users_op_ut" style="display: none;">{% trans "This field is required for User Records (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_num_updated_properties_op_ut" class="form-label small"> {% trans "Properties Updated" %} <span class="text-danger">*</span> </label> <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_op_ut"> <div class="invalid-feedback" id="error-num_updated_properties_op_ut" style="display: none;">{% trans "This field is required (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_bulk_updates_op_ut" class="form-label small">{% trans "Bulk Updates (Count)" %}</label> <input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_manual_updated_properties_op_ut" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label> <input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_manual_updated_units_op_ut" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label> <input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_update_by_csv_rows_op_ut" class="form-label small">{% trans "CSV Rows Processed" %}</label> <input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_op_ut"> </div> <div class="col-md-4 mb-3"> <label for="id_processing_reports_rows_op_ut" class="form-label small">{% trans "Report Rows Processed" %}</label> <input type="number" name="processing_reports_rows" value="{{ user_request.processing_reports_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_processing_reports_rows_op_ut"> </div> </div> <div class="mb-3"> <label for="id_operator_spreadsheet_link_op_ut" class="form-label small">{% trans "Operator Spreadsheet Link (Optional)" %}</label> <input type="url" name="operator_spreadsheet_link" value="{{ user_request.operator_spreadsheet_link|default:'' }}" class="form-control form-control-sm" id="id_operator_spreadsheet_link_op_ut" placeholder="https://docs.google.com/spreadsheets/..."> </div> <div class="mb-3"> {{ operate_form.operating_notes.label_tag }} {{ operate_form.operating_notes }} </div> <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-info">{% trans "Send to QA" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="completeFormModal_ut" tabindex="-1" aria-labelledby="completeFormModalLabel_ut" aria-hidden="true"> <div class="modal-dialog modal-lg"> <div class="modal-content"> <form id="complete-form-ut" method="post" action="{% url 'tasks:complete_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="completeFormModalLabel_ut">{% trans "Confirm Operation Details (Complete Request)" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="row"> <div class="col-md-4 mb-3"> <label for="id_num_updated_users_comp_ut" class="form-label small"> {% trans "Users Updated/Added/Removed" %} </label> <input type="number" name="num_updated_users" value="{% firstof prefill_user_count user_request.num_updated_users '' %}" min="0" class="form-control form-control-sm" id="id_num_updated_users_comp_ut"> <div class="invalid-feedback" id="error-num_updated_users_comp_ut" style="display: none;">{% trans "This field is required for User Records (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"> <label for="id_num_updated_properties_comp_ut" class="form-label small"> {% trans "Properties Updated" %} <span class="text-danger">*</span> </label> <input type="number" name="num_updated_properties" value="{{ user_request.num_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_num_updated_properties_comp_ut"> <div class="invalid-feedback" id="error-num_updated_properties_comp_ut" style="display: none;">{% trans "This field is required (0 is valid)." %}</div> </div> <div class="col-md-4 mb-3"><label for="id_bulk_updates_comp_ut" class="form-label small">{% trans "Bulk Updates (Count)" %}</label><input type="number" name="bulk_updates" value="{{ user_request.bulk_updates|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_bulk_updates_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_manual_updated_properties_comp_ut" class="form-label small">{% trans "Manual Property Updates (Count)" %}</label><input type="number" name="manual_updated_properties" value="{{ user_request.manual_updated_properties|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_properties_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_manual_updated_units_comp_ut" class="form-label small">{% trans "Manual Updated Units (Count)" %}</label><input type="number" name="manual_updated_units" value="{{ user_request.manual_updated_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_manual_updated_units_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_update_by_csv_rows_comp_ut" class="form-label small">{% trans "CSV Rows Processed" %}</label><input type="number" name="update_by_csv_rows" value="{{ user_request.update_by_csv_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_update_by_csv_rows_comp_ut"></div> <div class="col-md-4 mb-3"><label for="id_processing_reports_rows_comp_ut" class="form-label small">{% trans "Report Rows Processed" %}</label><input type="number" name="processing_reports_rows" value="{{ user_request.processing_reports_rows|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_processing_reports_rows_comp_ut"></div> </div> <div class="mb-3"> <label for="id_operator_spreadsheet_link_comp_ut" class="form-label small">{% trans "Operator Spreadsheet Link (Optional)" %}</label> <input type="url" name="operator_spreadsheet_link" value="{{ user_request.operator_spreadsheet_link|default:'' }}" class="form-control form-control-sm" id="id_operator_spreadsheet_link_comp_ut" placeholder="https://docs.google.com/spreadsheets/..."> </div> <div class="mb-3"> {{ operate_form.operating_notes.label_tag }} {{ operate_form.operating_notes }} </div> <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Complete Request" %}</button> </div> </form> </div> </div> </div>
 <div class="modal fade" id="provideUpdateModal" tabindex="-1" aria-labelledby="provideUpdateModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -466,78 +489,140 @@
 {% block extra_js %}
 {# El script de validación JS para los modales es el mismo que antes, adaptado para Unit Transfer (solo propiedades es mandatorio) #}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const modals = ['operateFormModal', 'completeFormModal'];
-    // const currentRequestType = "{{ user_request.type_of_process|escapejs }}"; // No es necesario para la validación de modal aquí
+    document.addEventListener('DOMContentLoaded', function() {
+        const modals = ['operateFormModal', 'completeFormModal'];
+        // const currentRequestType = "{{ user_request.type_of_process|escapejs }}"; // No es necesario para la validación de modal aquí
 
-    modals.forEach(modalId => {
-        const modalElement = document.getElementById(modalId);
-        if (!modalElement) return;
+        modals.forEach(modalId => {
+            const modalElement = document.getElementById(modalId);
+            if (!modalElement) return;
 
-        const form = modalElement.querySelector('form'); // IDs de form son únicos por sufijo _ut
-        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
-        if (!form || !submitButton) return;
+            const form = modalElement.querySelector('form'); // IDs de form son únicos por sufijo _ut
+            const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+            if (!form || !submitButton) return;
 
-        const suffix = (modalId === 'operateFormModal') ? '_op_ut' : '_comp_ut';
+            const suffix = (modalId === 'operateFormModal') ? '_op_ut' : '_comp_ut';
 
-        // const usersUpdatedInput = form.querySelector('#id_num_updated_users' + suffix); // No se valida obligatoriamente para UT
-        const propertiesUpdatedInput = form.querySelector('#id_num_updated_properties' + suffix);
-        // const usersErrorDiv = form.querySelector('#error-num_updated_users' + suffix);
-        const propsErrorDiv = form.querySelector('#error-num_updated_properties' + suffix);
+            // const usersUpdatedInput = form.querySelector('#id_num_updated_users' + suffix); // No se valida obligatoriamente para UT
+            const propertiesUpdatedInput = form.querySelector('#id_num_updated_properties' + suffix);
+            // const usersErrorDiv = form.querySelector('#error-num_updated_users' + suffix);
+            const propsErrorDiv = form.querySelector('#error-num_updated_properties' + suffix);
 
-         function validateRequiredNumericField(inputElement, errorDiv, errorMessage) {
-            if (!inputElement) { return true;}
-            if (!errorDiv) { console.warn("validateRequiredNumericField: errorDiv is null for input:", inputElement); return true;}
+             function validateRequiredNumericField(inputElement, errorDiv, errorMessage) {
+                if (!inputElement) { return true;}
+                if (!errorDiv) { console.warn("validateRequiredNumericField: errorDiv is null for input:", inputElement); return true;}
 
-             inputElement.classList.remove('is-invalid');
-             errorDiv.style.display = 'none';
-             const value = inputElement.value.trim();
+                 inputElement.classList.remove('is-invalid');
+                 errorDiv.style.display = 'none';
+                 const value = inputElement.value.trim();
 
-             if (value === '') {
-                 inputElement.classList.add('is-invalid');
-                 errorDiv.textContent = errorMessage || "{% trans 'This field is required (0 is valid).' %}";
-                 errorDiv.style.display = 'block';
-                 return false;
-             }
-             const numValue = parseInt(value, 10);
-             if (isNaN(numValue) || numValue < 0) {
-                  inputElement.classList.add('is-invalid');
-                  errorDiv.textContent = "{% trans 'Please enter a valid number (0 or greater).' %}";
-                  errorDiv.style.display = 'block';
-                  return false;
-             }
-             return true;
-         }
-
-        function clearValidationErrors() {
-            // if(usersUpdatedInput) usersUpdatedInput.classList.remove('is-invalid'); // No se valida aquí
-            if(propertiesUpdatedInput) propertiesUpdatedInput.classList.remove('is-invalid');
-            // if(usersErrorDiv) usersErrorDiv.style.display = 'none';
-            if(propsErrorDiv) propsErrorDiv.style.display = 'none';
-        }
-
-        modalElement.addEventListener('show.bs.modal', clearValidationErrors);
-        if (modalElement.classList.contains('show')) { clearValidationErrors(); }
-
-
-        form.addEventListener('submit', function(event) {
-            let isFormValid = true;
-            if (!validateRequiredNumericField(propertiesUpdatedInput, propsErrorDiv, "{% trans 'Properties Updated is required (0 is valid).' %}")) {
-                 isFormValid = false;
-            }
-            // No necesitamos validar num_updated_users como obligatorio para Unit Transfer aquí
-
-            if (!isFormValid) {
-                event.preventDefault();
-                event.stopPropagation();
-            } else {
-                 if(submitButton){
-                    submitButton.disabled = true;
-                    submitButton.textContent = '{% trans "Processing..." %}';
+                 if (value === '') {
+                     inputElement.classList.add('is-invalid');
+                     errorDiv.textContent = errorMessage || "{% trans 'This field is required (0 is valid).' %}";
+                     errorDiv.style.display = 'block';
+                     return false;
                  }
+                 const numValue = parseInt(value, 10);
+                 if (isNaN(numValue) || numValue < 0) {
+                      inputElement.classList.add('is-invalid');
+                      errorDiv.textContent = "{% trans 'Please enter a valid number (0 or greater).' %}";
+                      errorDiv.style.display = 'block';
+                      return false;
+                 }
+                 return true;
+             }
+
+            function clearValidationErrors() {
+                // if(usersUpdatedInput) usersUpdatedInput.classList.remove('is-invalid'); // No se valida aquí
+                if(propertiesUpdatedInput) propertiesUpdatedInput.classList.remove('is-invalid');
+                // if(usersErrorDiv) usersErrorDiv.style.display = 'none';
+                if(propsErrorDiv) propsErrorDiv.style.display = 'none';
             }
+
+            modalElement.addEventListener('show.bs.modal', clearValidationErrors);
+            if (modalElement.classList.contains('show')) { clearValidationErrors(); }
+
+
+            form.addEventListener('submit', function(event) {
+                let isFormValid = true;
+                if (!validateRequiredNumericField(propertiesUpdatedInput, propsErrorDiv, "{% trans 'Properties Updated is required (0 is valid).' %}")) {
+                     isFormValid = false;
+                }
+
+                if (!isFormValid) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                } else {
+                     if(submitButton){
+                        submitButton.disabled = true;
+                        submitButton.textContent = '{% trans "Processing..." %}';
+                     }
+                }
+            });
         });
     });
-});
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const completeModal = document.getElementById('completeFormModal_av');
+        const newEditorId = 'complete-notes-editor';
+        let completeTextarea = null;
+
+        if (completeModal) {
+            completeTextarea = completeModal.querySelector('.tinymce-target');
+            if (completeTextarea) {
+                completeTextarea.id = newEditorId;
+            }
+        }
+
+        // 1. Lógica para activar el editor en 'Complete' si tiene HTML
+        if (completeTextarea) {
+            const content = completeTextarea.value;
+            if (content.includes('<') && content.includes('>')) {
+                const button = completeModal.querySelector('.js-toggle-tinymce');
+                if (button) {
+                    // Usamos el NUEVO ID único para inicializar
+                    initializeTinyMce(newEditorId);
+                    button.textContent = 'Plain Text';
+                }
+            }
+        }
+
+        // 2. Lógica universal para TODOS los botones de toggle
+        const toggleButtons = document.querySelectorAll('.js-toggle-tinymce');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const wrapperDiv = event.target.previousElementSibling;
+                const textarea = wrapperDiv.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                // La lógica ahora funcionará porque el ID del textarea 'Complete' ya es único.
+                const editorId = textarea.id;
+
+                if (tinymce.get(editorId)) {
+                    tinymce.get(editorId).remove();
+                    button.textContent = 'Rich Text';
+                } else {
+                    initializeTinyMce(editorId);
+                    button.textContent = 'Plain Text';
+                }
+            });
+        });
+
+        // 3. Lógica para limpiar los modales al cerrarse (sigue igual)
+        const allModals = document.querySelectorAll('.modal');
+        allModals.forEach(modal => {
+            modal.addEventListener('hidden.bs.modal', (event) => {
+                const textarea = modal.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                const editor = tinymce.get(textarea.id);
+                if (editor) {
+                    editor.remove();
+                    const button = modal.querySelector('.js-toggle-tinymce');
+                    if (button) button.textContent = 'Rich Text';
+                }
+            });
+        });
+    });
 </script>
 {% endblock extra_js %}

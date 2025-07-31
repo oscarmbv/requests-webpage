@@ -1,5 +1,6 @@
 {% load tz %}
 {% load duration_filters %}
+{% load custom_filters %}
 Subject: {{ subject }}
 
 Hello,
@@ -13,7 +14,7 @@ The {{ request_obj.get_type_of_process_display }} request {% if request_obj.type
 {% if request_obj.operating_notes %}
 Final Notes:
 --------------------------------------------------
-{{ request_obj.operating_notes|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+{{ request_obj.operating_notes|clean_for_plaintext|wordwrap:80 }}
 --------------------------------------------------
 {% endif %}
 

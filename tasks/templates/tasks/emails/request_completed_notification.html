@@ -6,35 +6,33 @@
     <meta charset="UTF-8">
     <title>{{ subject }}</title>
    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
-        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header { font-size: 22px; color: #198754; /* Verde para completado */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
-        .content p, .content li { margin-bottom: 10px; font-size: 16px; }
-        .content strong { color: #444444; }
-        .details-list { list-style-type: none; padding-left: 0; margin-top:15px; }
-        .link a { color: #007bff; text-decoration: none; font-weight: bold; }
-        .link a:hover { text-decoration: underline; }
-        .footer-note { font-size: 0.9em; color: #6c757d; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eeeeee;}
-        .footer { margin-top: 25px; font-size: 12px; text-align: center; color: #888888; }
-
-        .message-box {
-            border-left: 4px solid #6c757d;
-            padding: 10px 15px;
-            margin-top: 5px;
-            margin-bottom: 20px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 15px;
-            background-color: #f8f9fa;
+        .message-box p {
+            margin: 0 0 10px 0;
+            padding: 0;
+        }
+        .message-box ol, .message-box ul {
+            margin: 0 0 10px 0;
+            padding-left: 30px;
+        }
+        .message-box p:last-child,
+        .message-box ol:last-child,
+        .message-box ul:last-child {
+            margin-bottom: 0;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">{{ subject }}</div>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
+
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+
+        <div style="font-size: 22px; color: #198754; margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;">
+            {{ subject }}
+        </div>
+
         <div class="content">
-            <p>Hello,</p>
-            <p>The <strong>{{ request_obj.get_type_of_process_display }}</strong>
+            <p style="margin-bottom: 10px; font-size: 16px;">Hello,</p>
+            <p style="margin-bottom: 10px; font-size: 16px;">
+                The <strong style="color: #444444;">{{ request_obj.get_type_of_process_display }}</strong>
                 {% if request_obj.type_of_process == 'property_records' %}
                     ({{ request_obj.get_property_records_type_display|default_if_none:"" }})
                 {% elif request_obj.type_of_process == 'unit_transfer' %}
@@ -42,42 +40,45 @@
                 {% elif request_obj.type_of_process == 'deactivation_toggle' %}
                     ({{ request_obj.get_deactivation_toggle_type_display|default_if_none:"" }})
                 {% endif %}
-                request <strong>{{ request_obj.unique_code }}</strong>
+                request <strong style="color: #444444;">{{ request_obj.unique_code }}</strong>
                 {% if request_obj.type_of_process == 'generating_xml' %}
-                    for State: <strong>{{ request_obj.get_xml_state_display|default:"N/A" }}</strong>
+                    for State: <strong style="color: #444444;">{{ request_obj.get_xml_state_display|default:"N/A" }}</strong>
                 {% elif request_obj.type_of_process != 'stripe_disputes' %}
-                    for Partner: <strong>{{ request_obj.partner_name|default:"N/A" }}</strong>
+                    for Partner: <strong style="color: #444444;">{{ request_obj.partner_name|default:"N/A" }}</strong>
                 {% endif %}
                 is now complete.
             </p>
 
-            <ul class="details-list">
-                {% if qa_completer_user %}<li><strong>QA and Completed by:</strong> {{ qa_completer_user.email }}</li>{% endif %}
+            <ul style="list-style-type: none; padding-left: 0; margin-top:15px;">
+                {% if qa_completer_user %}<li style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #444444;">QA and Completed by:</strong> {{ qa_completer_user.email }}</li>{% endif %}
                 {% if request_obj.calculated_turn_around_time %}
-                    <li><strong>Turn Around Time:</strong> {{ request_obj.calculated_turn_around_time|format_timedelta }}</li>
+                    <li style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #444444;">Turn Around Time:</strong> {{ request_obj.calculated_turn_around_time|format_timedelta }}</li>
                 {% endif %}
             </ul>
 
             {% if request_obj.operating_notes %}
-                <p><strong>Final Notes:</strong></p>
-                <div class="message-box">{{ request_obj.operating_notes|linebreaksbr }}</div>
+                <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #444444;">Final Notes:</strong></p>
+                <div class="message-box" style="border-left: 4px solid #6c757d; padding: 10px 15px; margin-top: 5px; margin-bottom: 20px; font-size: 15px; background-color: #f8f9fa; word-wrap: break-word;">
+                    {{ request_obj.operating_notes|safe }}
+                </div>
             {% endif %}
 
             {% if request_url and request_url != "#" %}
-            <p class="link">
+            <p style="margin-bottom: 10px; font-size: 16px;">
                 {% if request_obj.type_of_process == 'generating_xml' %}
                     You can view the completed request details and download the generated files here:
                 {% else %}
                     You can view the completed request details here:
                 {% endif %}
-                <a href="{{ request_url }}">{{ request_url }}</a>
+                <a href="{{ request_url }}" style="color: #007bff; text-decoration: none; font-weight: bold;">{{ request_url }}</a>
             </p>
-            <div class="footer-note">
-                <p><em>If any corrections are needed, you can go to the request details page and use the "Reject" button to return it to the operator for review, or you can reply to this email.</em></p>
+            <div style="font-size: 0.9em; color: #6c757d; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eeeeee;">
+                <p style="margin-bottom: 10px; font-size: 16px;"><em>If any corrections are needed, you can go to the request details page and use the "Reject" button to return it to the operator for review, or you can reply to this email.</em></p>
             </div>
             {% endif %}
         </div>
-        <div class="footer">
+
+        <div style="margin-top: 25px; font-size: 12px; text-align: center; color: #888888;">
             <p>This is an automated notification from the Requests Platform.</p>
         </div>
     </div>

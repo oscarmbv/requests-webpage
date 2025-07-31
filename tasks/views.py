@@ -29,6 +29,7 @@ import json
 import os
 from django_q.tasks import async_task
 from .forms import ProvideUpdateForm
+from django.utils.html import strip_tags
 from .notifications import ( notify_request_blocked, notify_update_provided, notify_update_requested,
                              notify_request_approved, notify_new_request_created, notify_pending_approval_request,
                              notify_request_sent_to_qa, notify_request_rejected, notify_request_cancelled,
@@ -856,10 +857,18 @@ def request_detail(request, pk):
     }
     detail_template = template_map.get(user_request.type_of_process, 'tasks/user_records_detail.html')
 
+    block_form = BlockForm()
+    operate_form = OperateForm(instance=user_request)
+    generating_xml_form = GeneratingXmlOperateForm(instance=user_request)
+
     # Construir el contexto
     context = {
         'user_request': user_request,
         'is_agent_user': is_agent_user,
+        'block_form': block_form,
+        'operate_form': operate_form,
+        'generating_xml_form': generating_xml_form,
+        'tinymce_js_url': settings.TINYMCE_JS_URL,
         'is_leadership_user': is_leadership_user,
         'blocked_history': blocked_history,
         'resolved_history': resolved_history,
@@ -878,11 +887,6 @@ def request_detail(request, pk):
         'can_uncancel_request': can_uncancel_request,
         'can_unassign': can_unassign,
     }
-
-    if user_request.type_of_process == 'generating_xml':
-        form_instance_for_modal = GeneratingXmlOperateForm(instance=user_request)
-        context['form_for_modal'] = form_instance_for_modal
-        logger.debug(f"Added GeneratingXmlOperateForm to context for GXML request {pk}. Fields: {list(form_instance_for_modal.fields.keys())}")
 
     logger.debug(f"Rendering template '{detail_template}' with context keys: {list(context.keys())}")
     if address_files is not None:
@@ -938,6 +942,7 @@ def block_request(request, pk):
         form = BlockForm(request.POST)
         if form.is_valid():
             block_reason = form.cleaned_data['reason']
+            plain_text_reason = strip_tags(block_reason).replace('&nbsp;', ' ').strip()
             django_update_successful = False
             try:
                 # 1. Bloquear la solicitud en Django (esto siempre se intenta primero)
@@ -999,7 +1004,7 @@ def block_request(request, pk):
 
                         sf_update_data = {
                             'Invisible_Status__c': 'Escalated',
-                            'Invisible_Comments__c': f"Request {user_request.unique_code} blocked by {request.user.email}. Reason: {block_reason}"
+                            'Invisible_Comments__c': f"Request {user_request.unique_code} blocked by {request.user.email}. Reason: {plain_text_reason}"
                         }
 
                         sf.Opportunity.update(user_request.salesforce_standard_opp_id, sf_update_data)
@@ -1428,7 +1433,7 @@ def complete_request(request, pk):
                             'Invisible_Success_Output_Link__c': user_request.success_output_link,
                             'Invisible_Failed_Output_Link__c': user_request.failed_output_link,
                             'Rhino_Accounts_Created__c': user_request.rhino_accounts_created if user_request.rhino_accounts_created is not None else False,
-                            'Invisible_Comments__c': user_request.operating_notes,
+                            'Invisible_Comments__c': strip_tags(user_request.operating_notes).replace('&nbsp;', ' ').strip(),
                             # Ya es obligatorio para AV en el form
                             'Invisible_Status__c': 'Completed',  # Estado final en SF
                         }

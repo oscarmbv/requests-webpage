@@ -120,6 +120,59 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="{{ tinymce_js_url }}" referrerpolicy="origin"></script>
+    <script>
+      const tinymceConfigs = {
+          simple: {
+            height: 200,
+            menubar: false,
+            plugins: 'link lists autolink',
+            toolbar: 'undo redo | bold italic | bullist numlist | link'
+          },
+          full: {
+            height: 350,
+            menubar: true,
+            plugins: 'link image lists autolink table help wordcount',
+            toolbar: 'undo redo | formatselect | bold italic | bullist numlist | link image table | help'
+          }
+        };
+
+        /**
+         * Función que inicializa un editor TinyMCE en un textarea específico.
+         * Lee la configuración desde el atributo 'data-config' del textarea.
+         * @param {string} editorId - El ID del textarea que se va a inicializar.
+         */
+        function initializeTinyMce(editorId) {
+          const textarea = document.getElementById(editorId);
+
+          // Si no encontramos el textarea, no hacemos nada.
+          if (!textarea) {
+            console.error("No se encontró el textarea con el ID:", editorId);
+            return;
+          }
+
+          // Leemos la configuración desde el atributo data-config (ej. "simple" o "full")
+          const configName = textarea.dataset.config || 'simple'; // Usamos 'simple' por defecto
+          const baseConfig = tinymceConfigs[configName];
+
+          // Creamos una copia de la configuración para no modificar la original
+          let finalConfig = { ...baseConfig };
+
+          // Especificamos el selector para este editor en particular
+          finalConfig.selector = '#' + editorId;
+
+          // Inicializamos el editor
+          tinymce.init(finalConfig);
+        }
+    </script>
+
+    <script>
+      document.addEventListener('focusin', (e) => {
+        if (e.target.closest(".tox-tinymce-aux, .moxman-window, .tam-assetmanager-root") !== null) {
+          e.stopImmediatePropagation();
+        }
+      });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

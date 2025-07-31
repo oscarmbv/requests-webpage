@@ -14,6 +14,7 @@ import pytz
 import json
 from django.utils import timezone
 from email.utils import make_msgid
+from django.utils.html import strip_tags
 from .choices import (
     EVENT_KEY_NEW_REQUEST_CREATED,
     EVENT_KEY_REQUEST_PENDING_APPROVAL,
@@ -1165,12 +1166,14 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
         logger.info(
             f"Email sending SKIPPED for event '{current_event_key}' for request {request_obj.unique_code} due to admin toggle.")
 
+    plain_text_reason = strip_tags(block_reason).replace('&nbsp;', ' ').strip()
+
     # ---- Notificación de Telegram (se envía independientemente del toggle de email por ahora) ----
     if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_DEFAULT_CHAT_ID:
         req_code_escaped = escape_markdown_v2(request_obj.unique_code)
         # Usar email crudo para blocked_by_user, como hemos hecho para otros emails en Telegram
         blocked_by_raw_email = blocked_by_user.email
-        block_reason_escaped = escape_markdown_v2(block_reason)
+        block_reason_escaped = escape_markdown_v2(plain_text_reason)
         url_for_telegram_link = request_url
 
         telegram_message_text = (
@@ -1200,7 +1203,7 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
 
     slack_message_text = (
         f"🚫 Request *{slack_request_link}* has been *blocked* by {blocker_name}.\n"
-        f"> *Reason:* {block_reason}"
+        f"> *Reason:* {plain_text_reason}"
     )
 
     send_slack_notification(
@@ -1992,7 +1995,8 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
         notes_line_telegram = ""
         if request_obj.operating_notes:
-            notes_line_telegram = f"\n*Notes:*\n{escape_markdown_v2(request_obj.operating_notes)}"
+            plain_text_notes = strip_tags(request_obj.operating_notes).replace('&nbsp;', ' ').strip()
+            notes_line_telegram = f"\n*Notes:*\n{escape_markdown_v2(plain_text_notes)}"
 
         url_for_telegram_link = request_url
 
@@ -2039,7 +2043,8 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
     notes_section = ""
     if request_obj.operating_notes:
-        notes_section = f"\n> *Notes:* {request_obj.operating_notes}"
+        plain_text_notes = strip_tags(request_obj.operating_notes).replace('&nbsp;', ' ').strip()
+        notes_section = f"\n> *Notes:* {plain_text_notes}"
 
     slack_message_text = (
         f"🏁 Request *{slack_request_link}* has been *completed*!\n"

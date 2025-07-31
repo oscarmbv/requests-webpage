@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load duration_filters %}
+{% load custom_filters %}
 
 {% block title %}{% trans "Request Details:" %} {{ user_request.unique_code }}{% endblock %}
 
@@ -65,7 +66,7 @@
                 <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
                 {% with last_block=blocked_history.first %}
                     {% if last_block %}
-                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|clean_for_plaintext|truncatewords:20 }}
                         ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
                     {% endif %}
                 {% endwith %}
@@ -220,7 +221,7 @@
                             {% if user_request.operating_notes %}
                             <div class="row mb-1 mt-2">
                                 <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
-                                <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
+                                <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|safe }}</dd>
                             </div>
                             {% endif %}
                          </dl>
@@ -329,7 +330,7 @@
 
     {# --- Sección: Historial de Acciones --- #}
      <div class="row g-4 mt-2">
-        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|safe }} </li> {% endfor %} </ul> </div> {% endif %}
         {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank" rel="noopener noreferrer">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank" rel="noopener noreferrer">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
         {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
     </div>
@@ -380,7 +381,29 @@
 </div>{# Cierre del <div class="container mt-4"> #}
 
 {# --- Modales con IDs sufijados con _sd --- #}
-<div class="modal fade" id="blockFormModal_sd" tabindex="-1" aria-labelledby="blockFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:block_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="blockFormModalLabel_sd">{% trans "Block Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_block_sd" class="form-label">{% trans "Reason for Blocking" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_block_sd" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button> </div> </form> </div> </div> </div>
+<div class="modal fade" id="blockFormModal_sd" tabindex="-1" aria-labelledby="blockFormModalLabel_sd" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'tasks:block_request' user_request.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="blockFormModalLabel_sd">{% trans "Block Request" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Please provide the reason for blocking this request." %}</p>
+                    {{ block_form.as_p }}
+                    {{ block_form.media }}
+                </div>
+                <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-warning">{% trans "Block Request" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="resolveFormModal_sd" tabindex="-1" aria-labelledby="resolveFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:resolve_request' user_request.id %}" enctype="multipart/form-data"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="resolveFormModalLabel_sd">{% trans "Resolve Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_message_resolve_sd" class="form-label">{% trans "Resolution Message" %} <span class="text-danger">*</span></label> <textarea name="message" class="form-control" id="id_message_resolve_sd" rows="3" required></textarea> </div> <div class="mb-3"> <label for="id_resolved_file_sd" class="form-label">{% trans "Upload Resolution File (optional)" %}</label> <input type="file" name="resolved_file" class="form-control form-control-sm" id="id_resolved_file_sd"> </div> <div class="mb-3"> <label for="id_resolved_link_sd" class="form-label">{% trans "Provide Resolution Link (optional)" %}</label> <input type="url" name="resolved_link" class="form-control form-control-sm" id="id_resolved_link_sd" placeholder="https://..."> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-success">{% trans "Resolve Request" %}</button> </div> </form> </div> </div> </div>
 <div class="modal fade" id="rejectFormModal_sd" tabindex="-1" aria-labelledby="rejectFormModalLabel_sd" aria-hidden="true"> <div class="modal-dialog"> <div class="modal-content"> <form method="post" action="{% url 'tasks:reject_request' user_request.id %}"> {% csrf_token %} <div class="modal-header"> <h1 class="modal-title fs-5" id="rejectFormModalLabel_sd">{% trans "Reject Request" %}</h1> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button> </div> <div class="modal-body"> <div class="mb-3"> <label for="id_reason_reject_sd" class="form-label">{% trans "Reason for Rejection" %} <span class="text-danger">*</span></label> <textarea name="reason" class="form-control" id="id_reason_reject_sd" rows="3" required></textarea> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button> <button type="submit" class="btn btn-danger">{% trans "Reject Request" %}</button> </div> </form> </div> </div> </div>
 
@@ -412,9 +435,10 @@
                         <div class="invalid-feedback" id="error-stripe_ri_disputes_op_sd"></div>
                     </div>
                     <div class="mb-3">
-                        <label for="id_operating_notes_op_sd" class="form-label small">{% trans "Operator Notes" %} <span class="text-danger">*</span></label>
-                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_op_sd" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                        {{ operate_form.operating_notes.label_tag }}
+                        {{ operate_form.operating_notes }}
                     </div>
+                    <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
@@ -452,9 +476,10 @@
                         <div class="invalid-feedback" id="error-stripe_ri_disputes_comp_sd"></div>
                     </div>
                     <div class="mb-3">
-                        <label for="id_operating_notes_comp_sd" class="form-label small">{% trans "Operator/QA Notes" %} <span class="text-danger">*</span></label>
-                        <textarea name="operating_notes" class="form-control form-control-sm" id="id_operating_notes_comp_sd" rows="3" required>{{ user_request.operating_notes|default:"" }}</textarea>
+                        {{ operate_form.operating_notes.label_tag }}
+                        {{ operate_form.operating_notes }}
                     </div>
+                    <button type="button" class="btn btn-info btn-sm mt-2 js-toggle-tinymce">Rich Text</button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
@@ -496,104 +521,167 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const modalsToValidateSD = ['operateFormModal_sd', 'completeFormModal_sd'];
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalsToValidateSD = ['operateFormModal_sd', 'completeFormModal_sd'];
 
-    modalsToValidateSD.forEach(modalId => {
-        const modalElement = document.getElementById(modalId);
-        if (!modalElement) return;
+        modalsToValidateSD.forEach(modalId => {
+            const modalElement = document.getElementById(modalId);
+            if (!modalElement) return;
 
-        const form = modalElement.querySelector('form');
-        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
-        if (!form || !submitButton) return;
+            const form = modalElement.querySelector('form');
+            const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+            if (!form || !submitButton) return;
 
-        const suffix = modalId.includes('operate') ? '_op_sd' : '_comp_sd';
-        const fieldsToValidate = [
-            { inputId: '#id_stripe_premium_disputes' + suffix, errorId: '#error-stripe_premium_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
-            { inputId: '#id_stripe_ri_disputes' + suffix, errorId: '#error-stripe_ri_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
-            { inputId: '#id_operating_notes' + suffix, errorId: null, required: true, message: "{% trans 'Operator/QA Notes are required.' %}"} // No hay div de error específico para notas en el HTML actual, se puede añadir si se desea.
-        ];
+            const suffix = modalId.includes('operate') ? '_op_sd' : '_comp_sd';
+            const fieldsToValidate = [
+                { inputId: '#id_stripe_premium_disputes' + suffix, errorId: '#error-stripe_premium_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
+                { inputId: '#id_stripe_ri_disputes' + suffix, errorId: '#error-stripe_ri_disputes' + suffix, required: true, message: "{% trans 'This field is required (0 is valid).' %}" },
+                { inputId: '#id_operating_notes' + suffix, errorId: null, required: true, message: "{% trans 'Operator/QA Notes are required.' %}"} // No hay div de error específico para notas en el HTML actual, se puede añadir si se desea.
+            ];
 
-        function validateField(inputElement, errorDiv, isRequired, errorMessage) {
-            if (!inputElement) return true;
+            function validateField(inputElement, errorDiv, isRequired, errorMessage) {
+                if (!inputElement) return true;
 
-            inputElement.classList.remove('is-invalid');
-            if (errorDiv) errorDiv.style.display = 'none';
+                inputElement.classList.remove('is-invalid');
+                if (errorDiv) errorDiv.style.display = 'none';
 
-            const value = inputElement.value.trim();
+                const value = inputElement.value.trim();
 
-            if (isRequired && value === '') {
-                inputElement.classList.add('is-invalid');
-                if (errorDiv) {
-                    errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
-                    errorDiv.style.display = 'block';
-                } else { // Para campos sin div de error dedicado como operating_notes
-                    if (!inputElement.nextElementSibling || !inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
-                        const tempErrorDiv = document.createElement('div');
-                        tempErrorDiv.classList.add('invalid-feedback', 'd-block');
-                        tempErrorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
-                        inputElement.parentNode.insertBefore(tempErrorDiv, inputElement.nextSibling);
-                    } else {
-                        inputElement.nextElementSibling.textContent = errorMessage || "{% trans 'This field is required.' %}";
-                        inputElement.nextElementSibling.style.display = 'block';
-                    }
-                }
-                return false;
-            }
-
-            if (inputElement.type === 'number' && value !== '') {
-                const numValue = parseInt(value, 10);
-                if (isNaN(numValue) || numValue < 0) {
+                if (isRequired && value === '') {
                     inputElement.classList.add('is-invalid');
                     if (errorDiv) {
-                        errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                        errorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
                         errorDiv.style.display = 'block';
-                    } else {
-                        // similar al de arriba para el div temporal
+                    } else { // Para campos sin div de error dedicado como operating_notes
+                        if (!inputElement.nextElementSibling || !inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
+                            const tempErrorDiv = document.createElement('div');
+                            tempErrorDiv.classList.add('invalid-feedback', 'd-block');
+                            tempErrorDiv.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                            inputElement.parentNode.insertBefore(tempErrorDiv, inputElement.nextSibling);
+                        } else {
+                            inputElement.nextElementSibling.textContent = errorMessage || "{% trans 'This field is required.' %}";
+                            inputElement.nextElementSibling.style.display = 'block';
+                        }
                     }
                     return false;
                 }
-            }
-            return true;
-        }
 
-        function clearAllValidationErrors() {
-            fieldsToValidate.forEach(fieldConf => {
-                const inputElement = form.querySelector(fieldConf.inputId);
-                const errorDiv = form.querySelector(fieldConf.errorId); // Puede ser null para operating_notes
-                if (inputElement) inputElement.classList.remove('is-invalid');
-                if (errorDiv) {
-                     errorDiv.style.display = 'none';
-                } else if (inputElement && inputElement.nextElementSibling && inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
-                    inputElement.nextElementSibling.style.display = 'none'; // Limpiar error temporal si existe
+                if (inputElement.type === 'number' && value !== '') {
+                    const numValue = parseInt(value, 10);
+                    if (isNaN(numValue) || numValue < 0) {
+                        inputElement.classList.add('is-invalid');
+                        if (errorDiv) {
+                            errorDiv.textContent = "{% trans 'Please enter a valid non-negative number.' %}";
+                            errorDiv.style.display = 'block';
+                        } else {
+                            // similar al de arriba para el div temporal
+                        }
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function clearAllValidationErrors() {
+                fieldsToValidate.forEach(fieldConf => {
+                    const inputElement = form.querySelector(fieldConf.inputId);
+                    const errorDiv = form.querySelector(fieldConf.errorId); // Puede ser null para operating_notes
+                    if (inputElement) inputElement.classList.remove('is-invalid');
+                    if (errorDiv) {
+                         errorDiv.style.display = 'none';
+                    } else if (inputElement && inputElement.nextElementSibling && inputElement.nextElementSibling.classList.contains('invalid-feedback')) {
+                        inputElement.nextElementSibling.style.display = 'none'; // Limpiar error temporal si existe
+                    }
+                });
+            }
+
+            modalElement.addEventListener('show.bs.modal', clearAllValidationErrors);
+            if (modalElement.classList.contains('show')) { clearAllValidationErrors(); }
+
+            form.addEventListener('submit', function(event) {
+                let isFormValid = true;
+                fieldsToValidate.forEach(fieldConf => {
+                    const inputElement = form.querySelector(fieldConf.inputId);
+                    const errorDiv = form.querySelector(fieldConf.errorId);
+                    if (!validateField(inputElement, errorDiv, fieldConf.required, fieldConf.message)) {
+                        isFormValid = false;
+                    }
+                });
+
+                if (!isFormValid) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                } else {
+                     if(submitButton){
+                        submitButton.disabled = true;
+                        submitButton.textContent = '{% trans "Processing..." %}';
+                     }
                 }
             });
-        }
-
-        modalElement.addEventListener('show.bs.modal', clearAllValidationErrors);
-        if (modalElement.classList.contains('show')) { clearAllValidationErrors(); }
-
-        form.addEventListener('submit', function(event) {
-            let isFormValid = true;
-            fieldsToValidate.forEach(fieldConf => {
-                const inputElement = form.querySelector(fieldConf.inputId);
-                const errorDiv = form.querySelector(fieldConf.errorId);
-                if (!validateField(inputElement, errorDiv, fieldConf.required, fieldConf.message)) {
-                    isFormValid = false;
-                }
-            });
-
-            if (!isFormValid) {
-                event.preventDefault();
-                event.stopPropagation();
-            } else {
-                 if(submitButton){
-                    submitButton.disabled = true;
-                    submitButton.textContent = '{% trans "Processing..." %}';
-                 }
-            }
         });
     });
-});
+
+        document.addEventListener("DOMContentLoaded", function() {
+        const completeModal = document.getElementById('completeFormModal_av');
+        const newEditorId = 'complete-notes-editor';
+        let completeTextarea = null;
+
+        if (completeModal) {
+            completeTextarea = completeModal.querySelector('.tinymce-target');
+            if (completeTextarea) {
+                completeTextarea.id = newEditorId;
+            }
+        }
+
+        // 1. Lógica para activar el editor en 'Complete' si tiene HTML
+        if (completeTextarea) {
+            const content = completeTextarea.value;
+            if (content.includes('<') && content.includes('>')) {
+                const button = completeModal.querySelector('.js-toggle-tinymce');
+                if (button) {
+                    // Usamos el NUEVO ID único para inicializar
+                    initializeTinyMce(newEditorId);
+                    button.textContent = 'Plain Text';
+                }
+            }
+        }
+
+        // 2. Lógica universal para TODOS los botones de toggle
+        const toggleButtons = document.querySelectorAll('.js-toggle-tinymce');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const wrapperDiv = event.target.previousElementSibling;
+                const textarea = wrapperDiv.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                // La lógica ahora funcionará porque el ID del textarea 'Complete' ya es único.
+                const editorId = textarea.id;
+
+                if (tinymce.get(editorId)) {
+                    tinymce.get(editorId).remove();
+                    button.textContent = 'Rich Text';
+                } else {
+                    initializeTinyMce(editorId);
+                    button.textContent = 'Plain Text';
+                }
+            });
+        });
+
+        // 3. Lógica para limpiar los modales al cerrarse (sigue igual)
+        const allModals = document.querySelectorAll('.modal');
+        allModals.forEach(modal => {
+            modal.addEventListener('hidden.bs.modal', (event) => {
+                const textarea = modal.querySelector('.tinymce-target');
+                if (!textarea) return;
+
+                const editor = tinymce.get(textarea.id);
+                if (editor) {
+                    editor.remove();
+                    const button = modal.querySelector('.js-toggle-tinymce');
+                    if (button) button.textContent = 'Rich Text';
+                }
+            });
+        });
+    });
 </script>
 {% endblock extra_js %}

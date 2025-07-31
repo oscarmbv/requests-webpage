@@ -13,6 +13,7 @@ from django.utils import timezone
 from datetime import timedelta
 import pytz
 from django.conf import settings
+from tinymce.widgets import TinyMCE
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ class UserRecordsRequestForm(forms.Form):
 
 class BlockForm(forms.Form):
     """Formulario para la razón de bloqueo."""
-    reason = forms.CharField(label='Reason for Blocking', widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4}), required=True)
+    reason = forms.CharField(label='Reason for Blocking', widget=TinyMCE(attrs={'id': 'block-reason-editor', 'class': 'tinymce-target', 'data-config': 'simple'}), required=True)
 
 
 class ResolveForm(forms.Form):
@@ -239,7 +240,7 @@ class OperateForm(forms.ModelForm):
             'update_by_csv_rows': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'processing_reports_rows': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'operator_spreadsheet_link': forms.URLInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'https://docs.google.com/spreadsheets/...'}),
-            'operating_notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'operating_notes': TinyMCE(attrs={'id': 'operate-notes-editor', 'class': 'tinymce-target', 'data-config': 'full'}),
             'assets_uploaded': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'av_number_of_units': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
             'av_number_of_invalid_units': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
@@ -1163,11 +1164,6 @@ class PropertyRecordsRequestForm(forms.ModelForm):
 
 
 class GeneratingXmlOperateForm(forms.ModelForm):
-    operating_notes = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
-        required=False,
-        label = "Operator/QA Notes (Optional)"
-    )
     qa_needs_file_correction = forms.BooleanField(
         label=_("Correct / Re-upload Files?"),
         required=False,
@@ -1181,6 +1177,12 @@ class GeneratingXmlOperateForm(forms.ModelForm):
             'operator_rvic_file_slot1', 'operator_rvic_file_slot2',
             'operator_ssic_file_slot1', 'operator_ssic_file_slot2'
         ]
+        widgets = {
+            'operating_notes': TinyMCE(attrs={'id': 'operate-notes-editor', 'class': 'tinymce-target', 'data-config': 'full'})
+        }
+        labels = {
+            'operating_notes': "Operator/QA Notes (Optional)"
+        }
 
     def __init__(self, *args, **kwargs):
         self.context_type = kwargs.pop('context_type', 'operator_initial')
