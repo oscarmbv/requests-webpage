@@ -3,7 +3,7 @@
 {% load custom_filters %}
 Subject: {{ subject }}
 
-Hello,
+Hello {{ recipient_name }},
 
 The {{ request_obj.get_type_of_process_display }} request {% if request_obj.type_of_process == 'generating_xml' %}for State: {{ request_obj.get_xml_state_display|default:"N/A" }}{% elif request_obj.type_of_process != 'stripe_disputes' %}for Partner: {{ request_obj.partner_name|default:"N/A" }}{% endif %} is complete.
 

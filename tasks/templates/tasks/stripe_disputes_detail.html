@@ -343,7 +343,7 @@
                 {% if user_request.status == 'pending' %}
                     <button type="submit" formaction="{% url 'tasks:operate_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-play-fill me-1"></i>{% trans "Operate" %}</button>
                 {% endif %}
-                {% if user_request.status == 'in_progress' and user_request.operator == request.user %} <a href="#blockFormModal_sd" data-bs-toggle="modal" class="btn btn-warning btn-sm me-1 mb-1"><i class="bi bi-lock-fill me-1"></i>{% trans "Block" %}</a> <a href="#operateFormModal_sd" data-bs-toggle="modal" class="btn btn-info btn-sm me-1 mb-1"><i class="bi bi-send-check me-1"></i>{% trans "Send to QA" %}</a> {% endif %}
+                {% if user_request.status == 'pending' or user_request.status == 'in_progress' %} <a href="#blockFormModal_sd" data-bs-toggle="modal" class="btn btn-warning btn-sm me-1 mb-1"><i class="bi bi-lock-fill me-1"></i>{% trans "Block" %}</a> <a href="#operateFormModal_sd" data-bs-toggle="modal" class="btn btn-info btn-sm me-1 mb-1"><i class="bi bi-send-check me-1"></i>{% trans "Send to QA" %}</a> {% endif %}
                 {% if user_request.status == 'qa_pending' %} <button type="submit" formaction="{% url 'tasks:qa_request' user_request.id %}" class="btn btn-primary btn-sm me-1 mb-1"><i class="bi bi-search me-1"></i>{% trans "Start QA" %} </button> {% endif %}
                 {% if user_request.status == 'qa_in_progress' and user_request.qa_agent == request.user %} <a href="#completeFormModal_sd" data-bs-toggle="modal" class="btn btn-success btn-sm me-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i>{% trans "Complete" %}</a> {% endif %}
                 {% if can_provide_update %}

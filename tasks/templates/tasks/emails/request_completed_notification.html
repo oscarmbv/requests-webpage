@@ -30,7 +30,7 @@
         </div>
 
         <div class="content">
-            <p style="margin-bottom: 10px; font-size: 16px;">Hello,</p>
+            <p style="margin-bottom: 10px; font-size: 16px;">Hello {{ recipient_name }},</p>
             <p style="margin-bottom: 10px; font-size: 16px;">
                 The <strong style="color: #444444;">{{ request_obj.get_type_of_process_display }}</strong>
                 {% if request_obj.type_of_process == 'property_records' %}

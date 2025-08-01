@@ -983,8 +983,12 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('info@gryphuslabs.com')
+        #recipients_email_set.add('info@gryphuslabs.com') #se remueve para reducir la cuota de resend
 
+        if updated_by_user and updated_by_user.email:
+            recipients_email_set.add(updated_by_user.email)
+            logger.info(
+                f"Notificación '{current_event_key}' para {request_obj.unique_code}: Se añadirá a quien realizó el update {updated_by_user.email}")
         if request_obj.update_requested_by and request_obj.update_requested_by.email:
             recipients_email_set.add(request_obj.update_requested_by.email)
             logger.info(
@@ -1121,18 +1125,22 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
     if is_email_notification_enabled(current_event_key):
         subject = f"Request {request_obj.unique_code} needs your input"
 
+        recipient_user = request_obj.requested_by
+        recipient_name = "User"
+        if recipient_user:
+            recipient_name = recipient_user.first_name or recipient_user.username or recipient_user.email
+
         email_context = {
             'subject': subject,
             'request_obj': request_obj,
             'blocked_by_user': blocked_by_user,
             'block_reason_text': block_reason,
-            'recipient_user_email': request_obj.requested_by.email if request_obj.requested_by else "User",
-            # request_url se añade dentro de send_request_notification_email
+            'recipient_name': recipient_name,
         }
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('info@gryphuslabs.com')
+        #recipients_email_set.add('info@gryphuslabs.com') #removido para reducir los gastos de la cuota de Resend
 
         if request_obj.requested_by and request_obj.requested_by.email:
             recipients_email_set.add(request_obj.requested_by.email)
@@ -1932,16 +1940,22 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
     if is_email_notification_enabled(current_event_key):
         subject = f"Request {request_obj.unique_code} was completed"
 
+        recipient_user = request_obj.requested_by
+        recipient_name = "User"
+        if recipient_user:
+            recipient_name = recipient_user.first_name or recipient_user.username or recipient_user.email
+
         email_context = {
             'subject': subject,
             'request_obj': request_obj,
             'qa_completer_user': qa_completer_user,
+            'recipient_name': recipient_name,
             # request_url se añade dentro de send_request_notification_email
         }
 
         # ---- Destinatarios de Email ----
         recipients_email_set = set()
-        recipients_email_set.add('info@gryphuslabs.com')
+        #recipients_email_set.add('info@gryphuslabs.com') #removido para reducir el gasto la cuota de Resend
 
         # 1. Usuario que creó originalmente la solicitud (Requested By)
         if request_obj.requested_by and request_obj.requested_by.email:
