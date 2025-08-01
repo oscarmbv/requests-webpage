@@ -33,7 +33,7 @@
     <div class="container">
         <div class="header">{{ subject }}</div>
         <div class="content">
-            <p>Hello,</p>
+            <p>Hello {{ recipient_name }},</p>
             <p>The <strong>{{ request_obj.get_type_of_process_display }}</strong>
                 {% if request_obj.type_of_process == 'property_records' %}
                     ({{ request_obj.get_property_records_type_display|default_if_none:"" }})

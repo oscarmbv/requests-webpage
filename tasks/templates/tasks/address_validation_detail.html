@@ -318,7 +318,7 @@
                             {% if user_request.type_of_process == 'address_validation' %}
                                 <hr class="my-2">
                                 <p class="text-muted small">Address Validation Operational Details:</p>
-                                {% if user_request.av_number_of_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Number of Units Processed:" %}</dt> <dd class="col-sm-7">{{ user_request.av_number_of_units }}</dd> </div> {% endif %}
+                                {% if user_request.av_number_of_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Number of Valid Units:" %}</dt> <dd class="col-sm-7">{{ user_request.av_number_of_units }}</dd> </div> {% endif %}
                                 {% if user_request.av_number_of_invalid_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Number of Invalid Units:" %}</dt> <dd class="col-sm-7">{{ user_request.av_number_of_invalid_units }}</dd> </div> {% endif %}
                                 {% if user_request.link_to_assets %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Link to Assets:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.link_to_assets }}" target="_blank" rel="noopener noreferrer">{{ user_request.link_to_assets }}</a></dd> </div> {% endif %}
                                 {% if user_request.success_output_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">{% trans "AV - Success Output Link:" %}</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.success_output_link }}" target="_blank" rel="noopener noreferrer">{{ user_request.success_output_link }}</a></dd> </div> {% endif %}
@@ -550,7 +550,7 @@
                     <h5 class="h6">{% trans "Address Validation Specific Details" %}</h5>
 
                     <div class="mb-3">
-                        <label for="id_av_number_of_units_op_av" class="form-label small">{% trans "Number of Units (Address Validation)" %} <span class="text-danger">*</span></label>
+                        <label for="id_av_number_of_units_op_av" class="form-label small">{% trans "Number of Valid Units" %} <span class="text-danger">*</span></label>
                         <input type="number" name="av_number_of_units" value="{{ user_request.av_number_of_units|default:user_request.salesforce_number_of_units|default_if_none:'' }}" min="0" class="form-control form-control-sm" id="id_av_number_of_units_op_av" required>
                         <div class="invalid-feedback" id="error-av_number_of_units_op_av" style="display: none;">{% trans "This field is required (0 is valid)." %}</div>
                     </div>

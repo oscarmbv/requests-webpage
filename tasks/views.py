@@ -1277,7 +1277,8 @@ def complete_request(request, pk):
                             updated_instance.subtotal_csv_update_client_price_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_price)
                             updated_instance.subtotal_processing_report_client_price_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_price)
                             updated_instance.subtotal_manual_unit_update_client_price_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_price)
-                            updated_instance.subtotal_address_validation_unit_client_price_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_price)
+                            total_av_units = (updated_instance.av_number_of_units or 0) + (updated_instance.av_number_of_invalid_units or 0)
+                            updated_instance.subtotal_address_validation_unit_client_price_completed = (Decimal(total_av_units) * prices.address_validation_unit_price)
                             stripe_total_disputes = (updated_instance.stripe_premium_disputes or 0) + (updated_instance.stripe_ri_disputes or 0)
                             updated_instance.subtotal_stripe_dispute_client_price_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_price)
 
@@ -1307,7 +1308,7 @@ def complete_request(request, pk):
                             updated_instance.subtotal_csv_update_operate_cost_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_operate_cost)
                             updated_instance.subtotal_processing_report_operate_cost_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_operate_cost)
                             updated_instance.subtotal_manual_unit_update_operate_cost_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_operate_cost)
-                            updated_instance.subtotal_address_validation_unit_operate_cost_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_operate_cost)
+                            updated_instance.subtotal_address_validation_unit_operate_cost_completed = (Decimal(total_av_units) * prices.address_validation_unit_operate_cost)
                             updated_instance.subtotal_stripe_dispute_operate_cost_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_operate_cost)
                             updated_instance.subtotal_xml_file_operate_cost_completed = (Decimal(xml_carrier_count) * prices.xml_file_operate_cost)
 
@@ -1332,7 +1333,7 @@ def complete_request(request, pk):
                             updated_instance.subtotal_csv_update_qa_cost_completed = (Decimal(updated_instance.update_by_csv_rows or 0) * prices.csv_update_qa_cost)
                             updated_instance.subtotal_processing_report_qa_cost_completed = (Decimal(updated_instance.processing_reports_rows or 0) * prices.processing_report_qa_cost)
                             updated_instance.subtotal_manual_unit_update_qa_cost_completed = (Decimal(updated_instance.manual_updated_units or 0) * prices.manual_unit_update_qa_cost)
-                            updated_instance.subtotal_address_validation_unit_qa_cost_completed = (Decimal(updated_instance.av_number_of_units or 0) * prices.address_validation_unit_qa_cost)
+                            updated_instance.subtotal_address_validation_unit_qa_cost_completed = (Decimal(total_av_units) * prices.address_validation_unit_qa_cost)
                             updated_instance.subtotal_stripe_dispute_qa_cost_completed = (Decimal(stripe_total_disputes) * prices.stripe_dispute_qa_cost)
                             updated_instance.subtotal_xml_file_qa_cost_completed = (Decimal(xml_carrier_count) * prices.xml_file_qa_cost)
 

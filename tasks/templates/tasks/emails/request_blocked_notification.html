@@ -32,7 +32,7 @@
     <div class="container">
         <div class="header">{{ subject }}</div>
         <div class="content">
-            <p>Hello {{ recipient_user_email }},</p> {# Asumiendo que pasamos el email del destinatario #}
+            <p>Hello {{ recipient_name }},</p>
             <p>Your <strong>{{ request_obj.get_type_of_process_display }}</strong>
                 {% if request_obj.type_of_process == 'property_records' %}
                     ({{ request_obj.get_property_records_type_display|default_if_none:"" }})
@@ -42,11 +42,10 @@
                     ({{ request_obj.get_deactivation_toggle_type_display|default_if_none:"" }})
                 {% endif %}
                 request <strong>{{ request_obj.unique_code }}</strong>
-                for
                 {% if request_obj.type_of_process == 'generating_xml' %}
-                    State: <strong>{{ request_obj.get_xml_state_display|default:"N/A" }}</strong>
-                {% else %}
-                    Partner: <strong>{{ request_obj.partner_name|default:"N/A" }}</strong>
+                    for State: <strong>{{ request_obj.get_xml_state_display|default:"N/A" }}</strong>
+                {% elif request_obj.type_of_process != 'stripe_disputes' %}
+                    for Partner: <strong>{{ request_obj.partner_name|default:"N/A" }}</strong>
                 {% endif %}
                 has been marked as "Blocked" and needs your input to be completed.
             </p>
