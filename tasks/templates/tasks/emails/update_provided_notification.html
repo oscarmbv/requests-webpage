@@ -35,7 +35,7 @@
             <p>An update has been provided by <strong>{{ updated_by_user.email }}</strong> for the request <strong>{{ request_obj.unique_code }}</strong>.</p>
 
             <p><strong>Update Message:</strong></p>
-            <div class="message-box">{{ update_message_text|linebreaksbr }}</div>
+            <div class="message-box">{{ update_message_text|safe }}</div>
 
             <p><strong>Request Details:</strong></p>
             <ul class="details-list">

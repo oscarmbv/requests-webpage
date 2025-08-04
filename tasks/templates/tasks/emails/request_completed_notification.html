@@ -60,7 +60,7 @@
 
             {% if request_obj.operating_notes %}
                 <p><strong>Final Notes:</strong></p>
-                <div class="message-box">{{ request_obj.operating_notes|linebreaksbr }}</div>
+                <div class="message-box">{{ notes_for_email|safe }}</div>
             {% endif %}
 
             {% if request_url and request_url != "#" %}

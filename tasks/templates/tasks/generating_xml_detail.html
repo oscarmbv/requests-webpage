@@ -66,7 +66,7 @@
                 <strong>{% trans "Request Blocked:" %}</strong> {% trans "This request is currently blocked and requires resolution before proceeding." %}
                 {% with last_block=blocked_history.first %}
                     {% if last_block %}
-                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|truncatewords:20 }}
+                        <br><small class="text-muted">{% trans "Reason:" %} {{ last_block.reason|markdown_to_plain_text|truncatewords:20 }}
                         ({% trans "Blocked by" %} {{ last_block.blocked_by.email|default:"System" }} {% trans "on" %} {% timezone request.user.timezone|default:"UTC" %}{{ last_block.blocked_at|date:"Y-m-d H:i" }}{% endtimezone %})</small>
                     {% endif %}
                 {% endwith %}
@@ -249,7 +249,7 @@
                            {% if user_request.operating_notes %}
                            <div class="row mb-1 mt-2">
                                <dt class="col-sm-5 text-sm-end">{% trans "Operator/QA Notes:" %}</dt>
-                               <dd class="col-sm-7 pre-wrap">{{ user_request.operating_notes|linebreaksbr }}</dd>
+                               <dd class="col-sm-7 pre-wrap">{{ notes_for_display|safe }}</dd>
                            </div>
                            {% endif %}
                         </dl>
@@ -358,7 +358,7 @@
 
     {# --- Historial de Acciones --- #}
     <div class="row g-4 mt-2">
-        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|linebreaksbr }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Block History" %}</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|markdown_to_html }} </li> {% endfor %} </ul> </div> {% endif %}
         {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Resolution History" %}</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank" rel="noopener noreferrer">{% trans "View File" %}</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank" rel="noopener noreferrer">{% trans "View Link" %}</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
         {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">{% trans "Rejection History" %}</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} {% trans "by" %} {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">{% trans "Resolved by QA" %}</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
     </div>

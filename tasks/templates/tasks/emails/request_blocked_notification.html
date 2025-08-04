@@ -51,7 +51,7 @@
             </p>
 
             <p><strong>Reason for Blocking (provided by {{ blocked_by_user.email }}):</strong></p>
-            <div class="message-box">{{ block_reason_text|linebreaksbr }}</div>
+            <div class="message-box">{{ block_reason_text|safe }}</div>
 
             {% if request_url and request_url != "#" %}
             <p>To resolve this, please click the link below to go to the request details page. Once there, click the "Resolve" button to provide the necessary information or corrections.</p>

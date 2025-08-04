@@ -6,7 +6,7 @@ Your {{ request_obj.get_type_of_process_display }} {% if request_obj.type_of_pro
 
 Reason for Blocking (provided by {{ blocked_by_user.email }}):
 --------------------------------------------------
-{{ block_reason_text|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+{{ block_reason_text_plain|wordwrap:80 }}
 --------------------------------------------------
 
 {% if request_url and request_url != "#" %}

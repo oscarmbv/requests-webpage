@@ -29,6 +29,7 @@ import json
 import os
 from django_q.tasks import async_task
 from .forms import ProvideUpdateForm
+from .utils import convert_markdown_to_plain_text, convert_markdown_to_html
 from .notifications import ( notify_request_blocked, notify_update_provided, notify_update_requested,
                              notify_request_approved, notify_new_request_created, notify_pending_approval_request,
                              notify_request_sent_to_qa, notify_request_rejected, notify_request_cancelled,
@@ -854,6 +855,7 @@ def request_detail(request, pk):
         'stripe_disputes': 'tasks/stripe_disputes_detail.html',
         'property_records': 'tasks/property_records_detail.html',
     }
+    notes_for_display = convert_markdown_to_html(user_request.operating_notes)
     detail_template = template_map.get(user_request.type_of_process, 'tasks/user_records_detail.html')
 
     # Construir el contexto
@@ -877,6 +879,7 @@ def request_detail(request, pk):
         'can_cancel_request': can_cancel_request,
         'can_uncancel_request': can_uncancel_request,
         'can_unassign': can_unassign,
+        'notes_for_display': notes_for_display,
     }
 
     if user_request.type_of_process == 'generating_xml':
@@ -986,6 +989,7 @@ def block_request(request, pk):
                 if user_request.type_of_process == 'address_validation' and user_request.salesforce_standard_opp_id:
                     logger.info(
                         f"Attempting to update Salesforce Opportunity {user_request.salesforce_standard_opp_id} for blocked request {user_request.unique_code}")
+                    plain_text_reason = convert_markdown_to_plain_text(block_reason)
                     try:
                         sf = Salesforce(
                             username=settings.SF_USERNAME,
@@ -999,7 +1003,7 @@ def block_request(request, pk):
 
                         sf_update_data = {
                             'Invisible_Status__c': 'Escalated',
-                            'Invisible_Comments__c': f"Request {user_request.unique_code} blocked by {request.user.email}. Reason: {block_reason}"
+                            'Invisible_Comments__c': f"Request {user_request.unique_code} blocked by {request.user.email}. Reason: {plain_text_reason}"
                         }
 
                         sf.Opportunity.update(user_request.salesforce_standard_opp_id, sf_update_data)
@@ -1405,6 +1409,7 @@ def complete_request(request, pk):
             if django_save_successful:
                 if user_request.type_of_process == 'address_validation' and user_request.salesforce_standard_opp_id:
                     logger.info(f"Attempting to update Salesforce Opportunity {user_request.salesforce_standard_opp_id} for completed AV request {user_request.unique_code}")
+                    plain_operating_notes = convert_markdown_to_plain_text(user_request.operating_notes)
                     try:
                         sf = Salesforce(
                             username=settings.SF_USERNAME,
@@ -1429,7 +1434,7 @@ def complete_request(request, pk):
                             'Invisible_Success_Output_Link__c': user_request.success_output_link,
                             'Invisible_Failed_Output_Link__c': user_request.failed_output_link,
                             'Rhino_Accounts_Created__c': user_request.rhino_accounts_created if user_request.rhino_accounts_created is not None else False,
-                            'Invisible_Comments__c': user_request.operating_notes,
+                            'Invisible_Comments__c': plain_operating_notes,
                             # Ya es obligatorio para AV en el form
                             'Invisible_Status__c': 'Completed',  # Estado final en SF
                         }

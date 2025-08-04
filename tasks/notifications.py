@@ -7,7 +7,7 @@ from django.urls import reverse
 import requests
 from django_q.tasks import async_task
 from .models import UserRecordsRequest, CustomUser, NotificationToggle, BlockedMessage
-from .utils import format_datetime_to_str
+from .utils import format_datetime_to_str, convert_markdown_to_plain_text, convert_markdown_to_html
 from .choices import TYPE_CHOICES
 import os
 import pytz
@@ -966,17 +966,20 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
         temp_request_for_url_build.META['HTTP_HOST'] = http_request_host
         temp_request_for_url_build.META['wsgi.url_scheme'] = http_request_scheme
     request_url = get_absolute_url_for_request(request_obj, temp_request_for_url_build)
+    plain_text_update = convert_markdown_to_plain_text(update_message)
 
     # ---- Lógica de Email (solo si está habilitado) ----
     # ----> 2. VERIFICA EL TOGGLE ANTES DE ENVIAR EL EMAIL <----
     if is_email_notification_enabled(current_event_key):
+        update_for_email = convert_markdown_to_html(update_message)
         subject = f"Update for Request {request_obj.unique_code}"
 
         email_context = {
             'subject': subject,
             'request_obj': request_obj,
             'updated_by_user': updated_by_user,
-            'update_message_text': update_message,
+            'update_message_text': update_for_email,
+            'update_message_text_plain': plain_text_update,
             # request_url se añade dentro de send_request_notification_email
         }
 
@@ -1029,7 +1032,7 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
         # Usar email crudo para updated_by_user, como funcionó antes
         updated_by_raw_email = updated_by_user.email
         req_code_escaped = escape_markdown_v2(request_obj.unique_code)
-        update_message_escaped = escape_markdown_v2(update_message)
+        update_message_escaped = escape_markdown_v2(plain_text_update)
         url_for_telegram_link = request_url
 
         telegram_message_text = (
@@ -1063,7 +1066,7 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
 
     slack_message_text = (
         f"ℹ️ An update has been provided for *{slack_request_link}* by {provider_name}.\n"
-        f'> *Update:* "{update_message}"'
+        f'> *Update:* "{plain_text_update}"'
     )
 
     users_to_notify = []
@@ -1118,11 +1121,13 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
         temp_request_for_url_build.META['HTTP_HOST'] = http_request_host
         temp_request_for_url_build.META['wsgi.url_scheme'] = http_request_scheme
     request_url = get_absolute_url_for_request(request_obj, temp_request_for_url_build)
+    plain_text_reason = convert_markdown_to_plain_text(block_reason)
 
     # ---- Lógica de Email (solo si está habilitado) ----
     # ----> 2. VERIFICA EL TOGGLE ANTES DE ENVIAR EL EMAIL <----
     if is_email_notification_enabled(current_event_key):
         subject = f"Request {request_obj.unique_code} needs your input"
+        block_reason_for_email = convert_markdown_to_html(block_reason)
 
         recipient_user = request_obj.requested_by
         recipient_name = "User"
@@ -1133,7 +1138,8 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
             'subject': subject,
             'request_obj': request_obj,
             'blocked_by_user': blocked_by_user,
-            'block_reason_text': block_reason,
+            'block_reason_text': block_reason_for_email,
+            'block_reason_text_plain': plain_text_reason,
             'recipient_name': recipient_name,
         }
 
@@ -1178,7 +1184,7 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
         req_code_escaped = escape_markdown_v2(request_obj.unique_code)
         # Usar email crudo para blocked_by_user, como hemos hecho para otros emails en Telegram
         blocked_by_raw_email = blocked_by_user.email
-        block_reason_escaped = escape_markdown_v2(block_reason)
+        block_reason_escaped = escape_markdown_v2(plain_text_reason)
         url_for_telegram_link = request_url
 
         telegram_message_text = (
@@ -1208,7 +1214,7 @@ def notify_request_blocked(request_pk, blocked_by_user_pk, block_reason, http_re
 
     slack_message_text = (
         f"🚫 Request *{slack_request_link}* has been *blocked* by {blocker_name}.\n"
-        f"> *Reason:* {block_reason}"
+        f"> *Reason:* {plain_text_reason}"
     )
 
     send_slack_notification(
@@ -1931,11 +1937,13 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
         temp_request_for_url_build.META['HTTP_HOST'] = http_request_host
         temp_request_for_url_build.META['wsgi.url_scheme'] = http_request_scheme
     request_url = get_absolute_url_for_request(request_obj, temp_request_for_url_build)
+    plain_operating_notes = convert_markdown_to_plain_text(request_obj.operating_notes)
 
     # ---- Lógica de Email (solo si está habilitado) ----
     # ----> 2. VERIFICA EL TOGGLE ANTES DE ENVIAR EL EMAIL <----
     if is_email_notification_enabled(current_event_key):
         subject = f"Request {request_obj.unique_code} was completed"
+        notes_for_email = convert_markdown_to_html(request_obj.operating_notes)
 
         recipient_user = request_obj.requested_by
         recipient_name = "User"
@@ -1947,7 +1955,8 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
             'request_obj': request_obj,
             'qa_completer_user': qa_completer_user,
             'recipient_name': recipient_name,
-            # request_url se añade dentro de send_request_notification_email
+            'notes_for_email': notes_for_email,
+            'notes_for_plain_text_email': plain_operating_notes,
         }
 
         # ---- Destinatarios de Email ----
@@ -2006,7 +2015,7 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
         notes_line_telegram = ""
         if request_obj.operating_notes:
-            notes_line_telegram = f"\n*Notes:*\n{escape_markdown_v2(request_obj.operating_notes)}"
+            notes_line_telegram = f"\n*Notes:*\n{escape_markdown_v2(plain_operating_notes)}"
 
         url_for_telegram_link = request_url
 
@@ -2053,7 +2062,7 @@ def notify_request_completed(request_pk, qa_user_pk, http_request_host=None, htt
 
     notes_section = ""
     if request_obj.operating_notes:
-        notes_section = f"\n> *Notes:* {request_obj.operating_notes}"
+        notes_section = f"\n> *Notes:* {plain_operating_notes}"
 
     slack_message_text = (
         f"🏁 Request *{slack_request_link}* has been *completed*!\n"

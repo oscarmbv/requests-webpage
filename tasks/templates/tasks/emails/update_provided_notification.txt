@@ -6,7 +6,7 @@ An update has been provided by {{ updated_by_user.email }} for the request {{ re
 
 Update Message:
 --------------------------------------------------
-{{ update_message_text|safe|escape|striptags|wordwrap:80|linebreaksbr }}
+{{ update_message_text_plain|wordwrap:80 }}
 --------------------------------------------------
 
 Request Details:
