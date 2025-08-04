@@ -10,11 +10,48 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
     dl dt { font-weight: bold; }
-    .pre-wrap { white-space: pre-wrap; word-wrap: break-word; }
+
+    .pre-wrap {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
     .url-break { word-break: break-all; }
-    .invalid-feedback { width: 100%; margin-top: .25rem; font-size: .875em; color: var(--bs-danger-text-emphasis); }
+
+    .invalid-feedback {
+        width: 100%;
+        margin-top: .25rem;
+        font-size: .875em;
+        color: var(--bs-danger-text-emphasis);
+    }
+
     .invalid-feedback.d-none { display: none; }
     .invalid-feedback:not(.d-none) { display: block; }
+
+    .file-list { list-style-type: none; padding-left: 0; }
+    .file-list li { display: flex; align-items: center; margin-bottom: 0.5rem; }
+    .file-list .bi-file-earmark-text, .file-list .bi-box-arrow-up-right { margin-right: 0.5rem; font-size: 1.1rem; }
+
+    .form-control[name="operating_notes"] {
+        height: 200px;
+        resize: vertical;
+    }
+
+    .rendered-markdown-content {
+        all: initial;
+        font-family:
+        font-size: inherit;
+        color: inherit;
+    }
+
+    .rendered-markdown-content > * {
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .rendered-markdown-content > * + * {
+        margin-top: 0.25rem;
+    }
 </style>
 {% endblock %}
 
@@ -231,7 +268,7 @@
         <div class="col-md-6">
             <div class="card shadow-sm mb-4"> <div class="card-header"> Submission Details </div> <div class="card-body"> <dl> <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Partner Name:</dt> <dd class="col-sm-7">{{ user_request.partner_name|default:"-" }}</dd> </div> {% if user_request.type_of_process == 'user_records' %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Total Emails Submitted:</dt> <dd class="col-sm-7">{{ total_user_records_emails }}</dd> </div> {% endif %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Special Instructions:</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.special_instructions|linebreaksbr|default:"-" }}</dd> </div> <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Uploaded File:</dt> <dd class="col-sm-7"> {% if user_request.user_file %} <a href="{{ user_request.user_file.url }}" target="_blank">{{ user_request.user_file.name|cut:"user_uploads/" }}</a> {% else %} - {% endif %} </dd> </div> <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Provided Link:</dt> <dd class="col-sm-7 url-break"> {% if user_request.user_link %} <a href="{{ user_request.user_link }}" target="_blank">{{ user_request.user_link }}</a> {% else %} - {% endif %} </dd> </div> {% if user_request.cancel_reason %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Cancel Reason:</dt> <dd class="col-sm-7 pre-wrap">{{ user_request.cancel_reason|linebreaksbr }}</dd> </div> {% endif %} </dl> </div> </div>
             {% if user_request.num_updated_users is not None or user_request.num_updated_properties is not None or user_request.bulk_updates is not None or user_request.manual_updated_properties is not None or user_request.manual_updated_units is not None or user_request.update_by_csv_rows is not None or user_request.processing_reports_rows is not None or user_request.operator_spreadsheet_link or user_request.operating_notes %}
-                <div class="card shadow-sm mb-4"> <div class="card-header"> Operation Details </div> <div class="card-body"> <dl> {% if user_request.num_updated_users is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Users Updated:</dt> <dd class="col-sm-7">{{ user_request.num_updated_users }}</dd> </div> {% endif %} {% if user_request.num_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Properties Updated:</dt> <dd class="col-sm-7">{{ user_request.num_updated_properties }}</dd> </div> {% endif %} {% if user_request.bulk_updates is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Bulk Updates:</dt> <dd class="col-sm-7">{{ user_request.bulk_updates }}</dd> </div> {% endif %} {% if user_request.manual_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Manual Properties:</dt> <dd class="col-sm-7">{{ user_request.manual_updated_properties }}</dd> </div> {% endif %} {% if user_request.manual_updated_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Manual Updated Units:</dt> <dd class="col-sm-7">{{ user_request.manual_updated_units }}</dd> </div> {% endif %} {% if user_request.update_by_csv_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">CSV Rows:</dt> <dd class="col-sm-7">{{ user_request.update_by_csv_rows }}</dd> </div> {% endif %} {% if user_request.processing_reports_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Processing Reports Rows:</dt> <dd class="col-sm-7">{{ user_request.processing_reports_rows }}</dd> </div> {% endif %} {% if user_request.operator_spreadsheet_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Operator Spreadsheet:</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.operator_spreadsheet_link }}" target="_blank">{{ user_request.operator_spreadsheet_link }}</a></dd> </div> {% endif %} {% if user_request.operating_notes %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Operator Notes:</dt> <dd class="col-sm-7 pre-wrap">{{ notes_for_display|safe }}</dd> </div> {% endif %} </dl> </div> </div>
+                <div class="card shadow-sm mb-4"> <div class="card-header"> Operation Details </div> <div class="card-body"> <dl> {% if user_request.num_updated_users is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Users Updated:</dt> <dd class="col-sm-7">{{ user_request.num_updated_users }}</dd> </div> {% endif %} {% if user_request.num_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Properties Updated:</dt> <dd class="col-sm-7">{{ user_request.num_updated_properties }}</dd> </div> {% endif %} {% if user_request.bulk_updates is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Bulk Updates:</dt> <dd class="col-sm-7">{{ user_request.bulk_updates }}</dd> </div> {% endif %} {% if user_request.manual_updated_properties is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Manual Properties:</dt> <dd class="col-sm-7">{{ user_request.manual_updated_properties }}</dd> </div> {% endif %} {% if user_request.manual_updated_units is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Manual Updated Units:</dt> <dd class="col-sm-7">{{ user_request.manual_updated_units }}</dd> </div> {% endif %} {% if user_request.update_by_csv_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">CSV Rows:</dt> <dd class="col-sm-7">{{ user_request.update_by_csv_rows }}</dd> </div> {% endif %} {% if user_request.processing_reports_rows is not None %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Processing Reports Rows:</dt> <dd class="col-sm-7">{{ user_request.processing_reports_rows }}</dd> </div> {% endif %} {% if user_request.operator_spreadsheet_link %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Operator Spreadsheet:</dt> <dd class="col-sm-7 url-break"><a href="{{ user_request.operator_spreadsheet_link }}" target="_blank">{{ user_request.operator_spreadsheet_link }}</a></dd> </div> {% endif %} {% if user_request.operating_notes %} <div class="row mb-1"> <dt class="col-sm-5 text-sm-end">Operator Notes:</dt> <dd class="col-sm-7 pre-wrap rendered-markdown-content">{{ user_request.operating_notes|markdown_to_html }}</dd> </div> {% endif %} </dl> </div> </div>
             {% endif %}
         </div>
     </div>
@@ -396,7 +433,7 @@
 
     {# --- Sección: Historial de Acciones --- #}
      <div class="row g-4">
-        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">Block History</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} by {{ block.blocked_by.email|default:"Unknown" }}: </span><br> {{ block.reason|markdown_to_html }} </li> {% endfor %} </ul> </div> {% endif %}
+        {% if blocked_history %} <div class="col-md-4"> <h4 class="h5">Block History</h4> <ul class="list-group list-group-flush"> {% for block in blocked_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ block.blocked_at|date:"Y-m-d H:i:s" }}{% endtimezone %} by {{ block.blocked_by.email|default:"Unknown" }}: </span><br> <div class="rendered-markdown-content"> {{ block.reason|markdown_to_html }} </div> </li> {% endfor %} </ul> </div> {% endif %}
         {% if resolved_history %} <div class="col-md-4"> <h4 class="h5">Resolution History</h4> <ul class="list-group list-group-flush"> {% for resolve in resolved_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ resolve.resolved_at|date:"Y-m-d H:i:s" }}{% endtimezone %} by {{ resolve.resolved_by.email|default:"Unknown" }}: </span><br> {{ resolve.message|linebreaksbr }} {% if resolve.resolved_file %}<br><small><a href="{{ resolve.resolved_file.url }}" target="_blank">View File</a></small>{% endif %} {% if resolve.resolved_link %}<br><small><a href="{{ resolve.resolved_link }}" target="_blank">View Link</a></small>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
         {% if rejected_history %} <div class="col-md-4"> <h4 class="h5">Rejection History</h4> <ul class="list-group list-group-flush"> {% for reject in rejected_history %} <li class="list-group-item small"> <span class="text-muted"> {% timezone request.user.timezone|default:"UTC" %}{{ reject.rejected_at|date:"Y-m-d H:i:s" }}{% endtimezone %} by {{ reject.rejected_by.email|default:"Unknown" }}: </span><br> {{ reject.reason|linebreaksbr }} {% if reject.is_resolved_qa %}<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill ms-1">Resolved by QA</span>{% endif %} </li> {% endfor %} </ul> </div> {% endif %}
     </div>

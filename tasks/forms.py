@@ -239,7 +239,7 @@ class OperateForm(forms.ModelForm):
             'update_by_csv_rows': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'processing_reports_rows': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'operator_spreadsheet_link': forms.URLInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'https://docs.google.com/spreadsheets/...'}),
-            'operating_notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'operating_notes': forms.Textarea(attrs={'class': 'form-control'}),
             'assets_uploaded': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'av_number_of_units': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
             'av_number_of_invalid_units': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
@@ -1164,7 +1164,7 @@ class PropertyRecordsRequestForm(forms.ModelForm):
 
 class GeneratingXmlOperateForm(forms.ModelForm):
     operating_notes = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
+        widget=forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 4}),
         required=False,
         label = "Operator/QA Notes (Optional)"
     )

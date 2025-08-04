@@ -1,6 +1,7 @@
 # tasks/utils.py
 import markdown2
 import bleach
+import re
 
 def format_datetime_to_str(dt_object):
     """
@@ -10,23 +11,23 @@ def format_datetime_to_str(dt_object):
     if not dt_object:
         return "N/A"
 
-    # Este es el formato que usaremos consistentemente en todas las notificaciones.
-    # Puedes cambiarlo aquí y se actualizará en todos lados.
     return dt_object.strftime('%Y-%m-%d %H:%M %Z')
-
 
 def convert_markdown_to_html(markdown_text):
     """
-    Convierte un texto en formato Markdown a HTML seguro.
+    Convierte Markdown a HTML semántico y seguro.
     """
     if not markdown_text:
         return ""
 
     html = markdown2.markdown(markdown_text, extras=["target-blank-links"])
 
-    safe_html = bleach.clean(html,
-                             tags=['p', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'br'],
-                             attributes={'a': ['href', 'title', 'target']})
+    safe_html = bleach.clean(
+        html,
+        tags=['p', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'br'],
+        attributes={'a': ['href', 'title', 'target']}
+    )
+
     return safe_html
 
 def convert_markdown_to_plain_text(markdown_text):

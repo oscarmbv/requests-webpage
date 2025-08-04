@@ -855,7 +855,7 @@ def request_detail(request, pk):
         'stripe_disputes': 'tasks/stripe_disputes_detail.html',
         'property_records': 'tasks/property_records_detail.html',
     }
-    notes_for_display = convert_markdown_to_html(user_request.operating_notes)
+
     detail_template = template_map.get(user_request.type_of_process, 'tasks/user_records_detail.html')
 
     # Construir el contexto
@@ -879,7 +879,6 @@ def request_detail(request, pk):
         'can_cancel_request': can_cancel_request,
         'can_uncancel_request': can_uncancel_request,
         'can_unassign': can_unassign,
-        'notes_for_display': notes_for_display,
     }
 
     if user_request.type_of_process == 'generating_xml':
