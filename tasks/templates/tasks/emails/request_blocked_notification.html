@@ -26,6 +26,36 @@
             word-wrap: break-word;
             font-size: 15px;
         }
+
+       .email-markdown-content {
+            all: initial;
+            display: block;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            color: inherit;
+            line-height: 1.5;
+        }
+
+        .email-markdown-content p {
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-markdown-content ul,
+        .email-markdown-content ol {
+            margin: 0;
+            list-style-position: outside;
+            padding-left: 2em;
+        }
+
+        .email-markdown-content p + ul,
+        .email-markdown-content p + ol {
+            margin-top: 0.75em;
+        }
+
+        .email-markdown-content li {
+            margin-bottom: 0.5em;
+        }
     </style>
 </head>
 <body>
@@ -51,7 +81,9 @@
             </p>
 
             <p><strong>Reason for Blocking (provided by {{ blocked_by_user.email }}):</strong></p>
-            <div class="message-box">{{ block_reason_text|safe }}</div>
+            <div class="message-box">
+                <div class="email-markdown-content">{{ block_reason_text|safe }}</div>
+            </div>
 
             {% if request_url and request_url != "#" %}
             <p>To resolve this, please click the link below to go to the request details page. Once there, click the "Resolve" button to provide the necessary information or corrections.</p>

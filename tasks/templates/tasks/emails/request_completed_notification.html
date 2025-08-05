@@ -27,6 +27,36 @@
             font-size: 15px;
             background-color: #f8f9fa;
         }
+
+       .email-markdown-content {
+            all: initial;
+            display: block;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            color: inherit;
+            line-height: 1.5;
+        }
+
+        .email-markdown-content p {
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-markdown-content ul,
+        .email-markdown-content ol {
+            margin: 0;
+            list-style-position: outside;
+            padding-left: 2em;
+        }
+
+        .email-markdown-content p + ul,
+        .email-markdown-content p + ol {
+            margin-top: 0.75em;
+        }
+
+        .email-markdown-content li {
+            margin-bottom: 0.5em;
+        }
     </style>
 </head>
 <body>
@@ -60,7 +90,9 @@
 
             {% if request_obj.operating_notes %}
                 <p><strong>Final Notes:</strong></p>
-                <div class="message-box">{{ notes_for_email|safe }}</div>
+                <div class="message-box">
+                    <div class="email-markdown-content">{{ notes_for_email|safe }}</div>
+                </div>
             {% endif %}
 
             {% if request_url and request_url != "#" %}
