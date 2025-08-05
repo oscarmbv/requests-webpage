@@ -15,12 +15,19 @@ def format_datetime_to_str(dt_object):
 
 def convert_markdown_to_html(markdown_text):
     """
-    Convierte Markdown a HTML semántico y seguro.
+    Convierte Markdown a HTML semántico y seguro,
+    evitando la creación de <br> en saltos de línea simples.
     """
     if not markdown_text:
         return ""
 
-    html = markdown2.markdown(markdown_text, extras=["target-blank-links"])
+    html = markdown2.markdown(
+        markdown_text,
+        extras={
+            "target-blank-links": None,
+            "break-on-newline": False
+        }
+    )
 
     safe_html = bleach.clean(
         html,

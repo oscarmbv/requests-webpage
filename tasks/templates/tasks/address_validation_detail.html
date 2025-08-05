@@ -40,18 +40,32 @@
 
     .rendered-markdown-content {
         all: initial;
+        display: block;
         font-family: inherit;
         font-size: inherit;
         color: inherit;
-    }
-
-    .rendered-markdown-content > * {
-        margin: 0;
         line-height: 1.4;
     }
 
-    .rendered-markdown-content > * + * {
-        margin-top: 0.25rem;
+    .rendered-markdown-content p {
+        margin: 0;
+        padding: 0;
+    }
+
+    .rendered-markdown-content ul,
+    .rendered-markdown-content ol {
+        margin: 0;
+        list-style-position: outside;
+        padding-left: 2.5rem; /* <-- AJUSTA LA INDENTACIÓN GENERAL */
+    }
+
+    .rendered-markdown-content p + ul,
+    .rendered-markdown-content p + ol {
+        margin-top: 0.5rem;   /* <-- AJUSTA EL ESPACIO DESPUÉS DE UN PÁRRAFO */
+    }
+
+    .rendered-markdown-content li {
+        padding-bottom: 0.25rem; /* <-- AJUSTA EL ESPACIO ENTRE BULLETS */
     }
 </style>
 {% endblock %}
@@ -363,7 +377,7 @@
                             {% endif %}
                             {# FIN NUEVOS CAMPOS ESPECÍFICOS DE ADDRESS VALIDATION #}
 
-                            {% if user_request.operating_notes %} <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7 pre-wrap rendered-markdown-content">{{ user_request.operating_notes|markdown_to_html }}</dd> </div> {% endif %}
+                            {% if user_request.operating_notes %} <div class="row mb-1 mt-2"> <dt class="col-sm-5 text-sm-end">{% trans "Operator Notes:" %}</dt> <dd class="col-sm-7"> <div class="rendered-markdown-content pre-wrap">{{ user_request.operating_notes|markdown_to_html }}</div> </dd> </div> {% endif %}
                          </dl>
                      </div>
                  </div>
