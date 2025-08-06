@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <title>{{ subject }}</title>
    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
+         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; color: #333333; background-color: #f4f4f4; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header { font-size: 22px; color: #198754; /* Verde para completado */ margin-bottom: 20px; padding-bottom:15px; border-bottom: 1px solid #eeeeee; text-align: center;}
         .content p, .content li { margin-bottom: 10px; font-size: 16px; }
@@ -22,10 +22,10 @@
             padding: 10px 15px;
             margin-top: 5px;
             margin-bottom: 20px;
-            white-space: pre-wrap;
             word-wrap: break-word;
             font-size: 15px;
             background-color: #f8f9fa;
+            box-sizing: border-box;
         }
 
        .email-markdown-content {
@@ -35,12 +35,12 @@
             font-size: 15px;
             color: inherit;
             line-height: 1.5;
-        }
+       }
 
-        .email-markdown-content p {
+       .email-markdown-content p {
             margin: 0;
             padding: 0;
-        }
+       }
 
         .email-markdown-content ul,
         .email-markdown-content ol {

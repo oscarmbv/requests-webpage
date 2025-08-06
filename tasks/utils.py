@@ -1,7 +1,7 @@
 # tasks/utils.py
 import markdown2
 import bleach
-import re
+import html2text
 
 def format_datetime_to_str(dt_object):
     """
@@ -37,14 +37,24 @@ def convert_markdown_to_html(markdown_text):
 
     return safe_html
 
+
 def convert_markdown_to_plain_text(markdown_text):
     """
-    Convierte un texto en formato Markdown a texto plano.
+    Convierte Markdown a un texto plano bien formateado, con el formato correcto.
     """
     if not markdown_text:
         return ""
 
-    html = markdown2.markdown(markdown_text)
+    extras = {
+        "target-blank-links": None,
+        "break-on-newline": False,
+    }
+    html = markdown2.markdown(markdown_text, extras=extras)
 
-    plain_text = bleach.clean(html, tags=[], strip=True)
-    return plain_text
+    h = html2text.HTML2Text()
+    h.body_width = 0
+    h.ignore_emphasis = True
+
+    plain_text = h.handle(html)
+
+    return plain_text.strip()
