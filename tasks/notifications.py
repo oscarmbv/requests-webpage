@@ -974,13 +974,18 @@ def notify_update_provided(request_pk, updated_by_user_pk, update_message, http_
         update_for_email = convert_markdown_to_html(update_message)
         subject = f"Update for Request {request_obj.unique_code}"
 
+        recipient_user = request_obj.requested_by
+        recipient_name = "User"
+        if recipient_user:
+            recipient_name = recipient_user.first_name or recipient_user.username or recipient_user.email
+
         email_context = {
             'subject': subject,
             'request_obj': request_obj,
             'updated_by_user': updated_by_user,
             'update_message_text': update_for_email,
             'update_message_text_plain': plain_text_update,
-            # request_url se añade dentro de send_request_notification_email
+            'recipient_name': recipient_name,
         }
 
         # ---- Destinatarios de Email ----

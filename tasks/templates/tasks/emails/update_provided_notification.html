@@ -61,7 +61,7 @@
     <div class="container">
         <div class="header">{{ subject }}</div>
         <div class="content">
-            <p>Hello,</p>
+            <p>Hello {{ recipient_name }},</p>
             <p>An update has been provided by <strong>{{ updated_by_user.email }}</strong> for the request <strong>{{ request_obj.unique_code }}</strong>.</p>
 
             <p><strong>Update Message:</strong></p>
