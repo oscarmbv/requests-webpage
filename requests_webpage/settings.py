@@ -158,6 +158,8 @@ DATABASES = {
     'default': env.db('DATABASE_URL', default=f'sqlite:///{os.path.join(BASE_DIR, "db.sqlite3")}')
 }
 
+DATABASES['default']['CONN_MAX_AGE'] = 60
+
 # Seguridad extra para producción
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
