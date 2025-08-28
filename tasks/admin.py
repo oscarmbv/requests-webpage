@@ -194,7 +194,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         # Generating XML
         'xml_state', 'xml_rvic_zip_file', 'xml_ssic_zip_file',
         # Address Validation
-        'address_validation_policyholders', 'address_validation_opportunity_id',
+        'address_validation_policyholders',
         'address_validation_user_email_addresses',
         # Stripe Disputes
         'stripe_premium_disputes', 'stripe_ri_disputes',
@@ -209,9 +209,7 @@ class UserRecordsRequestAdmin(admin.ModelAdmin):
         'num_updated_users', 'num_updated_properties', 'bulk_updates',
         'manual_updated_properties', 'update_by_csv_rows', 'processing_reports_rows', 'operating_notes',
         # Salesforce Opportunities
-        'salesforce_opportunity_name', 'salesforce_number_of_units', 'salesforce_link',
-        'salesforce_account_manager', 'salesforce_closed_won_date',
-        'salesforce_leasing_integration_software', 'salesforce_information_needed_for_assets', 'salesforce_standard_opp_id',
+        'salesforce_leasing_integration_software', 'salesforce_information_needed_for_assets',
         'assets_uploaded',
         'av_number_of_units',
         'av_number_of_invalid_units',
